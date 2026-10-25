@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.azure/
+1-model-router/infra/main.json
