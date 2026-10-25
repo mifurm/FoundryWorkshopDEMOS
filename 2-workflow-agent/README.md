@@ -54,7 +54,7 @@ python demo.py --prompt "Invite developers to a 30-minute beginner Python worksh
 ```
 
 Alternatively, use `--project-endpoint` and `--deployment`. To deploy and run
-**all four demos**, use the [root runner](../README.md).
+**all demos**, use the [root runner](../README.md).
 
 ### Presenter talk track
 

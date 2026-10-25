@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import sys
 import time
+from uuid import UUID
 
 
 ROOT = Path(__file__).resolve().parent
@@ -33,7 +34,10 @@ def discover(root: Path) -> list[Path]:
     demos = sorted({
         *[template.parent.parent for template in root.glob("*/infra/main.bicep")],
         *[requirements.parent for requirements in root.glob("*/requirements.txt")],
-    })
+    }, key=lambda path: (
+        int(match.group()) if (match := re.match(r"\d+", path.name)) else float("inf"),
+        path.name,
+    ))
     if not demos:
         raise ValueError(f"No demo templates found under {root}.")
     for demo in demos:
@@ -45,17 +49,22 @@ def discover(root: Path) -> list[Path]:
 
 def demo_environment(outputs: dict, base: dict[str, str]) -> dict[str, str]:
     values = {}
+    base = dict(base)
+    base.pop("AZURE_OPENAI_DEPLOYMENT", None)
     for output, variable in (
         ("endpoint", "AZURE_OPENAI_ENDPOINT"),
-        ("deployment", "AZURE_OPENAI_DEPLOYMENT"),
     ):
         value = outputs.get(output, {}).get("value")
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"Bicep must return a nonempty '{output}' output.")
         values[variable] = value
     for output, variable in (
+        ("deployment", "AZURE_OPENAI_DEPLOYMENT"),
+        ("embeddingDeployment", "AZURE_OPENAI_EMBEDDING_DEPLOYMENT"),
         ("projectEndpoint", "FOUNDRY_PROJECT_ENDPOINT"),
         ("toolEndpoint", "WORKSHOP_TOOL_ENDPOINT"),
+        ("searchEndpoint", "AZURE_SEARCH_ENDPOINT"),
+        ("agentIdentityId", "ENTRA_AGENT_ID"),
     ):
         if output in outputs:
             value = outputs[output].get("value")
@@ -78,6 +87,15 @@ def run_live(python: Path, demo: Path, environment: dict[str, str]) -> None:
             stream.write(f"\n--- Attempt {attempt + 1} ---\n{result.stdout}")
         if result.returncode == 0:
             return
+        dns_failure = (
+            "openai.APIConnectionError:" in result.stdout
+            or "azure.core.exceptions.ServiceRequestError:" in result.stdout
+        ) and any(message in result.stdout for message in (
+            "[Errno 8] nodename nor servname provided, or not known",
+            "[Errno -2] Name or service not known",
+            "[Errno -3] Temporary failure in name resolution",
+            "[Errno 11001] getaddrinfo failed",
+        ))
         propagating = (
             "openai.PermissionDeniedError: Error code: 403" in result.stdout
             or (
@@ -89,9 +107,20 @@ def run_live(python: Path, demo: Path, environment: dict[str, str]) -> None:
                 and "DeploymentNotFound" in result.stdout
             )
         )
-        if not propagating or attempt == 10:
+        if not (propagating or dns_failure) or attempt == 10:
+            if dns_failure:
+                raise RuntimeError(
+                    f"DNS resolution failed for live demo {demo.name} after "
+                    f"{attempt + 1} attempts. Check the endpoints in "
+                    f"{demo / '.azure' / 'deployment.json'} and local DNS/VPN settings; "
+                    f"see {log}."
+                )
             raise RuntimeError(f"Live demo {demo.name} failed; see {log}.")
-        print("Azure access/deployment is not ready. Retrying in 30 seconds.", flush=True)
+        reason = (
+            "DNS lookup failed; the endpoint or local DNS may not be ready."
+            if dns_failure else "Azure access/deployment is not ready."
+        )
+        print(f"{reason} Retrying in 30 seconds.", flush=True)
         time.sleep(30)
 
 
@@ -106,6 +135,21 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("--prefix must contain 1-50 letters, numbers, underscores, or hyphens.")
 
     demos = discover(ROOT)
+    extra_parameters = {}
+    if any(demo.name == "12-entra-agent-id" for demo in demos):
+        identity_variables = (
+            "ENTRA_TENANT_ID", "ENTRA_BLUEPRINT_CLIENT_ID", "ENTRA_AGENT_ID", "ENTRA_BLUEPRINT_SECRET",
+        )
+        if any(not os.getenv(name, "").strip() for name in identity_variables):
+            parser.error("Demo 12 requires setup_identity.ps1 first: set " + ", ".join(identity_variables))
+        try:
+            for name in identity_variables[:3]:
+                UUID(os.environ[name])
+        except ValueError:
+            parser.error("Demo 12 tenant, blueprint, and agent IDs must be UUIDs.")
+        if os.environ["ENTRA_BLUEPRINT_CLIENT_ID"] == os.environ["ENTRA_AGENT_ID"]:
+            parser.error("Demo 12 requires a child agent ID, not the blueprint client ID.")
+        extra_parameters["12-entra-agent-id"] = [f"agentIdentityId={os.environ['ENTRA_AGENT_ID']}"]
     account_command = ["az", "account", "show", "-o", "json"]
     if args.subscription:
         account_command.extend(["--subscription", args.subscription])
@@ -162,6 +206,7 @@ def main(argv: list[str] | None = None) -> None:
             "--name", deployment_name, "--subscription", subscription,
             "--template-file", str(demo / "infra/main.bicep"),
             "--parameters", f"principalId={principal}", f"location={args.location}",
+            *extra_parameters.get(demo.name, []),
             "--query", "properties.outputs", "-o", "json",
         ], capture=True))
         (state / "deployment.json").write_text(json.dumps({

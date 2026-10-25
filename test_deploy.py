@@ -1,5 +1,6 @@
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -67,8 +68,87 @@ class DeployTests(unittest.TestCase):
     def test_all_listed_demos_have_runner_entrypoints(self) -> None:
         self.assertEqual(
             [demo.name for demo in deploy.discover(Path(__file__).parent)],
-            ["1-model-router", "2-workflow-agent", "3-webiq-agent", "4-agent-tools"],
+            ["1-model-router", "2-workflow-agent", "3-webiq-agent", "4-agent-tools",
+             "5-decision-model", "6-content-safety", "7-semantic-cache",
+             "8-agent-evaluation", "9-agent-red-teaming", "10-fine-tuning",
+             "11-foundry-iq", "12-entra-agent-id", "13-agent-orchestrations"],
         )
+
+    def test_search_and_agent_identity_output_mapping(self) -> None:
+        outputs = {
+            "endpoint": {"value": "https://example/"},
+            "searchEndpoint": {"value": "https://search.search.windows.net"},
+            "agentIdentityId": {"value": "agent-id"},
+        }
+        result = deploy.demo_environment(outputs, {})
+        self.assertEqual(result["AZURE_SEARCH_ENDPOINT"], outputs["searchEndpoint"]["value"])
+        self.assertEqual(result["ENTRA_AGENT_ID"], "agent-id")
+        for name in ("searchEndpoint", "agentIdentityId"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, name):
+                deploy.demo_environment({**outputs, name: {"value": ""}}, {})
+
+    def test_agent_identity_prerequisites_fail_before_azure_changes(self) -> None:
+        with (
+            patch("deploy.discover", return_value=[Path("12-entra-agent-id")]),
+            patch.dict(os.environ, {}, clear=True),
+            patch("deploy.run") as run,
+        ):
+            with self.assertRaises(SystemExit):
+                deploy.main([])
+            run.assert_not_called()
+
+    def test_agent_identity_parameter_is_passed_but_secret_is_not(self) -> None:
+        tenant = "11111111-1111-1111-1111-111111111111"
+        blueprint = "22222222-2222-2222-2222-222222222222"
+        agent = "33333333-3333-3333-3333-333333333333"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / "12-entra-agent-id"
+            folder.mkdir()
+            outputs = {"endpoint": {"value": "https://example/"}, "agentIdentityId": {"value": agent}}
+            commands = []
+
+            def fake_run(command, **kwargs):
+                commands.append(command)
+                if command[:3] == ["az", "account", "show"]:
+                    return json.dumps({"id": "sub", "name": "test", "user": {"type": "user"}})
+                if command[:3] == ["az", "bicep", "build"]:
+                    return '{"resources": []}'
+                if command[:4] == ["az", "deployment", "group", "create"]:
+                    return json.dumps(outputs)
+                return ""
+
+            with (
+                patch("deploy.ROOT", root), patch("deploy.discover", return_value=[folder]),
+                patch("deploy.run", side_effect=fake_run), patch("deploy.run_live"),
+                patch.dict(os.environ, {
+                    "ENTRA_TENANT_ID": tenant, "ENTRA_BLUEPRINT_CLIENT_ID": blueprint,
+                    "ENTRA_AGENT_ID": agent, "ENTRA_BLUEPRINT_SECRET": "test-only-secret",
+                }), redirect_stdout(io.StringIO()),
+            ):
+                deploy.main(["--principal-id", "presenter"])
+            deployment = next(command for command in commands
+                              if command[:4] == ["az", "deployment", "group", "create"])
+            self.assertIn(f"agentIdentityId={agent}", deployment)
+            self.assertNotIn("test-only-secret", str(commands))
+
+    def test_content_safety_does_not_require_a_model_deployment(self) -> None:
+        result = deploy.demo_environment(
+            {"endpoint": {"value": "https://safety.cognitiveservices.azure.com/"}},
+            {"AZURE_OPENAI_DEPLOYMENT": "stale"},
+        )
+        self.assertNotIn("AZURE_OPENAI_DEPLOYMENT", result)
+
+    def test_embedding_deployment_mapping_and_validation(self) -> None:
+        outputs = {"endpoint": {"value": "https://example/"},
+                   "embeddingDeployment": {"value": "embeddings"}}
+        self.assertEqual(
+            deploy.demo_environment(outputs, {})["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"],
+            "embeddings",
+        )
+        outputs["embeddingDeployment"]["value"] = ""
+        with self.assertRaisesRegex(ValueError, "embeddingDeployment"):
+            deploy.demo_environment(outputs, {})
 
     def test_runs_tests_then_deploys_and_persists_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -166,6 +246,71 @@ class DeployTests(unittest.TestCase):
             ):
                 deploy.run_live(Path("/python"), demo, {})
             self.assertEqual(run.call_count, 11)
+
+    def test_dns_failure_retries_then_succeeds(self) -> None:
+        for message in (
+            "[Errno 8] nodename nor servname provided, or not known",
+            "[Errno -2] Name or service not known",
+            "[Errno -3] Temporary failure in name resolution",
+            "[Errno 11001] getaddrinfo failed",
+        ):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                demo = Path(directory)
+                (demo / ".azure").mkdir()
+                failure = subprocess.CompletedProcess(
+                    [], 1, stdout=f"httpx.ConnectError: {message}\n"
+                    "openai.APIConnectionError: Connection error.\n",
+                )
+                with (
+                    patch("deploy.subprocess.run", side_effect=[
+                        failure, subprocess.CompletedProcess([], 0, stdout="Answer: Paris\n"),
+                    ]) as run,
+                    patch("deploy.time.sleep") as sleep,
+                    redirect_stdout(io.StringIO()) as output,
+                ):
+                    deploy.run_live(Path("/python"), demo, {})
+                self.assertEqual(run.call_count, 2)
+                sleep.assert_called_once_with(30)
+                self.assertIn("DNS lookup failed", output.getvalue())
+                transcript = (demo / ".azure/demo.log").read_text()
+                self.assertIn(message, transcript)
+                self.assertIn("Answer: Paris", transcript)
+
+    def test_persistent_dns_failure_stops_with_actionable_error(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            demo = Path(directory)
+            (demo / ".azure").mkdir()
+            failure = subprocess.CompletedProcess(
+                [], 1, stdout="azure.core.exceptions.ServiceRequestError: "
+                "[Errno -3] Temporary failure in name resolution",
+            )
+            with (
+                patch("deploy.subprocess.run", return_value=failure) as run,
+                patch("deploy.time.sleep") as sleep,
+                redirect_stdout(io.StringIO()),
+                self.assertRaisesRegex(RuntimeError, "DNS resolution failed.*after 11 attempts"),
+            ):
+                deploy.run_live(Path("/python"), demo, {})
+            self.assertEqual(run.call_count, 11)
+            self.assertEqual(sleep.call_count, 10)
+
+    def test_other_connection_failures_are_not_retried(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            demo = Path(directory)
+            (demo / ".azure").mkdir()
+            failure = subprocess.CompletedProcess(
+                [], 1, stdout="httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED]\n"
+                "openai.APIConnectionError: Connection error.\n",
+            )
+            with (
+                patch("deploy.subprocess.run", return_value=failure) as run,
+                patch("deploy.time.sleep") as sleep,
+                redirect_stdout(io.StringIO()),
+                self.assertRaises(RuntimeError),
+            ):
+                deploy.run_live(Path("/python"), demo, {})
+            run.assert_called_once()
+            sleep.assert_not_called()
 
     def test_non_propagation_errors_are_not_retried(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
