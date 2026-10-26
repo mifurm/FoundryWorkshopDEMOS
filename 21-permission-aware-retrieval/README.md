@@ -57,6 +57,15 @@ was absent and `SECOND_AZURE_CONFIG_DIR` was unset. This is an authentication se
 blocker, not a demonstrated retrieval-code failure; live two-user isolation remains
 unverified.
 
+An authorized provisioning attempt on 2026-10-26 was rejected by Graph:
+`POST /v1.0/users` returned HTTP 403 `Authorization_RequestDenied`,
+`Insufficient privileges to complete the operation.` Directory-role readback
+showed the presenter has **Global Reader**, not a user-administration role.
+No user was created; temporary password/request files were removed. No roles,
+MFA settings, Conditional Access policies, or consent grants were changed.
+An authorized tenant administrator must create the test account, or authorize
+user creation through the tenant's normal role-assignment process.
+
 What is needed:
 
 1. A different real user in the same tenant. An existing permitted member/guest

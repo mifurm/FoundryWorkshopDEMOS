@@ -773,7 +773,7 @@ local OS/database are trusted, and a digest is not an administrator-proof signat
 
 **Type:** Feature
 
-**Status:** Live testing blocked; reconfirmed 2026-10-26: second authenticated user session missing
+**Status:** Live testing blocked on 2026-10-26: test-user creation denied (Entra Global Reader; HTTP 403)
 
 **Demo:** [Permission-aware retrieval](./21-permission-aware-retrieval/README.md)
 
@@ -815,6 +815,16 @@ default ACL needs no custom group. An administrator is needed only if an account
 must be provisioned/invited or tenant policy blocks its Graph access. A service
 principal is not a substitute for this user-delegated Graph test. No new billable
 lab resources were deployed. The README includes copy-paste setup commands.
+
+After explicit authorization to provision a test user, actual Graph
+`POST /v1.0/users` returned HTTP 403 `Authorization_RequestDenied`:
+`Insufficient privileges to complete the operation.` Directory-role readback
+confirmed **Global Reader** for the presenter. No user was created; generated
+password/request files were removed. No tenant privileges, MFA/Conditional Access,
+or consent settings were changed. Nonsecret evidence is retained in
+`21-permission-aware-retrieval/.azure/user-provisioning-result.json`.
+An authorized Entra administrator must create the user or authorize user creation;
+then a real second-user login and full retrieval validation are still required.
 
 ### Scope
 
