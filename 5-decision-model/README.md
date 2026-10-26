@@ -10,8 +10,20 @@ The script prints the selected team, expected team, latency, and toy accuracy.
 Requires Python 3.10+, Azure CLI with Bicep, `az login` as a user, resource
 creation and role-assignment permissions, and Microsoft-Decision-1 access/quota
 in the selected region. The standalone template deploys one Foundry account,
-the Microsoft model (version `1`, Global Standard, capacity `1`), and presenter
+the Microsoft model (version `1`, Data Zone Standard, capacity `10`), and presenter
 Foundry User RBAC. It disables API keys and uses public endpoints.
+
+The template uses `DataZoneStandard`, which is listed for this model in East
+US 2 and has quota in the tested subscription. The previous `GlobalStandard`
+configuration failed with `SpecialFeatureOrQuotaIdRequired`. Model access and
+quota are deployment-type-specific; changing regions alone does not guarantee
+access. Data Zone Standard keeps inference within the selected data zone.
+Capacity `1` deployed successfully but hit HTTP 429 during the three-ticket
+live demo; the default is `10` to allow the short sequence. Capacity remains
+configurable, consumes model quota, and does not guarantee absence of throttling.
+The script reports HTTP 429 and honors `retry-after-ms` or numeric `Retry-After`
+for at most two retries per ticket, with a maximum 65-second delay per retry.
+Missing or excessive retry delays and exhausted retries fail explicitly.
 
 Run from this folder:
 
@@ -49,6 +61,20 @@ Show the `choice` question and its fixed criteria in the script. Run the three
 examples and explain that bounded decisions differ from generated prose.
 Three samples are illustrative, not evidence of production accuracy or
 probability calibration. No ticket is actually routed or changed.
+
+### Live verification on 2026-10-26
+
+The Data Zone Standard deployment succeeded in East US 2 in
+`rg-foundry-decision-model-demo`. All three example tickets selected the expected
+team, and a custom invoice request selected `billing`. Actual HTTP 429 responses
+required service-directed waits of approximately 29-58 seconds; allow several
+minutes for this demo under the observed rate limits, even at capacity 10.
+ARM reported 10 requests/minute, while observed runtime throttling was stricter.
+Do not assume changing capacity guarantees the nominal request rate.
+Deployment outputs and successful transcripts are retained locally in ignored
+`.azure/deployment.json`, `.azure/live-default-verified.log`, and
+`.azure/live-custom-verified.log`. Five offline tests and Bicep lint passed.
+Resources remain deployed; inference is billable.
 
 ## Validate, costs, and cleanup
 

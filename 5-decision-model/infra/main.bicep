@@ -6,7 +6,7 @@ param principalId string
 param accountName string = 'foundry-decision-${uniqueString(resourceGroup().id)}'
 param deploymentName string = 'decision'
 @minValue(1)
-param capacity int = 1
+param capacity int = 10
 
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: accountName
@@ -26,7 +26,7 @@ resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: account
   name: deploymentName
   sku: {
-    name: 'GlobalStandard'
+    name: 'DataZoneStandard'
     capacity: capacity
   }
   properties: {

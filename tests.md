@@ -2,7 +2,7 @@
 2 — Workflow Agent	Passed after retry
 3 — WebIQ Agent	Failed: required web-search call/citations missing
 4 — Agent Tools	Passed on 2026-10-26: Windows P0v3 in West US 2; real Function -> Toolbox -> agent verified
-5 — Decision Model	Blocked: required model feature unavailable
+5 — Decision Model	Passed on 2026-10-26: DataZoneStandard; 3/3 default tickets plus custom invoice request, with explicit throttling retries
 6 — Content Safety	Passed
 7 — Semantic Cache	Passed
 8 — Agent Evaluation	Failed: evaluation response ID returned HTTP 404
@@ -11,6 +11,28 @@
 11 — Foundry IQ	Blocked by Azure capacity in both East US 2 and Sweden Central
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
+
+## Lab 5: Data Zone Standard verification on 2026-10-26
+
+Changed `Microsoft-Decision-1` version `1` from `GlobalStandard` to
+`DataZoneStandard` and deployed to `rg-foundry-decision-model-demo` in East US 2.
+The former SKU failed with `SpecialFeatureOrQuotaIdRequired`; the Data Zone SKU
+has subscription quota and deployed successfully. Capacity defaults to 10
+instead of 1 after observed HTTP 429 responses.
+
+All three default tickets returned the expected billing/technical/account
+decisions, and a custom invoice request returned billing. Actual runtime
+throttling remained stricter than ARM's reported 10 requests/minute. Explicit
+bounded retries followed observed `retry-after-ms` delays of about 29-58 seconds.
+Each ticket permits at most two retries, each no longer than 65 seconds.
+Missing/excessive retry delays, exhausted retries, and other HTTP errors fail.
+Allow several minutes for the live sequence under these observed limits.
+
+Five offline tests and Bicep lint passed. Deployment outputs and successful
+transcripts are retained locally in ignored
+`5-decision-model/.azure/deployment.json`, `live-default-verified.log`, and
+`live-custom-verified.log` in the same directory. Resources remain deployed;
+actual inference is billable.
 
 ## Lab 4: non-Y1 hosting and live verification on 2026-10-26
 

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import httpx
 
@@ -29,6 +30,33 @@ class DecisionTests(unittest.TestCase):
         with self.client({"error": "denied"}, 403) as client:
             with self.assertRaises(httpx.HTTPStatusError):
                 demo.classify(client, "decision", "Refund please")
+
+    def test_throttling_respects_retry_header(self):
+        for headers, delay in (({"retry-after-ms": "2500"}, 2.5),
+                               ({"Retry-After": "3"}, 3)):
+            responses = iter([
+                httpx.Response(429, headers=headers),
+                httpx.Response(200, json={"answers": {"team": {"type": "choice", "choice": "billing"}}}),
+            ])
+            with self.subTest(headers=headers), httpx.Client(
+                base_url="https://example/",
+                transport=httpx.MockTransport(lambda request: next(responses)),
+            ) as client, patch("demo.sleep") as sleep:
+                self.assertEqual(demo.classify(client, "decision", "Refund please"), "billing")
+                sleep.assert_called_once_with(delay)
+
+    def test_throttling_is_bounded_and_missing_or_excessive_delay_fails(self):
+        for headers, expected_calls in (({"retry-after-ms": "1"}, 3), ({}, 1),
+                                        ({"Retry-After": "120"}, 1)):
+            calls = []
+            def handle(request):
+                calls.append(request)
+                return httpx.Response(429, headers=headers)
+            with self.subTest(headers=headers), httpx.Client(
+                base_url="https://example/", transport=httpx.MockTransport(handle),
+            ) as client, patch("demo.sleep"), self.assertRaises(httpx.HTTPStatusError):
+                demo.classify(client, "decision", "Refund please")
+            self.assertEqual(len(calls), expected_calls)
 
 
 if __name__ == "__main__":

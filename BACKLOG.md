@@ -147,7 +147,7 @@ No payments, bookings, database, private data, hosted agent, or UI.
 
 **Type:** Feature
 
-**Status:** Implemented; live deployment and presentation smoke test pending
+**Status:** Implemented and live-tested on 2026-10-26
 
 **Demo:** [Microsoft Decision Model](./5-decision-model/README.md)
 
@@ -164,7 +164,23 @@ of toy support tickets without using a generative chat model.
 - [x] Reject HTTP errors and invalid or unsupported typed decisions.
 - [x] Include dependencies, offline tests, deployment/run/cleanup instructions.
 - [x] Compile/lint Bicep and pass local tests.
-- [ ] Deploy and smoke-test with Microsoft-Decision-1 access in the target region.
+- [x] Deploy and smoke-test with Microsoft-Decision-1 access in the target region.
+
+### Live verification
+
+Deployed `Microsoft-Decision-1`, version `1`, using `DataZoneStandard` in East
+US 2 to `rg-foundry-decision-model-demo` on 2026-10-26. The former
+`GlobalStandard` SKU failed with `SpecialFeatureOrQuotaIdRequired`; the model
+itself is available under the Data Zone SKU. Capacity defaults to 10 rather
+than 1. Real inference still observed restrictive service-side request limits,
+so the script explicitly reports HTTP 429 and follows the server's retry
+headers for at most two retries per ticket, at most 65 seconds each.
+
+All three real support-ticket classifications matched their expected teams.
+Five offline tests cover typed results, invalid answers, HTTP failures,
+retry-header handling, and exhausted/missing/excessive retry delays.
+Deployment outputs and live logs are retained locally under ignored
+`5-decision-model/.azure/`. Resources remain deployed.
 
 ### Scope
 

@@ -2,7 +2,7 @@
 
 import argparse
 import os
-from time import perf_counter
+from time import perf_counter, sleep
 
 import httpx
 from azure.identity import AzureCliCredential
@@ -21,7 +21,7 @@ EXAMPLES = [
 
 
 def classify(client: httpx.Client, deployment: str, ticket: str) -> str:
-    response = client.post("providers/microsoft/v1/systemone", json={
+    request = {
         "model": deployment,
         "state": ticket,
         "questions": {"team": {
@@ -29,7 +29,21 @@ def classify(client: httpx.Client, deployment: str, ticket: str) -> str:
             "instructions": "Which team should handle this support ticket?",
             "criteria": TEAMS,
         }},
-    })
+    }
+    for attempt in range(3):
+        response = client.post("providers/microsoft/v1/systemone", json=request)
+        if response.status_code != 429 or attempt == 2:
+            break
+        milliseconds = response.headers.get("retry-after-ms")
+        seconds = response.headers.get("Retry-After")
+        if milliseconds is None and seconds is None:
+            response.raise_for_status()
+        delay = float(milliseconds) / 1000 if milliseconds is not None else float(seconds)
+        if not 0 <= delay <= 65:
+            response.raise_for_status()
+        print(f"Decision API throttled (HTTP 429); retrying in {delay:.2f}s "
+              f"(retry {attempt + 1}/2).", flush=True)
+        sleep(delay)
     response.raise_for_status()
     payload = response.json()
     answer = payload.get("answers", {}).get("team", {})
