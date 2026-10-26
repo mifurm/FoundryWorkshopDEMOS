@@ -23,8 +23,8 @@ def stream_response(chunks, write):
     return usage
 
 
-def probe(client, deployment, expected_status):
-    """Print the service error without pretending an unexpected result is success."""
+def probe(client, deployment, expected_status=None):
+    """Require an exact HTTP status, or an explicit inference RBAC denial."""
     from openai import APIStatusError
 
     try:
@@ -34,9 +34,29 @@ def probe(client, deployment, expected_status):
         )
     except APIStatusError as exc:
         print(f"Actual HTTP {exc.status_code}: {exc.body}")
-        if exc.status_code != expected_status:
-            print(f"Expected {expected_status}; check authentication, RBAC propagation, and region.")
-        return exc.status_code == expected_status
+        if expected_status is None:
+            body = exc.body
+            if isinstance(body, dict) and isinstance(body.get("error"), dict):
+                body = body["error"]
+            message = body.get("message") if isinstance(body, dict) else None
+            matched = (
+                exc.status_code in (401, 403)
+                and isinstance(body, dict) and body.get("code") == "PermissionDenied"
+                and isinstance(message, str) and (
+                    message == "Principal does not have access to API/Operation."
+                    or (
+                        "lacks the required data action" in message
+                        and "Microsoft.CognitiveServices/accounts/OpenAI/deployments/chat/completions/action" in message
+                    )
+                )
+            )
+            expected = "an explicit inference RBAC PermissionDenied (HTTP 401 or 403)"
+        else:
+            matched = exc.status_code == expected_status
+            expected = f"HTTP {expected_status}"
+        if not matched:
+            print(f"Expected {expected}; check authentication, RBAC propagation, and region.")
+        return matched
     print("Probe succeeded unexpectedly: check inherited inference roles or deployment names.")
     return False
 
@@ -46,15 +66,32 @@ def main(argv=None):
     parser.add_argument("--endpoint", default=os.getenv("AZURE_OPENAI_ENDPOINT"))
     parser.add_argument("--deployment", default=os.getenv("AZURE_OPENAI_DEPLOYMENT", "tutor-mini"))
     parser.add_argument("--denied-endpoint", default=os.getenv("WORKSHOP_DENIED_ENDPOINT"))
+    parser.add_argument("--tenant-id", default=os.getenv("WORKSHOP_INFERENCE_TENANT_ID"))
+    parser.add_argument("--client-id", default=os.getenv("WORKSHOP_INFERENCE_CLIENT_ID"))
+    parser.add_argument("--certificate-path", default=os.getenv("WORKSHOP_INFERENCE_CERTIFICATE_PATH"))
     parser.add_argument("--skip-negative-probes", action="store_true")
     args = parser.parse_args(argv)
     if not args.endpoint:
         parser.error("Set AZURE_OPENAI_ENDPOINT or pass --endpoint.")
+    identity = (args.tenant_id, args.client_id, args.certificate_path)
+    if any(value is not None for value in identity) and not all(
+        value and value.strip() for value in identity
+    ):
+        parser.error("Restricted inference requires --tenant-id, --client-id, and --certificate-path together.")
 
-    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    from azure.identity import CertificateCredential, DefaultAzureCredential, get_bearer_token_provider
     from openai import OpenAI
 
-    with DefaultAzureCredential(exclude_interactive_browser_credential=True) as credential:
+    credential = (
+        CertificateCredential(
+            tenant_id=args.tenant_id, client_id=args.client_id, certificate_path=args.certificate_path,
+        )
+        if args.certificate_path else
+        DefaultAzureCredential(exclude_interactive_browser_credential=True)
+    )
+    print("Inference identity:", f"certificate service principal {args.client_id}"
+          if args.certificate_path else "DefaultAzureCredential (check inherited roles)")
+    with credential:
         token = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
         with OpenAI(base_url=args.endpoint.rstrip("/") + "/openai/v1/", api_key=token,
                     max_retries=0, timeout=60) as client:
@@ -83,10 +120,10 @@ def main(argv=None):
                 wrong_ok = probe(client, "deliberately-missing-deployment", 404)
                 print("Fix: use the Bicep deployment output, not gpt-4.1-mini.")
                 target = args.denied_endpoint or denied_endpoint(args.endpoint)
-                print("\nMissing inference permission (expected HTTP 403):", target)
+                print("\nMissing inference permission (expected RBAC denial; HTTP 401 or 403):", target)
                 with OpenAI(base_url=target.rstrip("/") + "/openai/v1/", api_key=token,
                             max_retries=0, timeout=60) as denied:
-                    denied_ok = probe(denied, args.deployment, 403)
+                    denied_ok = probe(denied, args.deployment)
                 print("Fix: assign Cognitive Services OpenAI User at the target account; allow RBAC propagation.")
                 if not (wrong_ok and denied_ok):
                     print("Negative demonstration not reproduced; inherited roles can bypass the denial.")

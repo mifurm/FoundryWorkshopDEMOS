@@ -168,21 +168,22 @@ Evidence is retained locally in ignored `4-agent-tools/.azure/deployment.json`,
 The dedicated plan remains deployed and incurs continuous charges even when
 idle or the app is stopped; delete the dedicated resource group after use.
 
-## Added labs: live validation on 2026-10-25, lab 23 follow-up on 2026-10-26
+## Added labs: live validation on 2026-10-25, labs 14/23 follow-up on 2026-10-26
 
 The results above for labs 1-13 are historical and were not rerun in this pass.
 All added labs 14-26 were attempted using the current Azure CLI subscription.
 Provisioned resources remain deployed. Foundry resources are in East US 2;
 lab 17's Search service is in West US 2 after an East US 2 capacity failure.
 
-**Current summary: 11 passed, one partially validated, one blocked.** Lab 23's
+**Current summary: 12 passed, one blocked.** Lab 23's
 GitHub Actions/OIDC coverage was completed on 2026-10-26; it had been unverified
-during the original 2026-10-25 pass.
+during the original 2026-10-25 pass. Lab 14's real permission denial was also
+completed on 2026-10-26 with a restricted certificate-authenticated identity.
 Mocked tests and successful ARM deployment alone are not counted as live passes.
 
 | Lab | Result | Live evidence |
 | --- | --- | --- |
-| [14 - Foundry fundamentals](./14-foundry-fundamentals/README.md) | Partial | Real inference, streaming/usage, and wrong-deployment HTTP 404 passed. The intended HTTP 403 cannot be reproduced because the presenter inherits subscription-level Foundry Owner. The negative probe honestly exits nonzero. |
+| [14 - Foundry fundamentals](./14-foundry-fundamentals/README.md) | Passed after identity/status fix on 2026-10-26 | The same restricted service principal passed real inference (83 tokens), streaming/usage (71 tokens), HTTP 404, and actual HTTP 401 `PermissionDenied`; full exit 0. The service uses 401, not the originally assumed 403, for the verified missing inference data action. Presenter roles were not changed. |
 | [15 - Model benchmark](./15-model-benchmark/README.md) | Passed | 54 real requests across mini/full/router; task accuracy 83.3%/83.3%/50%. Genuine schema and truncation failures remain visible in the measurements. Benchmark execution passed, not every model prediction. |
 | [16 - Structured outputs](./16-structured-outputs/README.md) | Passed | All 12 live strategy comparisons correct. Additional probes observed actual `length` truncation and HTTP 400 `content_filter`, distinguished from an assistant-message refusal. |
 | [17 - RAG fundamentals](./17-rag-fundamentals/README.md) | Passed after region change | East US 2 Search returned `InsufficientResourcesAvailable`; `searchLocation=westus2` succeeded. Two chunk sizes produced 11/3 chunks; 24 real cases yielded 18 validated cited answers and six abstentions. Recall@3=1; MRR=0.833 for 12-word keyword chunks and 1 otherwise. |
@@ -276,9 +277,7 @@ does not itself create a repository-wide merge restriction.
 
 To complete the remaining live coverage:
 
-1. Lab 14 needs an inference identity without the presenter's inherited Foundry
-   Owner rights; do not remove existing subscription roles just to force a 403.
-2. Lab 21 needs a genuine second user session in an isolated Azure CLI
+1. Lab 21 needs a genuine second user session in an isolated Azure CLI
    configuration, supplied through `SECOND_AZURE_CONFIG_DIR`, with the documented
    tenant/Graph prerequisites.
 The original 2026-10-25 pass created no tenant identities or federated credentials.
@@ -286,3 +285,35 @@ The 2026-10-26 follow-up created the dedicated lab 23 managed identity and its
 environment-bound federation; no client secrets or tenant consent grants were
 created.
 Search and monitoring resources may continue charging while provisioned.
+
+### Lab 14 restricted-identity follow-up (2026-10-26)
+
+Two causes were reproduced: the presenter's inherited subscription Foundry Owner
+allows inference on the deliberately unassigned account, and the real inference
+service returns HTTP 401 `PermissionDenied` for missing RBAC rather than the
+lab's assumed 403. An independent call to the versioned `2024-10-21` inference
+API also returned 401 and explicitly named the principal's missing
+`Microsoft.CognitiveServices/accounts/OpenAI/deployments/chat/completions/action`.
+This was an authorization denial, not an invalid-token response.
+
+Created a dedicated one-day certificate service principal without default roles.
+Deployed the existing Bicep with `principalType=ServicePrincipal`; role readback
+confirmed exactly one Cognitive Services OpenAI User assignment on the primary
+account, no inherited assignments, and none on the denied account. The second
+account's `tutor-mini` deployment is healthy. Presenter permissions are unchanged.
+
+The complete demo under that same identity exited **0**: normal answer/usage,
+streamed answer/usage, real HTTP 404 `DeploymentNotFound`, and real HTTP 401
+`PermissionDenied`. The denial message was `Principal does not have access to
+API/Operation.`; another observed response named the exact missing data action.
+The corrected permission check requires 401/403 plus that specific code and an
+explicit authorization message. Arbitrary authentication errors, network blocks,
+and unrelated statuses remain failures; no status is rewritten as 403.
+
+Nine focused offline tests passed, including all-or-nothing credential settings,
+same-identity use on both accounts, no default-credential fallback after certificate
+failure, and rejection of unrelated error bodies/statuses. Live evidence remains
+ignored under `14-foundry-fundamentals/.azure/`: `live-restricted-identity.log`,
+`live-validation.json`, `versioned-denial-probe.json`, and `restricted-roles.json`.
+The private PEM has mode 600; Entra credential expiry is **2026-10-27 10:00:19 UTC**.
+The lab README documents reuse, expiry, and separate tenant/local cleanup.

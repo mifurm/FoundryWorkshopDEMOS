@@ -57,7 +57,7 @@ resource inferenceRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// Deliberately no inference role here: a real 403 probe, not a fabricated error.
+// No scoped inference role here; the caller must also lack inherited data-plane roles.
 resource deniedAccount 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: '${accountName}-deny'
   location: location

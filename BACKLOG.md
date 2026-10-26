@@ -505,7 +505,7 @@ Manager decisions are model-driven and not guaranteed to follow a fixed order.
 
 **Type:** Feature
 
-**Status:** Partially live-tested on 2026-10-25; intended 403 blocked by inherited rights
+**Status:** Fixed and fully live-tested on 2026-10-26; real RBAC denial verified
 
 **Demo:** [Foundry fundamentals](./14-foundry-fundamentals/README.md)
 
@@ -522,17 +522,28 @@ authenticate without keys, and obtain my first streamed model response.
 - [x] Demonstrate explicit wrong-deployment and missing-permission errors safely.
 - [x] Document quota, RBAC propagation, costs, deployment, and cleanup.
 - [x] Deploy and verify real streaming, usage, and wrong-deployment HTTP 404.
-- [ ] Verify the intended HTTP 403 with an identity without inherited inference rights.
+- [x] Verify a real missing-inference-permission denial with an identity without inherited inference rights; preserve the actual HTTP status (live service returned 401 `PermissionDenied`, not 403).
 
 ### Live verification
 
-East US 2 deployment, real inference, streaming/usage, and wrong-deployment 404
-all succeeded. The signed-in presenter inherits subscription-level Foundry Owner,
-so the deliberately unassigned account is still accessible. The full negative
-probe correctly exits nonzero instead of manufacturing a permission failure.
-An appropriately restricted test identity is needed to complete that branch;
-no inherited roles were removed. Evidence for labs 14/15/16/26 is retained in
-`14-foundry-fundamentals/.azure/live-validation-summary.json`.
+The original partial run could not deny the presenter, who inherits subscription
+Foundry Owner. On 2026-10-26, a fresh certificate-authenticated service principal
+received only Cognitive Services OpenAI User on the primary account through Bicep.
+The complete real run exited 0: normal inference (83 tokens), streaming (71
+tokens), HTTP 404 `DeploymentNotFound`, and HTTP 401 `PermissionDenied` on the
+second account. Independent versioned inference returned the explicit missing
+chat-completions data action. Azure returned 401 for authorization failure, so
+the corrected probe validates the permission error code/message instead of
+assuming 403 or accepting arbitrary authentication failures.
+
+Role readback confirmed exactly one primary-account assignment, no inherited
+inference rights for the restricted identity, and unchanged presenter rights.
+The denied account's model deployment was confirmed healthy. Nine offline tests
+also passed. Evidence is retained under `14-foundry-fundamentals/.azure/` in
+`live-restricted-identity.log`, `live-validation.json`,
+`versioned-denial-probe.json`, and `restricted-roles.json`.
+The local, ignored development certificate expires 2026-10-27 10:00:19 UTC;
+reproduction and tenant-identity cleanup are documented in the lab README.
 
 ### Scope
 
