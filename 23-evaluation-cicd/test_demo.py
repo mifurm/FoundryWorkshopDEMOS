@@ -7,6 +7,10 @@ import demo
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_installed_workflow_matches_the_lab_example(self):
+        installed = demo.HERE.parent / ".github/workflows/foundry-evaluation.yml"
+        self.assertEqual(installed.read_text(), (demo.HERE / "workflow.yml").read_text())
+
     def responses(self):
         return [{"query": f"Question {index}", "response": f"Actual answer {index}",
                  "response_id": f"r{index}"} for index in range(3)]

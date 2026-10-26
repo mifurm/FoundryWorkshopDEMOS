@@ -61,46 +61,88 @@ content belongs in this report. The cloud judge uses the deployment's supported
 default coherence grading threshold; the release threshold gates its pass rate.
 `--judge-deployment` can select a separate supported judge deployment.
 
-## Install the GitHub Actions example (explicit step)
+## GitHub Actions and secretless Azure access
 
-The workflow is intentionally **not** installed at repository root by this lab.
-From the repository root, an authorized maintainer must run:
+The workflow is installed at
+[.github/workflows/foundry-evaluation.yml](../.github/workflows/foundry-evaluation.yml).
+The lab's [workflow.yml](./workflow.yml) remains an identical portable example;
+an offline test rejects drift between the two.
 
-```bash
-mkdir -p .github/workflows
-cp 23-evaluation-cicd/workflow.yml .github/workflows/foundry-evaluation.yml
+The repository environment `foundry-evaluation` was configured on 2026-10-26:
+
+- Required reviewer: `mifurm`; administrator bypass is disabled.
+- Allowed branch refs: `main` and `refs/pull/*/merge`. The workflow separately
+  skips fork PRs, so only same-repository PRs can reach environment approval.
+- Self-review is allowed for this single-maintainer workshop, so its owner can
+  approve their own manual test runs. Use independent reviewers and prevent
+  self-review for production separation of duties.
+- Five **environment variables**, not secrets: `AZURE_CLIENT_ID`,
+  `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `FOUNDRY_PROJECT_ENDPOINT`,
+  and `AZURE_OPENAI_DEPLOYMENT`.
+
+A dedicated user-assigned managed identity, `foundry-evaluation-github`, lives
+in `rg-foundry-evaluation-cicd-demo`. Its only Azure role assignment is
+**Foundry User** (role ID `53ca6127-db72-4b80-b1b0-d745d6d5456d`, previously named
+Azure AI User), scoped to this lab's Foundry account. It has no subscription
+Contributor or Owner permissions. The existing project managed identity retains
+its evaluator inference role.
+
+The federated credential trusts only:
+
+```text
+issuer:   https://token.actions.githubusercontent.com
+audience: api://AzureADTokenExchange
+subject:  repo:mifurm/FoundryWorkshopDEMOS:environment:foundry-evaluation
 ```
 
-1. Create a dedicated Entra application/service principal and a GitHub environment
-   named `foundry-evaluation`. Configure required reviewers and permitted branches
-   on that environment. Do not allow unreviewed PR code to obtain Azure access.
-2. On the Entra application, create a **federated credential**: issuer
-   `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`,
-   subject `repo:OWNER/REPO:environment:foundry-evaluation`. No client secret.
-3. Provision this lab for the CI identity using the service principal's **object
-   ID**, not application/client ID:
+Azure Login uses `id-token: write` OIDC; DefaultAzureCredential then uses the
+short-lived Azure CLI session. No Azure client secret or stored credential is
+created. Identity provisioning is separate from model/project provisioning:
 
-   ```bash
-   az deployment group create -g lab23-evaluation -n lab23-ci -f infra/main.bicep \
-     -p principalId="<service-principal-object-id>" principalType=ServicePrincipal
-   ```
+```bash
+# From the repository root, after deploying this lab:
+az deployment group create \
+  -g rg-foundry-evaluation-cicd-demo -n github-oidc \
+  -f 23-evaluation-cicd/infra/github-oidc.bicep \
+  -p accountName="<existing-Foundry-account-name>" \
+     repository=mifurm/FoundryWorkshopDEMOS environmentName=foundry-evaluation \
+  --query properties.outputs -o json
+```
 
-   The template grants **Azure AI User** at account scope to that identity
-   (inference, agent/evaluation access) and to the project managed identity
-   (cloud evaluator calls to the judge deployment). It needs no subscription
-   Contributor to run evaluations. The deployment operator separately needs
-   role-assignment privileges. Wait for role propagation before CI.
-4. Set environment/repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
-   `AZURE_SUBSCRIPTION_ID`, `FOUNDRY_PROJECT_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`.
-   Azure Login uses `id-token: write` OIDC; DefaultAzureCredential then uses its
-   Azure CLI session. No stored Azure credentials are needed.
-5. Run `workflow_dispatch` with `baseline`, then `regression`: the latter should
-   be red, with a downloadable report despite failure. For a true regression PR,
-   create a branch and replace `prompts/baseline.txt` with the checked-in
-   `prompts/regression.txt` content, commit and open a same-repository PR.
-   The default workflow evaluates the changed baseline file from that commit.
-6. Mark **Foundry evaluation gate / evaluation** as a required status check in
-   branch protection. A red workflow alone does not prevent merging without this.
+This deploys only the identity, environment-bound federation, and account-scoped
+role; it does not redeploy the model/project or remove the presenter's access.
+It requires Managed Identity resource creation and role-assignment permissions,
+not permission to create an Entra app registration. The returned client, tenant,
+and subscription IDs populate the first three GitHub environment variables.
+Use this lab's `projectEndpoint` and `deployment` outputs for the remaining two.
+For another repository, change the federation's `repository` parameter and
+configure its GitHub environment with the same name, review rules, branch
+policies, and variables. Allow Azure role/federation propagation before testing.
+
+### Run the real GitHub gate
+
+From the repository root:
+
+```bash
+gh workflow run foundry-evaluation.yml --ref main -f prompt=baseline
+gh run list --workflow foundry-evaluation.yml --limit 5
+# Approve the pending foundry-evaluation deployment as the required reviewer.
+# After the baseline finishes:
+gh workflow run foundry-evaluation.yml --ref main -f prompt=regression
+```
+
+Approve each pending deployment through its run page. Baseline should be green;
+regression should be red, with a downloadable evaluation report despite failure.
+For a true regression PR, replace `prompts/baseline.txt` with the checked-in
+`prompts/regression.txt` content on a branch and open a same-repository PR.
+The PR workflow evaluates the changed baseline file from that commit, after
+environment approval.
+
+Repository-wide branch protection is not changed automatically. A red workflow
+does not prevent merging unless its check is required. This workflow is
+path-filtered: making it required for every PR without handling unrelated paths
+can leave unrelated PRs permanently pending. Deliberately configure an
+always-reported gate before making it a repository-wide required check.
 
 Fork PRs are skipped; they are not claimed to have passed cloud evaluation.
 The workflow never uses `pull_request_target`, `continue-on-error`, a stored Azure
@@ -137,9 +179,13 @@ if retaining the project; IDs are in the report. For the disposable lab:
 az group delete -n lab23-evaluation --yes --no-wait
 ```
 
-Also remove the workflow, GitHub variables/environment, and Entra federated
-credential/service principal if dedicated to this lab. Those identities live
-outside the resource group. Remove or retain the synthetic report as appropriate.
+The configured CI managed identity and its federation are inside this lab's
+resource group; deleting the group removes them. For a retained group, revoke
+the identity's account role and delete its federation/identity explicitly.
+Also remove the installed workflow and GitHub environment/variables if retiring
+CI. A separately created Entra application/service principal, if using that
+alternative, requires separate tenant cleanup. Remove or retain the synthetic
+report as appropriate.
 
 ## Official API grounding
 

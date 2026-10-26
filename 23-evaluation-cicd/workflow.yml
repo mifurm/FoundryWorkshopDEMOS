@@ -1,4 +1,5 @@
 name: Foundry evaluation gate
+run-name: Foundry evaluation (${{ inputs.prompt || 'baseline' }})
 on:
   pull_request:
     paths:
@@ -28,6 +29,8 @@ jobs:
         working-directory: 23-evaluation-cicd
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
