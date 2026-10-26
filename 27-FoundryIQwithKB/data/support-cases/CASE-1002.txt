@@ -1,0 +1,8 @@
+CASE-1002: Surface Laptop 6 for Business - battery drains in a bag
+SYNTHETIC WORKSHOP DATA. Fictional case, not Microsoft support guidance.
+Device: Surface Laptop 6 for Business; Windows 11.
+Symptoms: Battery fell from 80 percent to 42 percent during a four-hour journey.
+Diagnosis: A workshop background sync application stayed active while the device was asleep.
+Resolution: Install approved updates, collect a battery report and SleepStudy through the support team, stop the identified background sync task, and use Hibernate during travel.
+Outcome: Battery loss was 3 percent on the next four-hour journey.
+Related article: KB-SURFACE-002. This case does not establish a universal battery-life specification.

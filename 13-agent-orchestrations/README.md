@@ -30,7 +30,7 @@ az account set --subscription "<subscription-id>"
 az provider register --namespace Microsoft.CognitiveServices --wait
 RESOURCE_GROUP="rg-foundry-agent-orchestrations-demo"
 PRINCIPAL_ID="$(az ad signed-in-user show --query id -o tsv)"
-az group create --name "$RESOURCE_GROUP" --location eastus2
+az group create --name "$RESOURCE_GROUP" --location eastus2 --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create -g "$RESOURCE_GROUP" -n demo \
   --template-file infra/main.bicep \
   --parameters principalId="$PRINCIPAL_ID" location=eastus2

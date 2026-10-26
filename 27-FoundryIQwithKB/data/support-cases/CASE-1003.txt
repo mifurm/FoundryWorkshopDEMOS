@@ -1,0 +1,8 @@
+CASE-1003: Surface Laptop 7th Edition - workshop VPN will not install
+SYNTHETIC WORKSHOP DATA. Fictional case, not Microsoft support guidance.
+Device: Surface Laptop 7th Edition with Snapdragon; Windows 11 on Arm.
+Symptoms: The old workshop VPN installer reports an unsupported processor.
+Diagnosis: The legacy VPN package includes an x64-only network driver.
+Resolution: Obtain the organization's approved Arm64 VPN client from IT; do not disable security controls or install an unapproved driver.
+Outcome: Approved Arm64 client connected successfully; escalated to endpoint engineering for deployment.
+Related article: KB-SURFACE-003. Application emulation does not make an incompatible kernel driver compatible.

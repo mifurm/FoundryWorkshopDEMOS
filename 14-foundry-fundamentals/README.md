@@ -54,7 +54,7 @@ export WORKSHOP_INFERENCE_CLIENT_ID=$(python3 -c 'import json; print(json.load(o
 export WORKSHOP_INFERENCE_TENANT_ID=$(python3 -c 'import json; print(json.load(open(".azure/restricted-identity.json"))["tenantId"])')
 export WORKSHOP_INFERENCE_CERTIFICATE_PATH="$PWD/.azure/lab14-inference.pem"
 PRINCIPAL_ID=$(az ad sp show --id "$WORKSHOP_INFERENCE_CLIENT_ID" --query id -o tsv)
-az group create --name "$RG" --location "$LOCATION"
+az group create --name "$RG" --location "$LOCATION" --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create --name lab14 --resource-group "$RG" \
   --template-file infra/main.bicep \
   --parameters principalId="$PRINCIPAL_ID" principalType=ServicePrincipal location="$LOCATION" \

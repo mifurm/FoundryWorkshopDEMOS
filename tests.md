@@ -12,6 +12,34 @@
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
 
+## Lab 27: Storage-backed Foundry IQ and persistent portal agent on 2026-10-26
+
+Implemented [27-FoundryIQwithKB](./27-FoundryIQwithKB/README.md) and deployed
+`rg-foundry-FoundryIQwithKB-demo`. Foundry and Storage are in East US 2;
+keyless Basic Search is in West US 2. Resources remain running and billable.
+
+| Verification | Actual result |
+| --- | --- |
+| Synthetic Blob corpus | Eight private blobs, independently read back; four case and four Surface runbook documents |
+| Managed ingestion | Two real `azureBlob` knowledge sources; four chunks each; exact indexed text matched every local document |
+| Managed embeddings/refresh | Generated vector fields and Azure OpenAI vectorizers; hourly schedules |
+| Foundry IQ planning | Compound question produced actual LLM planning and six Blob subqueries across both sources |
+| Persistent agent | `surface-support-agent`, version 1, in project `surface-support`; definition independently read back |
+| New-portal integration | AAD `CognitiveSearch` connection plus `RemoteTool` KB MCP connection using `ProjectManagedIdentity`; both independently read back |
+| Compound answer | Real successful MCP retrieval; cited CASE-1001/1002 and KB-SURFACE-001/002 |
+| Arm64 follow-up | Cited CASE-1003/KB-SURFACE-003 and the approved Arm64 VPN client |
+| Unknown question | Explicitly abstained on exact warranty pricing and future Surface specifications after real retrieval |
+| Incremental change | One changed runbook processed, zero case documents; same agent's cited answer changed from 2 business days to 1 |
+| Restore | Local/deployed text restored; fresh agent response confirmed 2 business days |
+| Offline validation | 16 lab tests, 32 root runner tests, Python compilation, and Bicep build/lint passed |
+| Authenticated portal visual test | Not performed: browser required interactive sign-in; APIs verified actual project/agent/connections |
+
+Six live scenarios were independently asserted. Evidence is retained in ignored
+`27-FoundryIQwithKB/.azure/live-verification.json`, `live-final.json`,
+`live-arm64.json`, `live-unknown.json`, and `live-refresh-*.json`, with transcripts.
+The lab does not claim ACL/Purview synchronization, end-user authorization,
+Copilot Studio deployment, or general production answer quality.
+
 ## Labs 3 and 17: fresh live validation on 2026-10-26
 
 Both labs passed actual Azure calls in subscription

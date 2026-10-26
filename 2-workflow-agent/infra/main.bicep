@@ -14,7 +14,13 @@ param modelVersion string = '2025-04-14'
 @minValue(1)
 param capacity int = 10
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -33,6 +39,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: projectName
   location: location
@@ -46,6 +53,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: {

@@ -1071,3 +1071,52 @@ do not establish general visual accuracy or uncertainty calibration.
 
 A few instructional images, not OCR certification, financial automation, or a
 guarantee of model-calibrated uncertainty.
+
+## F027 - Microsoft Foundry: Foundry IQ with a Storage-backed Knowledge Base
+
+**Type:** Feature
+
+**Status:** Implemented and API-live-tested on 2026-10-26; authenticated portal visual check requires sign-in
+
+**Demo:** [Foundry IQ with KB](./27-FoundryIQwithKB/README.md)
+
+### Goal
+
+As a presenter, I can open an agent in the new Foundry portal and ask grounded
+questions over synthetic computer support cases and Surface Laptop runbooks
+stored in Azure Blob Storage, using the actual Foundry IQ knowledge layer.
+
+### Acceptance criteria
+
+- [x] Provide standalone Bicep for Storage, Search, Foundry/project, chat/embedding models, and scoped RBAC.
+- [x] Upload and read back eight labeled synthetic documents in two private containers.
+- [x] Use managed Blob knowledge sources, automated ingestion/embeddings, and hourly refresh.
+- [x] Connect two sources to one extractive Foundry IQ knowledge base with LLM planning.
+- [x] Persist an agent with a project-identity knowledge-base MCP connection and Search portal connection.
+- [x] Document New Foundry Knowledge/Agents playground steps, prompts, refresh, and cleanup.
+- [x] Separate demonstrated capabilities from ACL/Purview/end-user identity/Copilot Studio scope.
+- [x] Pass focused offline tests, root runner tests, and Bicep build/lint.
+- [x] Verify real Azure ingestion, retrieval, persistent agent, and grounded/unknown answers.
+
+### Live verification
+
+Deployed `rg-foundry-FoundryIQwithKB-demo`: Foundry/Storage in East US 2,
+Basic Search in West US 2. All eight indexed snippets matched the source files
+exactly. The compound prompt generated six retrieval subqueries; the persistent
+agent called the real KB MCP tool and cited both case and runbook evidence.
+Arm64 and unknown warranty/future-spec prompts passed. Incremental refresh
+processed one changed runbook and zero unchanged cases, changed the agent's
+answer from two business days to one, and was restored/verified back to two.
+Both keyless project connections and the saved agent were independently read back.
+Six live scenarios, 16 lab tests, 32 root runner tests, and Bicep build/lint passed.
+
+The browser required interactive sign-in, so authenticated portal UI rendering
+was not verified. The new-portal walkthrough and actual project/agent connections
+are provided. Resources remain deployed and billable; ignored evidence is in
+`27-FoundryIQwithKB/.azure/live-verification.json` and adjacent live reports.
+
+### Scope
+
+A synthetic text-only support corpus with shared project access. No real support
+records, official Surface repair advice, production ACL configuration, Copilot
+Studio deployment, or guarantee about subquery counts or model factuality.

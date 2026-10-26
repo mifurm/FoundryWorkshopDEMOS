@@ -1,0 +1,8 @@
+CASE-1001: Surface Laptop 5 - external display disappears after resume
+SYNTHETIC WORKSHOP DATA. Fictional case, not Microsoft support guidance.
+Device: Surface Laptop 5; Windows 11; Workshop USB-C Dock A.
+Symptoms: The internal display works, but an external monitor is blank after sleep.
+Diagnosis: The workshop dock firmware was outdated; the same monitor worked when connected directly.
+Resolution: Install approved Windows and Surface updates, update the approved dock firmware, reconnect the dock, and test sleep/resume twice.
+Outcome: Two successful resume cycles; resolved in 25 minutes.
+Related article: KB-SURFACE-001. Do not replace the laptop before testing a direct monitor connection.

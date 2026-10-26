@@ -1,0 +1,7 @@
+KB-SURFACE-002: Surface Laptop - travel battery triage
+SYNTHETIC WORKSHOP DATA. Fictional organization runbook, not Microsoft support guidance.
+Applies to: the workshop's Surface Laptop 5 and Surface Laptop 6 for Business fleet.
+Procedure: Record the starting charge, elapsed time, workload, and power mode. Install approved updates. Ask support to collect a Windows battery report and SleepStudy and inspect active background tasks. Use Hibernate instead of Sleep during travel while investigating.
+Escalation: Persistent unexpected drain after background-task remediation goes to endpoint engineering with the reports. Never promise a fixed battery runtime.
+Related case: CASE-1002 improved from a 38 percentage-point loss to a 3 percentage-point loss on a four-hour journey after background-sync remediation and Hibernate.
+Workshop battery triage review window: 2 business days.

@@ -3,7 +3,9 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -13,6 +15,110 @@ import deploy
 
 
 class DeployTests(unittest.TestCase):
+    def test_required_security_tag_values(self) -> None:
+        self.assertEqual(deploy.SECURITY_TAGS, {
+            "SecurityControl": "Ignore",
+            "SecurityExemption": "StorageAccountKeyAccess",
+        })
+
+    def test_every_taggable_infrastructure_resource_has_security_tags(self) -> None:
+        unsupported = {
+            "Microsoft.Authorization/roleAssignments",
+            "Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials",
+            "Microsoft.Web/sites/functions",
+            "Microsoft.Storage/storageAccounts/blobServices",
+            "Microsoft.Storage/storageAccounts/blobServices/containers",
+        }
+        templates = sorted(Path(__file__).parent.glob("*/infra/*.bicep"))
+        self.assertTrue(templates)
+        for template in templates:
+            with self.subTest(template=str(template)):
+                source = template.read_text()
+                tags = re.search(r"^var securityTags = \{([^}]+)\}", source, re.MULTILINE)
+                self.assertIsNotNone(tags)
+                self.assertEqual(
+                    dict(re.findall(r"(\w+): '([^']+)'", tags.group(1))),
+                    deploy.SECURITY_TAGS,
+                )
+                resources = list(re.finditer(
+                    r"^resource \w+ '([^'@]+)@[^']+'( existing)? = [^\n]+\n",
+                    source, re.MULTILINE,
+                ))
+                self.assertTrue(resources)
+                for resource in resources:
+                    tagged = source[resource.end():].startswith("  tags: securityTags\n")
+                    self.assertEqual(
+                        tagged,
+                        not resource.group(2) and resource.group(1) not in unsupported,
+                        resource.group(),
+                    )
+
+    def test_manual_resource_group_commands_have_security_tags(self) -> None:
+        for demo in deploy.discover(Path(__file__).parent):
+            source = (demo / "README.md").read_text()
+            commands = re.findall(r"^az group create[^\n]*", source, re.MULTILINE)
+            self.assertTrue(commands, demo.name)
+            for command in commands:
+                with self.subTest(demo=demo.name, command=command):
+                    self.assertIn("--tags", command)
+                    for key, value in deploy.SECURITY_TAGS.items():
+                        self.assertIn(f"{key}={value}", command)
+
+    def test_standalone_runners_add_security_tags_to_existing_owned_groups(self) -> None:
+        scripts = sorted(Path(__file__).parent.glob("*/deploy_lab.py"))
+        self.assertTrue(scripts)
+        for script in scripts:
+            with self.subTest(lab=script.parent.name), tempfile.TemporaryDirectory() as directory:
+                with patch.object(sys, "path", sys.path.copy()):
+                    namespace = runpy.run_path(str(script))
+                folder = Path(directory) / script.parent.name
+                (folder / "infra").mkdir(parents=True)
+                for required in ("infra/main.bicep", "requirements.txt", "test_demo.py", "demo.py"):
+                    (folder / required).touch()
+                state = folder / ".azure" / "lab-deployment.json"
+                state.parent.mkdir()
+                name = re.sub(r"^\d+-", "", folder.name)
+                group = f"rg-foundry-student-{name}-demo"
+                state.write_text(json.dumps({"subscription": "sub", "resourceGroup": group}))
+                commands = []
+                owner = namespace["OWNER"]
+
+                def fake_run(command, **kwargs):
+                    commands.append(command)
+                    if command[:3] == ["az", "account", "show"]:
+                        return json.dumps({
+                            "id": "sub", "name": "test", "tenantId": "tenant",
+                            "user": {"type": "user"},
+                        })
+                    if command[:3] == ["az", "group", "exists"]:
+                        return "true"
+                    if command[:3] == ["az", "group", "show"]:
+                        return json.dumps(owner)
+                    if command[:3] == ["az", "bicep", "build"]:
+                        return '{"resources": []}'
+                    if command[:4] == ["az", "deployment", "group", "create"]:
+                        return '{"endpoint": {"value": "https://example/"}}'
+                    return ""
+
+                with (
+                    patch.dict(namespace["main"].__globals__, {
+                        "LAB": folder, "STATE": state,
+                        "identity_settings": lambda: ("tenant", "agent"),
+                    }),
+                    patch("deploy.run", side_effect=fake_run),
+                    patch("deploy.run_live"),
+                    patch("deploy.subprocess.run", return_value=subprocess.CompletedProcess(
+                        [], 0, stdout="Tests passed\n",
+                    )),
+                    redirect_stdout(io.StringIO()),
+                ):
+                    namespace["main"](["--principal-id", "presenter"])
+                command = next(command for command in commands
+                               if command[:3] == ["az", "group", "create"])
+                tags = dict(item.split("=", 1) for item in
+                            command[command.index("--tags") + 1:command.index("--subscription")])
+                self.assertEqual(tags, {**owner, **deploy.SECURITY_TAGS})
+
     def test_discovers_all_demo_templates_and_requires_entrypoints(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -77,8 +183,22 @@ class DeployTests(unittest.TestCase):
              "17-rag-fundamentals", "18-agent-tracing", "19-conversation-state",
              "20-human-approval", "21-permission-aware-retrieval", "22-prompt-injection",
              "23-evaluation-cicd", "24-agent-lifecycle", "25-resilience-cost",
-             "26-multimodal"],
+             "26-multimodal", "27-FoundryIQwithKB"],
         )
+
+    def test_storage_and_search_resource_outputs_override_stale_environment(self) -> None:
+        names = {
+            "searchResourceId": "AZURE_SEARCH_RESOURCE_ID",
+            "storageEndpoint": "AZURE_STORAGE_BLOB_ENDPOINT",
+            "storageResourceId": "AZURE_STORAGE_RESOURCE_ID",
+        }
+        outputs = {"endpoint": {"value": "https://foundry.openai.azure.com/"},
+                   **{key: {"value": f"value-{key}"} for key in names}}
+        result = deploy.demo_environment(outputs, {variable: "stale" for variable in names.values()})
+        for key, variable in names.items():
+            self.assertEqual(result[variable], outputs[key]["value"])
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, key):
+                deploy.demo_environment({**outputs, key: {"value": ""}}, {})
 
     def test_selects_number_or_folder_in_discovery_order(self) -> None:
         demos = [Path("1-first"), Path("12-identity"), Path("14-fundamentals")]
@@ -98,7 +218,7 @@ class DeployTests(unittest.TestCase):
             int(number) for number in re.findall(r"^## F(\d{3}) - ",
                                                 (root / "BACKLOG.md").read_text(), re.MULTILINE)
         ]
-        self.assertEqual(proposals, list(range(1, 27)))
+        self.assertEqual(proposals, list(range(1, 28)))
         self.assertEqual(features, proposals)
         for demo in deploy.discover(root):
             with self.subTest(demo=demo.name):
@@ -150,6 +270,11 @@ class DeployTests(unittest.TestCase):
             deployment = next(command for command in commands
                               if command[:4] == ["az", "deployment", "group", "create"])
             self.assertIn("searchLocation=westus2", deployment)
+            group = next(command for command in commands
+                         if command[:3] == ["az", "group", "create"])
+            tags = dict(item.split("=", 1) for item in
+                        group[group.index("--tags") + 1:group.index("--subscription")])
+            self.assertEqual(tags, deploy.SECURITY_TAGS)
 
     def test_search_location_without_support_fails_before_resource_changes(self) -> None:
         commands = []

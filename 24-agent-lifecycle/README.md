@@ -48,7 +48,7 @@ Use a disposable resource group; run from this directory:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-az group create -n lab24-lifecycle -l eastus2
+az group create -n lab24-lifecycle -l eastus2 --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create -g lab24-lifecycle -n lab24 -f infra/main.bicep \
   -p principalId="$(az ad signed-in-user show --query id -o tsv)"
 export FOUNDRY_PROJECT_ENDPOINT="$(az deployment group show -g lab24-lifecycle -n lab24 --query properties.outputs.projectEndpoint.value -o tsv)"

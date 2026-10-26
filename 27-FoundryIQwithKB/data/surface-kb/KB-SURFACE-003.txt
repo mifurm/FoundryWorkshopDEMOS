@@ -1,0 +1,7 @@
+KB-SURFACE-003: Surface Laptop - Windows on Arm compatibility
+SYNTHETIC WORKSHOP DATA. Fictional organization runbook, not Microsoft support guidance.
+Applies to: the workshop's Surface Laptop 7th Edition with Snapdragon.
+The workshop Surface Laptop 7th Edition runs Windows on Arm. Confirm the processor architecture before selecting drivers, VPN clients, printer packages, and endpoint-security software.
+User-mode application emulation is not a substitute for a compatible Arm64 kernel driver.
+Procedure: Check the organization's approved software catalog and request an approved Arm64 package from IT. Escalate missing packages to endpoint engineering. Do not turn off endpoint protection to work around an installer failure.
+Related case: CASE-1003 used an approved Arm64 VPN client instead of the old x64-only driver package.

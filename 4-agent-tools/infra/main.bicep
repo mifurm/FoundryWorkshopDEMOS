@@ -17,7 +17,13 @@ param modelVersion string = '2025-04-14'
 @minValue(1)
 param capacity int = 10
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -36,6 +42,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: projectName
   location: location
@@ -52,6 +59,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: {
@@ -80,6 +88,7 @@ resource presenterRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 }
 
 resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+  tags: securityTags
   name: 'tool${uniqueString(resourceGroup().id)}'
   location: functionLocation
   kind: 'StorageV2'
@@ -95,6 +104,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
 }
 
 resource plan 'Microsoft.Web/serverfarms@2024-11-01' = {
+  tags: securityTags
   name: 'tools-plan'
   location: functionLocation
   sku: {
@@ -105,6 +115,7 @@ resource plan 'Microsoft.Web/serverfarms@2024-11-01' = {
 }
 
 resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
+  tags: securityTags
   name: 'workshop-tools-${uniqueString(resourceGroup().id)}'
   location: functionLocation
   kind: 'functionapp'

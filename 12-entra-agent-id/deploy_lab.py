@@ -138,7 +138,7 @@ def main(argv: list[str] | None = None) -> None:
         for provider in sorted(providers):
             runner.run(["az", "provider", "register", "--namespace", provider, "--wait", *scope])
         runner.run(["az", "group", "create", "--name", group, "--location", args.location,
-                    "--tags", *(f"{key}={value}" for key, value in OWNER.items()), *scope, "-o", "none"])
+                    "--tags", *(f"{key}={value}" for key, value in {**OWNER, **runner.SECURITY_TAGS}.items()), *scope, "-o", "none"])
         result["outputs"] = json.loads(runner.run([
             "az", "deployment", "group", "create", "--resource-group", group, "--name", name,
             *scope, "--template-file", str(template), "--parameters",

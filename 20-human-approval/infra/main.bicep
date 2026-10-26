@@ -6,7 +6,13 @@ param principalId string
 param accountName string = 'approval-${uniqueString(resourceGroup().id)}'
 param deploymentName string = 'gpt-4.1-mini'
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -20,6 +26,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: { name: 'GlobalStandard', capacity: 10 }

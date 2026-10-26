@@ -8,7 +8,13 @@ param principalType string = 'User'
 param accountName string = 'eval-ci-${uniqueString(resourceGroup().id)}'
 param deploymentName string = 'gpt-4.1-mini'
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -22,6 +28,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  tags: securityTags
   parent: account
   // The account rejects concurrent model deployment and project writes.
   dependsOn: [model]
@@ -31,6 +38,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   properties: { displayName: 'Evaluation regression gate' }
 }
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: { name: 'GlobalStandard', capacity: 10 }

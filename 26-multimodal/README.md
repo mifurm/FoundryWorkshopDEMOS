@@ -44,7 +44,7 @@ az cognitiveservices usage list --location eastus2 -o table
 RG=foundry-lab26
 LOCATION=eastus2
 PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv)
-az group create --name "$RG" --location "$LOCATION"
+az group create --name "$RG" --location "$LOCATION" --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create --name lab26 -g "$RG" --template-file infra/main.bicep \
   --parameters principalId="$PRINCIPAL_ID" location="$LOCATION" \
   --query properties.outputs -o json > deployment.json

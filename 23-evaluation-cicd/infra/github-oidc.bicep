@@ -7,11 +7,17 @@ param identityName string = 'foundry-evaluation-github'
 @description('Exact environment-bound OIDC sub claim, including immutable IDs when enabled in GitHub.')
 param githubSubject string
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
   name: accountName
 }
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  tags: securityTags
   name: identityName
   location: location
 }

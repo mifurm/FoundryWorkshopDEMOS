@@ -8,7 +8,13 @@ param deploymentName string = 'decision'
 @minValue(1)
 param capacity int = 10
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -23,6 +29,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: {

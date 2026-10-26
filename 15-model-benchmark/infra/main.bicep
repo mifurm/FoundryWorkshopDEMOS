@@ -9,7 +9,13 @@ param principalType string = 'User'
 param capacity int = 10
 param routerVersion string = '2025-11-18'
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -23,6 +29,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource mini 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: 'benchmark-mini'
   sku: { name: 'GlobalStandard', capacity: capacity }
@@ -32,6 +39,7 @@ resource mini 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
 }
 
 resource full 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: 'benchmark-full'
   sku: { name: 'GlobalStandard', capacity: capacity }
@@ -42,6 +50,7 @@ resource full 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
 }
 
 resource router 'Microsoft.CognitiveServices/accounts/deployments@2025-10-01-preview' = {
+  tags: securityTags
   parent: account
   name: 'model-router'
   sku: { name: 'GlobalStandard', capacity: capacity }

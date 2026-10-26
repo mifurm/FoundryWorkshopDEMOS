@@ -1,0 +1,7 @@
+KB-SURFACE-004: Support evidence and knowledge boundaries
+SYNTHETIC WORKSHOP DATA. Fictional organization runbook, not Microsoft support guidance.
+Collect only synthetic device labels, OS build, symptom, reproduction steps, approved troubleshooting actions, and outcome for this workshop.
+Do not collect real customer names, passwords, recovery keys, serial numbers, or confidential logs.
+Case records describe one observed incident. Runbooks describe the fictional workshop process, not official Microsoft warranty policy.
+This knowledge base contains no warranty prices, replacement-stock inventory, real service-level agreement, or upcoming Surface product specifications.
+If evidence is missing, say "I don't know based on this knowledge base" and identify what information IT must provide.

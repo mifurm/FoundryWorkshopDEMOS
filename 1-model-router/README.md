@@ -49,7 +49,7 @@ RESOURCE_GROUP="rg-foundry-model-router-demo"
 LOCATION="eastus2"
 PRINCIPAL_ID="$(az ad signed-in-user show --query id -o tsv)"
 
-az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
+az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create \
   --resource-group "$RESOURCE_GROUP" \
   --name model-router-demo \

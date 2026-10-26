@@ -16,7 +16,7 @@ availability in your selected region. Uses Entra ID, public endpoints, no keys.
 ```bash
 az login
 RG=rg-foundry-prompt-injection-demo
-az group create -n "$RG" -l eastus2
+az group create -n "$RG" -l eastus2 --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create -g "$RG" -n demo --template-file infra/main.bicep \
   --parameters principalId="$(az ad signed-in-user show --query id -o tsv)"
 export AZURE_OPENAI_ENDPOINT="$(az deployment group show -g "$RG" -n demo \

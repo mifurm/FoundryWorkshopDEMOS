@@ -5,7 +5,13 @@ param location string = 'eastus2'
 param principalId string
 param accountName string = 'safety-${uniqueString(resourceGroup().id)}'
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'ContentSafety'

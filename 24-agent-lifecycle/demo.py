@@ -18,6 +18,10 @@ ARM_VERSION = "2025-10-01-preview"
 DATA_VERSION = "2025-11-15-preview"
 QUESTIONS = ("What is the workshop price?", "How much does the workshop cost?")
 HERE = Path(__file__).parent
+SECURITY_TAGS = {
+    "SecurityControl": "Ignore",
+    "SecurityExemption": "StorageAccountKeyAccess",
+}
 
 
 def arm(session, credential, method, resource_id, body=None, params=None):
@@ -34,6 +38,7 @@ def arm(session, credential, method, resource_id, body=None, params=None):
 
 def select_version(session, credential, deployment_id, agent_name, version, timeout=300):
     arm(session, credential, "PUT", deployment_id, {"properties": {
+        "tags": SECURITY_TAGS,
         "displayName": "Workshop managed deployment", "deploymentType": "Managed",
         "protocols": [{"protocol": "Responses", "version": "1.0"}],
         "agents": [{"agentName": agent_name, "agentVersion": version}],
@@ -91,6 +96,7 @@ def invoke(session, credential, endpoint, version, expected, report):
 
 def publish_application(session, credential, application_id, name, timeout=300):
     arm(session, credential, "PUT", application_id, {"properties": {
+        "tags": SECURITY_TAGS,
         "displayName": "Workshop lifecycle application",
         "agents": [{"agentName": name}],
     }})

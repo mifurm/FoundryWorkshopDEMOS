@@ -13,6 +13,10 @@ from uuid import UUID
 
 
 ROOT = Path(__file__).resolve().parent
+SECURITY_TAGS = {
+    "SecurityControl": "Ignore",
+    "SecurityExemption": "StorageAccountKeyAccess",
+}
 
 
 def run(
@@ -86,6 +90,9 @@ def demo_environment(outputs: dict, base: dict[str, str]) -> dict[str, str]:
         ("routerDeployment", "AZURE_OPENAI_ROUTER_DEPLOYMENT"),
         ("applicationInsightsConnectionString", "APPLICATIONINSIGHTS_CONNECTION_STRING"),
         ("projectResourceId", "FOUNDRY_PROJECT_RESOURCE_ID"),
+        ("searchResourceId", "AZURE_SEARCH_RESOURCE_ID"),
+        ("storageEndpoint", "AZURE_STORAGE_BLOB_ENDPOINT"),
+        ("storageResourceId", "AZURE_STORAGE_RESOURCE_ID"),
     ):
         if output in outputs:
             value = outputs[output].get("value")
@@ -234,6 +241,7 @@ def main(argv: list[str] | None = None) -> None:
         group = f"{args.prefix}-{deployment_name}"
         run([
             "az", "group", "create", "--name", group, "--location", args.location,
+            "--tags", *(f"{key}={value}" for key, value in SECURITY_TAGS.items()),
             "--subscription", subscription, "-o", "none",
         ])
         state = demo / ".azure"

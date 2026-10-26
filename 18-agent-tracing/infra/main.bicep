@@ -8,7 +8,13 @@ param principalType string = 'User'
 param accountName string = 'trace-${uniqueString(resourceGroup().id)}'
 param deploymentName string = 'gpt-4.1-mini'
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -22,6 +28,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  tags: securityTags
   parent: account
   // The account rejects concurrent model deployment and project writes.
   dependsOn: [model]
@@ -31,6 +38,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   properties: { displayName: 'Synthetic agent tracing' }
 }
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: { name: 'GlobalStandard', capacity: 10 }
@@ -45,11 +53,13 @@ resource callerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   properties: { roleDefinitionId: userRole, principalId: principalId, principalType: principalType }
 }
 resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  tags: securityTags
   name: '${accountName}-logs'
   location: location
   properties: { retentionInDays: 30, sku: { name: 'PerGB2018' } }
 }
 resource insights 'Microsoft.Insights/components@2020-02-02' = {
+  tags: securityTags
   name: '${accountName}-insights'
   location: location
   kind: 'web'

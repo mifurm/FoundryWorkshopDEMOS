@@ -58,7 +58,7 @@ az provider register --namespace Microsoft.Web --wait
 az provider register --namespace Microsoft.Storage --wait
 RESOURCE_GROUP="rg-foundry-agent-tools-demo"
 PRINCIPAL_ID="$(az ad signed-in-user show --query id -o tsv)"
-az group create --name "$RESOURCE_GROUP" --location eastus2
+az group create --name "$RESOURCE_GROUP" --location eastus2 --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create --resource-group "$RESOURCE_GROUP" \
   --name agent-tools-demo --template-file infra/main.bicep \
   --parameters principalId="$PRINCIPAL_ID" location=eastus2

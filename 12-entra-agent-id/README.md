@@ -67,7 +67,7 @@ az account set --subscription "<subscription-id>"
 az provider register --namespace Microsoft.CognitiveServices --wait
 $group = "rg-foundry-entra-agent-id-demo"
 $presenter = az ad signed-in-user show --query id -o tsv
-az group create --name $group --location eastus2
+az group create --name $group --location eastus2 --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create -g $group -n demo --template-file infra/main.bicep `
   --parameters "principalId=$presenter" "agentIdentityId=$env:ENTRA_AGENT_ID" location=eastus2
 $env:AZURE_OPENAI_ENDPOINT = az deployment group show -g $group -n demo `

@@ -16,6 +16,23 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(body["deploymentType"], "Managed")
         self.assertEqual(body["agents"], [{"agentName": "agent", "agentVersion": "2"}])
         self.assertEqual(body["protocols"], [{"protocol": "Responses", "version": "1.0"}])
+        self.assertEqual(body["tags"], {
+            "SecurityControl": "Ignore",
+            "SecurityExemption": "StorageAccountKeyAccess",
+        })
+
+    def test_application_creation_includes_security_tags(self):
+        application = {"properties": {"provisioningState": "Succeeded"}}
+        with patch("demo.arm", side_effect=[{}, application]) as arm:
+            self.assertEqual(
+                demo.publish_application(Mock(), Mock(), "/application", "agent"), application,
+            )
+        body = arm.call_args_list[0].args[-1]
+        self.assertNotIn("tags", body)
+        self.assertEqual(body["properties"]["tags"], {
+            "SecurityControl": "Ignore",
+            "SecurityExemption": "StorageAccountKeyAccess",
+        })
 
     def test_rollout_and_rollback_use_actual_application_endpoint(self):
         project = Mock()

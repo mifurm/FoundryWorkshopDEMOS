@@ -1,0 +1,8 @@
+CASE-1004: Workshop desktop - no network after moving desks
+SYNTHETIC WORKSHOP DATA. Fictional case, not Microsoft support guidance.
+Device: Contoso Tower D100 desktop; wired Ethernet.
+Symptoms: No network link after moving to another desk.
+Diagnosis: The desk cable was disconnected from the approved network socket.
+Resolution: Reconnect the known-good cable to the approved socket and verify link status and access to the support portal.
+Outcome: Resolved in 8 minutes without reinstalling Windows.
+This is a desktop case, not evidence about a Surface Laptop battery, display, or VPN.

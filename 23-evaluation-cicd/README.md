@@ -20,7 +20,7 @@ account writes failing with ARM `RequestConflict`.
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-az group create -n lab23-evaluation -l eastus2
+az group create -n lab23-evaluation -l eastus2 --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create -g lab23-evaluation -n lab23 -f infra/main.bicep \
   -p principalId="$(az ad signed-in-user show --query id -o tsv)"
 export FOUNDRY_PROJECT_ENDPOINT="$(az deployment group show -g lab23-evaluation -n lab23 --query properties.outputs.projectEndpoint.value -o tsv)"

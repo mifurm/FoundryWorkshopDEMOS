@@ -10,7 +10,13 @@ param principalType string = 'User'
 @minValue(1)
 param capacity int = 10
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -25,6 +31,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: projectName
   location: location
@@ -38,6 +45,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: { name: 'GlobalStandard', capacity: capacity }
@@ -59,6 +67,7 @@ resource inferenceRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 // No scoped inference role here; the caller must also lack inherited data-plane roles.
 resource deniedAccount 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: '${accountName}-deny'
   location: location
   kind: 'AIServices'
@@ -71,6 +80,7 @@ resource deniedAccount 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource deniedModel 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: deniedAccount
   name: deploymentName
   sku: { name: 'GlobalStandard', capacity: capacity }

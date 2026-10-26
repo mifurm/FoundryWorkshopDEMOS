@@ -16,7 +16,7 @@ assignments. No API keys. Run commands from this directory.
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-az group create -n lab18-tracing -l eastus2
+az group create -n lab18-tracing -l eastus2 --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 az deployment group create -g lab18-tracing -n lab18 -f infra/main.bicep \
   -p principalId="$(az ad signed-in-user show --query id -o tsv)"
 export AZURE_OPENAI_ENDPOINT="$(az deployment group show -g lab18-tracing -n lab18 --query properties.outputs.endpoint.value -o tsv)"

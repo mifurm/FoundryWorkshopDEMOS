@@ -21,7 +21,13 @@ param modelVersion string = '2025-11-18'
 @minValue(1)
 param capacity int = 10
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -37,6 +43,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource router 'Microsoft.CognitiveServices/accounts/deployments@2025-10-01-preview' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: {

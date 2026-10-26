@@ -1,0 +1,7 @@
+KB-SURFACE-001: Surface Laptop - external display triage
+SYNTHETIC WORKSHOP DATA. Fictional organization runbook, not Microsoft support guidance.
+Applies to: the workshop's Surface Laptop 5 and Surface Laptop 6 for Business fleet.
+Procedure: Confirm that the internal screen works. Check monitor input and power. Test a known-good cable and a direct connection without the dock. Install organization-approved Windows, Surface, and dock firmware updates. Reconnect the dock and repeat sleep/resume twice.
+Escalation: If a direct connection still fails with a known-good monitor and cable after updates, collect the dock model, OS build, display details, and reproduction steps for endpoint engineering.
+Never ask the user to open the device or replace hardware solely on this runbook.
+Related case: CASE-1001, resolved by approved dock firmware.

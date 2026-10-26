@@ -108,7 +108,7 @@ during this prerequisite investigation.
 ```sh
 export RG=rg-lab21
 export LOCATION=eastus2
-az group create --name "$RG" --location "$LOCATION"
+az group create --name "$RG" --location "$LOCATION" --tags SecurityControl=Ignore SecurityExemption=StorageAccountKeyAccess
 PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv)
 mkdir -p .azure
 az deployment group create --resource-group "$RG" --name lab21 \

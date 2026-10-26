@@ -7,7 +7,7 @@ Python versions), Azure CLI, Bicep (`az bicep version`), and an interactive
 Azure user with resource creation and role-assignment permissions. See each
 demo's prerequisites for model quota and access requirements.
 
-There are **26 standalone demos**. Prefer selecting a small subset rather than
+There are **27 standalone demos**. Prefer selecting a small subset rather than
 deploying every resource and running every paid operation at once:
 
 ```bash
@@ -18,7 +18,7 @@ python3 deploy.py --subscription "<subscription-id>" --demo 20 --demo 25
 
 `--demo` accepts a demo number or exact folder name and can be repeated. Selected
 demos run in numeric order; prerequisites for unselected demos are not required.
-Without `--demo`, the runner selects all 26.
+Without `--demo`, the runner selects all 27.
 
 Before running **all demos**, complete the tenant setup in
 [Entra Agent ID](./12-entra-agent-id/README.md). It requires separate tenant
@@ -64,6 +64,28 @@ python3 deploy.py --demo 17 --location eastus2 --search-location westus2
 Keep this override on subsequent deployments to that resource group: Azure
 cannot move an existing Search service to another region in place.
 
+### Required workshop tags
+
+Every lab deployment assigns `SecurityControl=Ignore` and
+`SecurityExemption=StorageAccountKeyAccess` to its resource group and every
+taggable resource, including model deployments and Foundry projects. The
+standalone lab scripts preserve their `managedBy` and `lab` ownership tags.
+Resource tags are explicit because Azure does not inherit resource-group tags.
+Lab 24 also sets both tags under `properties.tags` when creating or updating its
+Agent Applications and managed agent deployments at runtime.
+
+Azure does not support resource tags on role assignments, federated identity
+credentials, individual Function definitions, Blob services, or Blob containers
+used by these templates. Entra directory objects and data-plane objects are not
+ARM-tagged resources. These objects are excluded; their taggable parent resources
+receive both tags.
+
+These changes apply on deployment; they do not retroactively update resources
+already running in Azure. Redeploy the infrastructure to update existing tags.
+The root runner also executes paid live demos, so use a lab's documented
+`az group create` and `az deployment group create` commands for infrastructure-only
+updates. Tag values must retain the exact casing shown above.
+
 The script:
 
 1. Discovers every immediate demo folder containing `infra/main.bicep` or
@@ -82,6 +104,9 @@ The script:
    benchmarking uses `alternateDeployment` and `routerDeployment`.
    Tracing uses `applicationInsightsConnectionString`; lifecycle operations use
    `projectResourceId`.
+   Lab 27 also maps `searchResourceId`, `storageEndpoint`, and `storageResourceId`
+   to `AZURE_SEARCH_RESOURCE_ID`, `AZURE_STORAGE_BLOB_ENDPOINT`, and
+   `AZURE_STORAGE_RESOURCE_ID` for its portal-connected Blob knowledge base.
 6. Saves live output to `<demo>/.azure/demo.log` and stops with a nonzero exit code
    if any step fails. Newly assigned 403 access errors and 404
    `DeploymentNotFound` errors, plus explicit DNS name-resolution failures, are
@@ -131,6 +156,8 @@ Tracing maps `applicationInsightsConnectionString` to
 `FOUNDRY_PROJECT_RESOURCE_ID`.
 Other output contracts
 require updating the runner. Numbered folders are processed in numeric order.
+Lab 27 additionally uses `searchResourceId`, `storageEndpoint`, and
+`storageResourceId` as documented above, along with the project and embedding outputs.
 
 ## Demos and tracking
 
@@ -160,6 +187,7 @@ require updating the runner. Numbered folders are processed in numeric order.
 - [Agent application publishing, versioning, and rollback](./24-agent-lifecycle/README.md)
 - [Resilience, quotas, deadlines, and cost controls](./25-resilience-cost/README.md)
 - [Multimodal extraction with synthetic images and uncertainty](./26-multimodal/README.md)
+- [Foundry IQ with Blob knowledge sources and a persistent new-portal agent](./27-FoundryIQwithKB/README.md)
 - [Backlog](./BACKLOG.md)
 
 Each demo has standalone Bicep, local Python code, dependencies, tests, and manual

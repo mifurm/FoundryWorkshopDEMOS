@@ -9,7 +9,13 @@ param deploymentName string = 'gpt-4.1-mini'
 @minValue(1)
 param capacity int = 10
 
+var securityTags = {
+  SecurityControl: 'Ignore'
+  SecurityExemption: 'StorageAccountKeyAccess'
+}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  tags: securityTags
   name: accountName
   location: location
   kind: 'AIServices'
@@ -24,6 +30,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  tags: securityTags
   parent: account
   name: deploymentName
   sku: {
@@ -40,6 +47,7 @@ resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
 }
 
 resource search 'Microsoft.Search/searchServices@2025-05-01' = {
+  tags: securityTags
   name: searchName
   location: location
   sku: {
