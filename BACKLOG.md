@@ -98,7 +98,8 @@ Public web only; no private documents, search index, separate Bing connection, o
 ## F004 - Microsoft Foundry: Agent with Simple Tools
 
 **Type:** Feature  
-**Status:** Implemented; live deployment and presentation smoke test pending  
+**Status:** Implemented and live-tested on 2026-10-26
+
 **Demo:** [Agent with Simple Tools](./4-agent-tools/README.md)
 
 ### Goal
@@ -116,7 +117,26 @@ through a toolbox, and show an agent discovering and invoking that hosted tool.
 - [x] Clean up the temporary toolbox version on success and inference failure.
 - [x] Document the public read-only API, preview dependency, costs, setup, and cleanup.
 - [x] Compile/lint Bicep and pass local tests.
-- [ ] Deploy and smoke-test Function -> Toolbox -> agent in the target subscription.
+- [x] Deploy and smoke-test Function -> Toolbox -> agent in the target subscription.
+
+### Live verification
+
+Deployed to `rg-foundry-agent-tools-demo` on 2026-10-26. Replaced Y1 with one
+Windows P0v3 dedicated App Service instance and Always On in West US 2;
+Foundry remains in East US 2. Actual deployment preflight rejected East US 2
+alternatives with effective zero quota despite the quota API listing capacity.
+The separate `functionLocation` parameter makes the successful layout reproducible.
+The host uses managed identity and storage-scoped Blob Data Owner access,
+without storage keys or a Consumption-only Azure Files connection string.
+
+Direct Function calls verified correct prices for 1/12/20/999 attendees and
+HTTP 400 for 0/1000/1.5/abc. Both complete Function -> Toolbox -> agent runs
+returned the real source marker and correct totals: USD 300 for 12 attendees
+and USD 500 for 20. Both temporary toolbox versions were deleted. Evidence is
+retained in `4-agent-tools/.azure/deployment.json`,
+`live-function-results.json`, and `live-agent-12.log` / `live-agent-20.log`
+under the same ignored `.azure/` directory. The dedicated plan remains deployed
+and bills continuously until deleted.
 
 ### Scope
 

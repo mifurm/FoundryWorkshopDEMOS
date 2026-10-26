@@ -8,8 +8,10 @@ USD 300 total. The script prints the real tool result before the answer.
 ## What runs where
 
 - **Bicep:** a Foundry account/project, `gpt-4.1-mini` Global Standard deployment
-  (`2025-04-14`), presenter Foundry User role, and a Windows Consumption Function
-  App with storage. The function's JavaScript is deployed inline by Bicep.
+  (`2025-04-14`), presenter Foundry User role, and a Windows Function App on a
+  single-instance **P0v3 (PremiumV3) dedicated App Service plan** with storage
+  and Always On in **West US 2**. Foundry remains in **East US 2**.
+  The function's JavaScript is deployed inline by Bicep.
   No zip upload, external code package, or manual portal editing is needed.
 - **Foundry Tools:** Python registers the function's OpenAPI contract in a
   temporary toolbox version. Foundry exposes it as an authenticated MCP endpoint.
@@ -21,8 +23,11 @@ This is a read-only, toy pricing tool: no payment, booking, database, or local
 function-call substitute. The Function API is intentionally **anonymous and
 public** so Foundry can call it without extra connection/secrets plumbing.
 It contains no private data or write operations. Do not reuse this authentication
-design for private or privileged APIs. Storage credentials stay in App Service
-settings and are not returned by the deployment. Foundry API keys are disabled.
+design for private or privileged APIs. The Function uses its system-assigned
+managed identity and storage-scoped Storage Blob Data Owner role for host
+storage; shared-key storage access and Foundry API keys are disabled.
+Dedicated hosting does not require the Consumption plan's Azure Files content
+connection string, so no storage keys are read or placed in app settings.
 
 ## Prerequisites
 
@@ -33,8 +38,13 @@ the compatible preview hosting integration is explicitly pinned in requirements.
 The hosting package supplies `FoundryToolbox` even though this agent runs locally.
 No local Node.js is needed to run the demo; Node.js is optional for tool tests.
 
-Public endpoints, Global Standard inference, and Consumption compute/storage
-incur usage charges and are workshop rather than production defaults.
+Public endpoints, Global Standard inference, and storage incur charges and are
+workshop rather than production defaults. The dedicated P0v3 plan is billed
+continuously while provisioned, even when idle or the Function App is stopped.
+Delete the dedicated resource group after the workshop to stop these charges.
+P0v3 in West US 2 passed actual deployment preflight. East US 2 rejected Y1,
+S1, P0v3, P1v3, and P0v4 with effective zero quota, even though its quota-list
+API reported P0v3 capacity. Validate deployment, not just the quota listing.
 
 ## Deploy
 
@@ -66,7 +76,11 @@ export WORKSHOP_TOOL_ENDPOINT="$(az deployment group show \
 
 If Graph access is blocked, supply your user's object ID directly. Model
 name/version, deployment name, and capacity are parameters if quota or access
-requires a different tool-capable model.
+requires a different tool-capable model. The `functionLocation` parameter
+defaults to `westus2` independently of the Foundry `location`. Function App,
+App Service plan, and storage share that region. To change it, choose a region
+with actual P0v3 quota and use a new resource group: an existing storage account
+cannot be moved to a different region in place.
 
 ## Run
 
@@ -105,6 +119,28 @@ python -m unittest discover -s . -p 'test_*.py' -v
 Tests mock Foundry/MCP calls. When Node.js is installed, they also execute the
 actual deployed JavaScript source for valid counts and invalid input boundaries;
 otherwise that one test is explicitly skipped.
+An infrastructure contract test compiles Bicep locally and checks P0v3, the
+separate Function region, Always On, and keyless storage; it is explicitly
+skipped when Azure CLI is unavailable.
+
+### Live verification on 2026-10-26
+
+Deployed to `rg-foundry-agent-tools-demo`: Foundry in East US 2, and Windows
+Function hosting/storage in West US 2 on one P0v3 instance. The Function is
+running with Always On and managed-identity host storage.
+
+- Direct API calls returned correct totals for 1, 12, 20, and 999 attendees.
+- Counts `0`, `1000`, `1.5`, and `abc` returned HTTP 400 with explicit errors.
+- Both real Function -> Foundry Toolbox -> agent runs returned the source
+  marker and correct prices: 12 attendees = USD 300; 20 attendees = USD 500.
+- Both temporary toolbox versions were deleted after their runs; independent
+  Azure readback confirmed HTTP 404 for each version.
+- All six unit tests, including the compiled infrastructure contract, and Bicep
+  lint passed.
+
+Deployment outputs, direct API results, and agent transcripts are retained
+locally under ignored `.azure/`. Resources remain deployed and the dedicated
+plan continues billing until deleted.
 
 For 403, allow RBAC propagation and check Toolbox access. For a failed tool call,
 try the direct `curl` above; the Function host may need a short cold start after
@@ -125,4 +161,5 @@ az group delete --name "$RESOURCE_GROUP" --yes
 - [OpenAPI tools and FoundryToolbox integration](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/openapi?pivots=python)
 - [Foundry Toolbox](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox)
 - [Inline Function deployment pattern](https://github.com/Azure/azure-quickstart-templates/tree/master/quickstarts/microsoft.web/function-http-trigger)
+- [Dedicated hosting plans and Always On](https://learn.microsoft.com/azure/azure-functions/dedicated-plan)
 - [Feature F004](../BACKLOG.md#f004---microsoft-foundry-agent-with-simple-tools)

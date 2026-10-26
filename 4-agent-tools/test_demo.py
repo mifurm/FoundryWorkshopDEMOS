@@ -69,6 +69,37 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(operation["parameters"][0]["schema"]["maximum"], 999)
         self.assertIn("source", operation["responses"]["200"]["content"]["application/json"]["schema"]["required"])
 
+    @unittest.skipUnless(shutil.which("az"), "Azure CLI/Bicep is required to compile the hosting contract.")
+    def test_compiled_hosting_uses_dedicated_plan_and_keyless_storage(self) -> None:
+        compiled = subprocess.run(
+            ["az", "bicep", "build", "--file", "infra/main.bicep", "--stdout"],
+            cwd=Path(__file__).parent, check=True, capture_output=True, text=True,
+        )
+        template = json.loads(compiled.stdout)
+        resources = {item["type"]: item for item in template["resources"]}
+        plan = resources["Microsoft.Web/serverfarms"]
+        app = resources["Microsoft.Web/sites"]
+        storage = resources["Microsoft.Storage/storageAccounts"]
+        self.assertEqual(plan["sku"], {"name": "P0v3", "tier": "PremiumV3", "capacity": 1})
+        self.assertEqual(template["parameters"]["functionLocation"]["defaultValue"], "westus2")
+        for resource in (plan, app, storage):
+            self.assertEqual(resource["location"], "[parameters('functionLocation')]")
+        self.assertEqual(
+            resources["Microsoft.CognitiveServices/accounts"]["location"], "[parameters('location')]",
+        )
+        self.assertTrue(app["properties"]["siteConfig"]["alwaysOn"])
+        self.assertEqual(app["identity"]["type"], "SystemAssigned")
+        self.assertFalse(storage["properties"]["allowSharedKeyAccess"])
+        settings = {
+            item["name"]: item["value"]
+            for item in app["properties"]["siteConfig"]["appSettings"]
+        }
+        self.assertIn("AzureWebJobsStorage__accountName", settings)
+        self.assertEqual(settings["AzureWebJobsStorage__credential"], "managedidentity")
+        self.assertNotIn("AzureWebJobsStorage", settings)
+        self.assertNotIn("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", settings)
+        self.assertNotIn("listKeys(", compiled.stdout)
+
     @unittest.skipUnless(shutil.which("node"), "Node.js is optional; required to execute the hosted JS tool locally.")
     def test_actual_hosted_function_price_and_input_bounds(self) -> None:
         script = """

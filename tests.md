@@ -1,7 +1,7 @@
  — Model Router	Passed
 2 — Workflow Agent	Passed after retry
 3 — WebIQ Agent	Failed: required web-search call/citations missing
-4 — Agent Tools	Blocked: subscription Y1 VM quota is zero
+4 — Agent Tools	Passed on 2026-10-26: Windows P0v3 in West US 2; real Function -> Toolbox -> agent verified
 5 — Decision Model	Blocked: required model feature unavailable
 6 — Content Safety	Passed
 7 — Semantic Cache	Passed
@@ -11,6 +11,36 @@
 11 — Foundry IQ	Blocked by Azure capacity in both East US 2 and Sweden Central
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
+
+## Lab 4: non-Y1 hosting and live verification on 2026-10-26
+
+Resolved the earlier Y1 quota blocker with a single-instance Windows **P0v3
+dedicated App Service plan** in **West US 2**, with Always On. Foundry stays in
+East US 2; `functionLocation=westus2` is now the template default for Function
+hosting and storage independently of the Foundry region.
+
+East US 2 ARM preflight rejected P0v3, P1v3, P0v4, and S1 with effective zero
+quota. The quota-list API's reported P0v3 capacity did not match that preflight.
+West US 2 P0v3 passed preflight and the actual deployment. A subsequent storage
+shared-key error was fixed by using the Function's system-assigned identity
+and storage-scoped Storage Blob Data Owner role. Shared-key access remains
+disabled; no storage keys or Azure Files content connection string are needed.
+
+| Check | Actual result |
+| --- | --- |
+| Resource group | `rg-foundry-agent-tools-demo` |
+| Function host | Running, West US 2, P0v3, one instance, Always On |
+| Direct valid API requests | 1/12/20/999 attendees returned USD 25/300/500/24975 |
+| Direct invalid API requests | 0/1000/1.5/abc returned HTTP 400 and explicit errors |
+| Agent, 12 attendees | Real Toolbox call returned `workshop-price-tool-v1`, USD 300, and an agent answer |
+| Agent, 20 attendees | Real Toolbox call returned `workshop-price-tool-v1`, USD 500, and an agent answer |
+| Temporary toolboxes | Both versions deleted after execution; independent Azure readback returned HTTP 404 |
+| Offline validation | Six unit tests passed, including compiled ARM hosting/storage checks; Bicep lint passed |
+
+Evidence is retained locally in ignored `4-agent-tools/.azure/deployment.json`,
+`live-function-results.json`, `live-agent-12.log`, and `live-agent-20.log`.
+The dedicated plan remains deployed and incurs continuous charges even when
+idle or the app is stopped; delete the dedicated resource group after use.
 
 ## Added labs: live validation on 2026-10-25, lab 23 follow-up on 2026-10-26
 

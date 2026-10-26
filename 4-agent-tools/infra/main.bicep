@@ -2,6 +2,9 @@ targetScope = 'resourceGroup'
 
 param location string = 'eastus2'
 
+@description('Region for Function hosting and storage; independent of Foundry model availability.')
+param functionLocation string = 'westus2'
+
 @description('Object ID of the presenter signed in with az login.')
 param principalId string
 
@@ -43,6 +46,9 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
     displayName: 'Tools demo'
     description: 'A Foundry toolbox wrapping a read-only Azure Function.'
   }
+  dependsOn: [
+    model
+  ]
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
@@ -75,7 +81,7 @@ resource presenterRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   name: 'tool${uniqueString(resourceGroup().id)}'
-  location: location
+  location: functionLocation
   kind: 'StorageV2'
   sku: {
     name: 'Standard_LRS'
@@ -84,42 +90,42 @@ resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
   }
 }
 
 resource plan 'Microsoft.Web/serverfarms@2024-11-01' = {
-  name: 'tools-consumption'
-  location: location
+  name: 'tools-plan'
+  location: functionLocation
   sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
+    name: 'P0v3'
+    tier: 'PremiumV3'
+    capacity: 1
   }
 }
 
-var storageConnection = 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}'
-
 resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
   name: 'workshop-tools-${uniqueString(resourceGroup().id)}'
-  location: location
+  location: functionLocation
   kind: 'functionapp'
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
     siteConfig: {
+      alwaysOn: true
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
       appSettings: [
         {
-          name: 'AzureWebJobsStorage'
-          value: storageConnection
+          name: 'AzureWebJobsStorage__accountName'
+          value: storage.name
         }
         {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: storageConnection
-        }
-        {
-          name: 'WEBSITE_CONTENTSHARE'
-          value: 'workshop-tools'
+          name: 'AzureWebJobsStorage__credential'
+          value: 'managedidentity'
         }
         {
           name: 'FUNCTIONS_EXTENSION_VERSION'
@@ -135,6 +141,18 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
         }
       ]
     }
+  }
+}
+
+var blobOwnerRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+
+resource hostStorageRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, functionApp.id, blobOwnerRoleId)
+  scope: storage
+  properties: {
+    roleDefinitionId: blobOwnerRoleId
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -165,6 +183,9 @@ resource priceFunction 'Microsoft.Web/sites/functions@2024-11-01' = {
       'index.js': loadTextContent('../tools/workshop-price.js')
     }
   }
+  dependsOn: [
+    hostStorageRole
+  ]
 }
 
 output endpoint string = 'https://${account.name}.openai.azure.com/'
