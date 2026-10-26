@@ -7,10 +7,48 @@
 7 — Semantic Cache	Passed
 8 — Agent Evaluation	Passed on 2026-10-26: fixed cross-scope response retrieval; real inline-data cloud evaluation completed, 2/2 coherence passes
 9 — Red Teaming	Passed after retry
-10 — Fine-tuning	Failed: API requires fineTuningJob payload field
+10 — Fine-tuning	Passed on 2026-10-26: corrected trainingType; real paid one-epoch job succeeded, model ID retained; optional inference not run
 11 — Foundry IQ	Passed on 2026-10-26: Basic Search in West US 2, Foundry in East US 2; both real grounded retrieval scenarios verified
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
+
+## Lab 10: completed paid fine-tuning on 2026-10-26
+
+Reproduced HTTP 400 `invalidPayload` with
+`The fineTuningJob field is required.` The request used an invalid training type:
+`"Global"` instead of the documented v1 value `"GlobalStandard"`.
+Changing that value alone produced an accepted job; no wrapper field was added.
+
+Deployed the dedicated account and base model in East US 2 under
+`rg-foundry-fine-tuning-demo`, then submitted exactly one real paid job using
+the original 12 synthetic examples and one supervised epoch.
+
+| Verified property | Actual result |
+| --- | --- |
+| Job ID | `ftjob-1f5660c4acff48438874163995f91d99` |
+| Base model | `gpt-4.1-mini-2025-04-14` |
+| Final status | `succeeded`; no error |
+| Training type / epochs | `globalStandard` / 1 supervised epoch |
+| Trained tokens | 663 |
+| Fine-tuned model ID | `gpt-4.1-mini-2025-04-14.ft-1f5660c4acff48438874163995f91d99-workshop` |
+| Results file | `file-d594c3b94d3e4ecbbb0cda03301db818`; downloaded, 742 bytes |
+| Independent readback | Retrieved final job, checked epoch/model/token count and exactly one account job, downloaded nonempty results |
+| Local validation | Seven regression tests, Bicep build/lint |
+| Optional trained-model deployment / held-out inference | Not performed; no accuracy improvement claimed |
+
+The service took approximately 71 minutes from submission to success, including
+GPU queueing and finalization. The local 30-minute wait expired twice; resumed
+the same job using `--job-id`, without another paid submission.
+The script now persists the initial job ID and each polled status to ignored
+`.azure/fine-tuning-job.json`, retaining the final model ID on success.
+
+Evidence is retained locally in ignored `10-fine-tuning/.azure/`:
+`live-before-fix.log`, `live-submit-fixed.log`, `fine-tuning-job.json`,
+`live-training-wait.log`, `live-training-resume.log`,
+`live-training-finalization.log`, `live-testing-summary.json`, the downloaded
+results CSV, and `tests-after-fix.log`. Resources and trained model remain
+available; deleting the account/resource group deletes the retained model.
+Training was paid; optional trained-model hosting was not provisioned.
 
 ## Lab 11: Search capacity fix and managed retrieval on 2026-10-26
 

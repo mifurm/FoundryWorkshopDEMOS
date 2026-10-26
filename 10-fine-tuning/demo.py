@@ -40,7 +40,7 @@ def submit(client: OpenAI, model: str):
     return client.fine_tuning.jobs.create(
         model=model, training_file=uploaded.id, suffix="workshop",
         method={"type": "supervised", "supervised": {"hyperparameters": {"n_epochs": 1}}},
-        extra_body={"trainingType": "Global"},
+        extra_body={"trainingType": "GlobalStandard"},
     )
 
 
@@ -62,6 +62,10 @@ def main() -> None:
     parser.add_argument("--model", default=MODEL, help="Training model ID, not an inference deployment name.")
     parser.add_argument("--job-id", help="Inspect/resume a job without submitting another paid job.")
     parser.add_argument("--wait", action="store_true", help="Poll for up to 30 minutes.")
+    parser.add_argument(
+        "--report", type=Path, default=DATA.parent / ".azure" / "fine-tuning-job.json",
+        help="Retain the latest job status and trained model ID as JSON.",
+    )
     args = parser.parse_args()
     if not args.endpoint or not args.endpoint.startswith("https://"):
         parser.error("Set AZURE_OPENAI_ENDPOINT to the Bicep endpoint HTTPS URL.")
@@ -75,7 +79,14 @@ def main() -> None:
             job = client.fine_tuning.jobs.retrieve(args.job_id) if args.job_id else submit(client, args.model)
             print(f"Job ID: {job.id}", flush=True)
             deadline = monotonic() + 1800
-            while args.wait and job.status not in ("succeeded", "failed", "cancelled"):
+            while True:
+                args.report.parent.mkdir(parents=True, exist_ok=True)
+                args.report.write_text(json.dumps({
+                    "endpoint": args.endpoint,
+                    "job": job.model_dump(mode="json"),
+                }, indent=2) + "\n")
+                if not args.wait or job.status in ("succeeded", "failed", "cancelled"):
+                    break
                 if monotonic() >= deadline:
                     raise TimeoutError(f"Job {job.id} is still running. Resume with --job-id {job.id}.")
                 print(f"Status: {job.status}", flush=True)

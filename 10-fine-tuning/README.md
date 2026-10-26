@@ -9,6 +9,9 @@ No GPU cluster, custom training code, reinforcement learning, or UI is needed.
 the presentation and retain the job ID. By default the script reports submission
 status, not successful training. Use `--job-id` to inspect/resume without paying
 for another job, and `--wait` to poll for up to 30 minutes.
+The latest job JSON, including its ID and eventual `fine_tuned_model`, is saved
+to ignored `.azure/fine-tuning-job.json` immediately after submission and on
+each poll. Use `--report <path>` to choose a different report location.
 
 ## Deploy
 
@@ -55,6 +58,51 @@ eventual fine-tuned model ID. Global training can process data outside the accou
 region; all included data is synthetic and non-sensitive. Twelve examples meet
 the minimum-size demonstration requirement, **not** a production-quality dataset.
 No improvement is claimed; use held-out validation/test data for real experiments.
+
+### Submission payload compatibility
+
+For the OpenAI v1 API, Global training uses the exact API value
+`extra_body={"trainingType": "GlobalStandard"}`. The former value `"Global"`
+was rejected with HTTP 400 `invalidPayload` and the misleading message
+`The fineTuningJob field is required.` The corrected request keeps the existing
+top-level `model`, `training_file`, and supervised `method`; it does not add a
+`fineTuningJob` wrapper. A live corrected submission was accepted with
+`trainingType: "globalStandard"` in the returned job.
+
+### Completed paid training on 2026-10-26
+
+The real one-epoch job succeeded in East US 2 under
+`rg-foundry-fine-tuning-demo`. Independent Azure readback confirmed exactly one
+paid job, no training error, **663 trained tokens**, and a nonempty results file.
+All seven local regression tests and Bicep build/lint passed.
+
+| Evidence | Retained value |
+| --- | --- |
+| Base model | `gpt-4.1-mini-2025-04-14` |
+| Training type | `GlobalStandard` (returned as `globalStandard`) |
+| Job ID | `ftjob-1f5660c4acff48438874163995f91d99` |
+| Status | `succeeded` |
+| Fine-tuned model ID | `gpt-4.1-mini-2025-04-14.ft-1f5660c4acff48438874163995f91d99-workshop` |
+| Training file | `file-9dd76966ed5c41d480f32d227739cdb5` |
+| Results file | `file-d594c3b94d3e4ecbbb0cda03301db818` |
+| Resource endpoint | `https://foundry-tuning-uf7l22buq6vcg.openai.azure.com/` |
+
+The job took approximately **71 minutes**, including GPU queueing and model
+finalization. Two 30-minute local polling windows timed out while cloud training
+continued; resuming the same job did not create another paid job.
+With the endpoint set as above, inspect the completed job without resubmission:
+
+```bash
+python demo.py --job-id ftjob-1f5660c4acff48438874163995f91d99 --wait
+```
+
+The final job/model JSON is in `.azure/fine-tuning-job.json`. Independent
+verification, events, downloaded results CSV, and live transcripts are retained
+locally in ignored `.azure/`, including `live-testing-summary.json` and
+`live-training-finalization.log`.
+The trained model and account remain available; deleting the account/resource
+group removes that retained model. No trained-model inference deployment or
+held-out comparison was performed, and no accuracy improvement is claimed.
 
 ### Optional: deploy the trained model and try it
 

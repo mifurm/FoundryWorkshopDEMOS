@@ -324,7 +324,7 @@ attack corpus, jailbreak strategy expansion, production targets, or safety claim
 
 **Type:** Feature
 
-**Status:** Implemented; paid training and live inference verification pending
+**Status:** Implemented; real paid training completed on 2026-10-26; optional inference comparison not performed
 
 **Demo:** [Fine-tuning](./10-fine-tuning/README.md)
 
@@ -343,8 +343,32 @@ managed supervised fine-tuning without operating training infrastructure.
 - [x] Reject failed/cancelled jobs and successful jobs missing a model ID.
 - [x] Document optional trained-model deployment/inference, cancellation, costs/cleanup.
 - [x] Compile/lint Bicep and pass offline tests.
-- [ ] Complete a paid job in the target subscription and retain its model ID.
+- [x] Complete a paid job in the target subscription and retain its model ID.
 - [ ] Optionally deploy that model and compare on held-out examples.
+
+### Live verification
+
+Reproduced HTTP 400 `invalidPayload` / `The fineTuningJob field is required.`
+The actual request problem was `trainingType: "Global"` rather than the v1
+API's `"GlobalStandard"`. Changing that enum alone fixed submission; a
+`fineTuningJob` wrapper was not required.
+
+Completed real paid job `ftjob-1f5660c4acff48438874163995f91d99` in East US 2
+under `rg-foundry-fine-tuning-demo`, using the 12 synthetic examples and one
+supervised epoch. Independent API readback confirmed `succeeded`, no error,
+663 trained tokens, exactly one job, and nonempty downloaded training results.
+Retained model ID:
+`gpt-4.1-mini-2025-04-14.ft-1f5660c4acff48438874163995f91d99-workshop`.
+
+Training took about 71 minutes including GPU queueing and finalization.
+Resumed the same job after two local 30-minute polling timeouts without
+resubmission. The script now saves current job/model JSON immediately and at
+each poll to ignored `.azure/fine-tuning-job.json`.
+Seven regression tests and Bicep build/lint passed. Evidence is retained in
+`10-fine-tuning/.azure/live-testing-summary.json` and associated transcripts.
+Resources and trained model remain retained; optional trained inference and
+held-out comparison were not performed and do not block this feature's required
+training acceptance.
 
 ### Scope
 
