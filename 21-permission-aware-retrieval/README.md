@@ -49,6 +49,51 @@ The script acquires tenant-specific Graph tokens, calls Graph to authenticate ea
 user and enumerates transitive group membership, including pagination. It does not
 trust unsigned token decoding, environment-supplied user IDs or group names.
 
+### Unblock the missing second-user session
+
+On 2026-10-26, the presenter's actual Graph profile and transitive membership
+requests succeeded, and all ten offline tests passed. The second session directory
+was absent and `SECOND_AZURE_CONFIG_DIR` was unset. This is an authentication setup
+blocker, not a demonstrated retrieval-code failure; live two-user isolation remains
+unverified.
+
+What is needed:
+
+1. A different real user in the same tenant. An existing permitted member/guest
+   account can be used. If none is available, ask a tenant administrator to provide
+   or invite a dedicated test user; subscription Owner alone does not grant Entra
+   user-administration rights.
+2. That user must complete its own login/MFA and be allowed to access its Graph
+   profile and memberships. No subscription, Search/model RBAC, custom group, or
+   directory-wide application permission is needed for the default user-ID ACL.
+3. Keep its Azure CLI session separate from the presenter's session. A second login
+   as the presenter, an invented user UUID, or lab 14's service principal does not
+   satisfy this delegated-user test.
+
+From this lab directory, while the default Azure CLI session is still the
+presenter, run:
+
+```sh
+export AZURE_TENANT_ID="$(az account show --query tenantId -o tsv)"
+export SECOND_AZURE_CONFIG_DIR="$PWD/.identity-b"
+AZURE_CONFIG_DIR="$SECOND_AZURE_CONFIG_DIR" az login \
+  --tenant "$AZURE_TENANT_ID" --allow-no-subscriptions --use-device-code
+python3 demo.py --preflight
+```
+
+Complete the device login yourself as the **second user**, using a private browser
+window if necessary to avoid reusing the presenter. Do not share passwords, tokens,
+device codes, or the credential cache. The verified presenter's tenant was
+`a1d6c791-d37f-46f2-860a-105cc2a00fe3`; the command above uses your currently selected
+tenant instead of silently switching subscriptions.
+
+Only after preflight reports two distinct authenticated users should you deploy
+and run the exercise below. Keep the exports in the same terminal. The final
+verification must still check all six real question/user combinations, exclusion
+of restricted evidence/citations, and index cleanup; first-user authentication and
+offline tests alone are not a live pass. No new billable lab resources were deployed
+during this prerequisite investigation.
+
 ## Standalone deploy/run
 
 ```sh

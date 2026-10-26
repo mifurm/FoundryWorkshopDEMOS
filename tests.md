@@ -190,7 +190,7 @@ Mocked tests and successful ARM deployment alone are not counted as live passes.
 | [18 - Agent tracing](./18-agent-tracing/README.md) | Passed | Queried nine actually ingested correlated spans. Observed the slow tool at 2005 ms and verified the failed tool's failure flag and safe error label. |
 | [19 - Conversation state](./19-conversation-state/README.md) | Passed | 18 real calls verified the default scenario, separate-process persistence/resume, session isolation, history truncation, reset, and deletion. |
 | [20 - Human approval](./20-human-approval/README.md) | Passed after fix | Real model proposals exercised rejection, exact approval, replay, wrong-digest rejection, and changed-payload rejection. Exactly one synthetic booking was created. |
-| [21 - Permission-aware retrieval](./21-permission-aware-retrieval/README.md) | Blocked | Actual tenant-specific preflight exited 2 because `SECOND_AZURE_CONFIG_DIR` is missing. No second user was simulated; live permission isolation was not claimed. |
+| [21 - Permission-aware retrieval](./21-permission-aware-retrieval/README.md) | Blocked; reconfirmed 2026-10-26 | Actual presenter Graph profile/memberships succeeded and ten offline tests passed. `SECOND_AZURE_CONFIG_DIR` is missing and no `.identity-b` session exists. A different real same-tenant user must log in before deployment and six live question/user checks. No second user was simulated; live permission isolation is not claimed. |
 | [22 - Prompt injection](./22-prompt-injection/README.md) | Passed after fix | Prompt Shields flagged the document override but not the tool-output override. Azure inference filtering blocked both raw baselines. Both separately tested protected paths returned the validated `09:00` fact. |
 | [23 - Evaluation CI/CD](./23-evaluation-cicd/README.md) | Passed, including GitHub on 2026-10-26 | [Baseline Actions run](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281692169) succeeded at 100% correctness/100% coherence. [Regression Actions run](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281830195) failed at the intended gate with 0% correctness/100% coherence. Both used real OIDC login, environment approval, and uploaded verified cloud reports. |
 | [24 - Agent lifecycle](./24-agent-lifecycle/README.md) | Passed | Published the actual application, verified six endpoint responses across versions 1 -> 2 -> 1, confirmed three successful Activity Log writes and final ARM version-1 readback. |
@@ -279,7 +279,9 @@ To complete the remaining live coverage:
 
 1. Lab 21 needs a genuine second user session in an isolated Azure CLI
    configuration, supplied through `SECOND_AZURE_CONFIG_DIR`, with the documented
-   tenant/Graph prerequisites.
+   tenant/Graph prerequisites. The presenter's Graph profile and membership
+   requests passed on 2026-10-26; the second user needs no Azure subscription or
+   Search/model role. See the lab README's second-user unblock instructions.
 The original 2026-10-25 pass created no tenant identities or federated credentials.
 The 2026-10-26 follow-up created the dedicated lab 23 managed identity and its
 environment-bound federation; no client secrets or tenant consent grants were

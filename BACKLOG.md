@@ -773,7 +773,7 @@ local OS/database are trusted, and a digest is not an administrator-proof signat
 
 **Type:** Feature
 
-**Status:** Live testing blocked on 2026-10-25: second authenticated identity missing
+**Status:** Live testing blocked; reconfirmed 2026-10-26: second authenticated user session missing
 
 **Demo:** [Permission-aware retrieval](./21-permission-aware-retrieval/README.md)
 
@@ -801,6 +801,20 @@ were invented and no tenant consent or identity provisioning was performed.
 Ten offline tests pass, but they do not prove live permission isolation.
 Evidence is retained in
 `21-permission-aware-retrieval/.azure/live-result.json`.
+
+On 2026-10-26, independently authenticated the presenter through actual Graph
+profile and transitive-membership requests; both succeeded. Ten offline tests
+passed again. `SECOND_AZURE_CONFIG_DIR` is unset and the documented `.identity-b`
+directory does not exist. First-user evidence is retained in
+`21-permission-aware-retrieval/.azure/first-user-preflight.json`.
+
+The remaining action is a different real same-tenant user's interactive CLI login
+in an isolated directory, followed by two-user preflight and the complete live
+exercise. That user needs no Azure subscription or Search/model role, and the
+default ACL needs no custom group. An administrator is needed only if an account
+must be provisioned/invited or tenant policy blocks its Graph access. A service
+principal is not a substitute for this user-delegated Graph test. No new billable
+lab resources were deployed. The README includes copy-paste setup commands.
 
 ### Scope
 
