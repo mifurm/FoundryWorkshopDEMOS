@@ -1,4 +1,7 @@
 import json
+from pathlib import Path
+import shutil
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -8,6 +11,24 @@ import demo
 
 
 class KnowledgeTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("az"), "Azure CLI/Bicep is required for the infrastructure contract.")
+    def test_search_region_is_independent_of_foundry_region(self):
+        compiled = subprocess.run(
+            ["az", "bicep", "build", "--file", "infra/main.bicep", "--stdout"],
+            cwd=Path(__file__).parent, check=True, capture_output=True, text=True,
+        )
+        template = json.loads(compiled.stdout)
+        resources = {item["type"]: item for item in template["resources"]}
+        search = resources["Microsoft.Search/searchServices"]
+        self.assertEqual(template["parameters"]["searchLocation"]["defaultValue"], "westus2")
+        self.assertEqual(search["location"], "[parameters('searchLocation')]")
+        self.assertEqual(
+            resources["Microsoft.CognitiveServices/accounts"]["location"], "[parameters('location')]",
+        )
+        self.assertEqual(search["sku"]["name"], "basic")
+        self.assertTrue(search["properties"]["disableLocalAuth"])
+        self.assertEqual(search["identity"]["type"], "SystemAssigned")
+
     def client(self, handle):
         return httpx.Client(
             base_url="https://search.example/",

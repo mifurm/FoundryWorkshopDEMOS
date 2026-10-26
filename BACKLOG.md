@@ -356,7 +356,7 @@ the API, not improved accuracy or production training quality.
 
 **Type:** Feature
 
-**Status:** Implemented; live deployment and retrieval smoke test pending
+**Status:** Implemented and live-tested on 2026-10-26
 
 **Demo:** [Foundry IQ](./11-foundry-iq/README.md)
 
@@ -376,7 +376,26 @@ a tiny managed knowledge base answering a compound workshop question with source
 - [x] Cite the Learn quickstart and document the simplified, vector-free scope.
 - [x] Include dependencies, offline tests, deployment/run/cost/cleanup instructions.
 - [x] Compile/lint Bicep, pass tests, and wire the Search endpoint into the runner.
-- [ ] Deploy in a supported region and show a grounded live answer.
+- [x] Deploy in a supported region and show a grounded live answer.
+
+### Live verification
+
+Resolved the regional Search capacity blocker with independent
+`searchLocation=westus2`, keeping Foundry in East US 2. Both resources in
+`rg-foundry-foundry-iq-demo` deployed successfully on 2026-10-26.
+The template defaults to the verified split; the root runner's
+`--search-location` override works without additional runner changes.
+
+Created all three documents, the managed knowledge source, and the real
+answer-synthesizing knowledge base. Both default and custom questions returned
+the expected facts with citations to the required exact source documents.
+Observed real planning, three/two Search subqueries, and synthesis respectively,
+without activity errors. Independent API readback confirmed document count,
+source/base configuration, and the cross-region model connection.
+Six lab tests and 27 runner tests passed, including the compiled Search-region
+contract; Bicep build/lint passed. Evidence is retained locally in ignored
+`11-foundry-iq/.azure/live-testing-summary.json` and associated logs.
+Resources remain deployed; Basic Search bills continuously while provisioned.
 
 ### Scope
 

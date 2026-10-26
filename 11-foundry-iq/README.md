@@ -22,8 +22,10 @@ Requires Python 3.10+, Azure CLI with Bicep, an interactive Azure user with reso
 creation and role-assignment permissions, a region supporting agentic retrieval,
 and `gpt-4.1-mini` quota. The template deploys:
 
-- One keyless Foundry account and `gpt-4.1-mini` (`2025-04-14`, Global Standard).
-- One **Basic Azure AI Search** service with managed identity and semantic ranker.
+- One keyless Foundry account and `gpt-4.1-mini` (`2025-04-14`, Global Standard),
+  in **East US 2** by default.
+- One **Basic Azure AI Search** service with managed identity and semantic ranker,
+  in **West US 2** by default.
 - Search Service Contributor, Search Index Data Contributor, and Search Index
   Data Reader for the presenter.
 - Cognitive Services User on Foundry for the search service's managed identity.
@@ -40,7 +42,7 @@ PRINCIPAL_ID="$(az ad signed-in-user show --query id -o tsv)"
 az group create --name "$RESOURCE_GROUP" --location eastus2
 az deployment group create -g "$RESOURCE_GROUP" -n demo \
   --template-file infra/main.bicep \
-  --parameters principalId="$PRINCIPAL_ID" location=eastus2
+  --parameters principalId="$PRINCIPAL_ID" location=eastus2 searchLocation=westus2
 export AZURE_OPENAI_ENDPOINT="$(az deployment group show -g "$RESOURCE_GROUP" -n demo \
   --query properties.outputs.endpoint.value -o tsv)"
 export AZURE_OPENAI_DEPLOYMENT="$(az deployment group show -g "$RESOURCE_GROUP" -n demo \
@@ -52,6 +54,24 @@ export AZURE_SEARCH_ENDPOINT="$(az deployment group show -g "$RESOURCE_GROUP" -n
 The knowledge-base APIs use **`2026-08-01-preview`**, matching the linked Learn
 quickstart's REST reference. Confirm preview/region availability before presenting.
 Both services use public endpoints and Entra ID, not API keys.
+
+The independent `searchLocation` parameter avoids Search capacity constraints
+without moving Foundry to a region lacking model quota. Earlier deployments
+were blocked by Search capacity in East US 2 and Sweden Central. West US 2
+supports both agentic retrieval and semantic ranker. Capacity is not guaranteed;
+choose another supported Search region if Azure rejects provisioning.
+An existing Search service cannot be moved to a different region in place:
+use a new dedicated resource group when changing its region.
+
+The root runner supports the same override:
+
+```bash
+python3 deploy.py --demo 11 --location eastus2 --search-location westus2
+```
+
+Run that command from the repository root. The lab-specific `deploy_lab.py`
+also uses the template's West US 2 Search default; its `--location` changes
+the Foundry/resource-group region, not Search.
 
 ## Run and present
 
@@ -74,6 +94,34 @@ index/source/base; resources remain available for inspection. The API decides
 how to plan a query: multiple subqueries are not guaranteed for every question.
 Missing grounding evidence or reported retrieval errors fail explicitly.
 
+### Live verification on 2026-10-26
+
+Deployed to `rg-foundry-foundry-iq-demo` with Foundry in East US 2 and Basic
+Search in West US 2. Both resources reached `Succeeded`; Search is running with
+one replica, one partition, managed identity, and API keys disabled.
+
+- Created the real index, uploaded all three documents, and configured the
+  managed knowledge source and answer-synthesizing knowledge base.
+- Default question returned Friday at 10:00, 45 minutes, and a laptop with
+  Python 3.11/Azure CLI, citing the schedule and equipment documents.
+- Custom question returned free attendance, registration before Thursday,
+  and no required AI experience, citing the cost and equipment documents.
+- Observed actual query planning, three/two Search subqueries respectively,
+  and answer synthesis, without reported activity errors.
+- Checked every returned source document against the exact synthetic input
+  and verified that answer citations resolve to the required documents.
+- Independent API readback confirmed three indexed documents, the source/base,
+  and the cross-region Foundry model configuration.
+- Six lab tests, including the compiled regional deployment contract, and
+  all 27 root deployment-runner tests passed. Bicep build/lint also passed.
+
+Evidence is retained locally in ignored `.azure/deployment.json`,
+`.azure/live-default.log`, `.azure/live-custom.log`, and
+`.azure/live-testing-summary.json`. Resources remain deployed and billable.
+The earlier blocker was regional Search provisioning capacity, not a broken
+knowledge-base API or missing model access. Separating regions fixed this
+deployment; it does not reserve capacity for future workshop deployments.
+
 ## Validate and clean up
 
 ```bash
@@ -91,4 +139,5 @@ and endpoint names; don't replace the managed pipeline with local search.
 
 - [Learn quickstart and source sample links](https://learn.microsoft.com/azure/search/search-get-started-agentic-retrieval)
 - [Foundry IQ overview](https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq)
+- [Search region and agentic-retrieval support](https://learn.microsoft.com/azure/search/search-region-support)
 - [Feature F011](../BACKLOG.md#f011---microsoft-foundry-foundry-iq)

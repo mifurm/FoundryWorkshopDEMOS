@@ -8,9 +8,44 @@
 8 — Agent Evaluation	Passed on 2026-10-26: fixed cross-scope response retrieval; real inline-data cloud evaluation completed, 2/2 coherence passes
 9 — Red Teaming	Passed after retry
 10 — Fine-tuning	Failed: API requires fineTuningJob payload field
-11 — Foundry IQ	Blocked by Azure capacity in both East US 2 and Sweden Central
+11 — Foundry IQ	Passed on 2026-10-26: Basic Search in West US 2, Foundry in East US 2; both real grounded retrieval scenarios verified
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
+
+## Lab 11: Search capacity fix and managed retrieval on 2026-10-26
+
+The original deployments were blocked by Search capacity in East US 2 and
+Sweden Central. Added an independent `searchLocation` parameter, defaulting to
+West US 2, while keeping Foundry/model deployment in East US 2.
+West US 2 supports agentic retrieval and semantic ranker. Actual deployment to
+`rg-foundry-foundry-iq-demo` succeeded: Basic Search is running with one
+replica/partition, managed identity, and API keys disabled.
+
+| Live check | Actual result |
+| --- | --- |
+| Index/source/base | Three exact synthetic documents indexed; managed knowledge source and answer-synthesizing knowledge base configured |
+| Default question | Friday at 10:00, 45 minutes, laptop, Python 3.11 and Azure CLI; schedule/equipment citations |
+| Custom question | Free attendance, registration before Thursday, no prior AI experience; cost/equipment citations |
+| Managed activity | Real query planning, three/two Search subqueries respectively, answer synthesis; no reported activity errors |
+| Grounding validation | Every source document matched the exact input; answer citation IDs resolved to the required documents |
+| Independent API readback | Document count 3, correct source/base, and cross-region Foundry model endpoint |
+| Offline validation | Six lab tests and all 27 deployment-runner tests passed; Bicep build/lint passed |
+
+The root runner already supports the new parameter:
+
+```bash
+python3 deploy.py --demo 11 --location eastus2 --search-location westus2
+```
+
+Search cannot be moved between regions in place; use a new dedicated group
+when changing the Search region. Capacity varies and is not reserved by this
+successful deployment.
+
+Evidence is retained locally in ignored `11-foundry-iq/.azure/`:
+`deployment.json`, `live-default.log`, `live-custom.log`,
+`live-testing-summary.json`, and `tests-after-fix.log`.
+Resources remain deployed; Basic Search incurs continuous provisioning charges
+and planning/synthesis incur usage charges.
 
 ## Lab 8: response-ID evaluation fix on 2026-10-26
 

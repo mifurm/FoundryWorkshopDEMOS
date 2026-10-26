@@ -1,6 +1,8 @@
 targetScope = 'resourceGroup'
 
 param location string = 'eastus2'
+@description('Search region supporting agentic retrieval; independent of the model region.')
+param searchLocation string = 'westus2'
 @description('Object ID of the presenter signed in with az login.')
 param principalId string
 param accountName string = 'foundry-iq-${uniqueString(resourceGroup().id)}'
@@ -41,7 +43,7 @@ resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
 
 resource search 'Microsoft.Search/searchServices@2025-05-01' = {
   name: searchName
-  location: location
+  location: searchLocation
   sku: {
     name: 'basic'
   }
