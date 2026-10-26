@@ -1,8 +1,8 @@
 # Microsoft Foundry - Agent evaluation
 
 A small real **Foundry cloud evaluation**: create a temporary workshop tutor agent,
-ask two questions, retain its stored response IDs, and evaluate those interactions
-using `builtin.coherence`. Print the run metadata, result counts, and per-item
+ask two questions, retain its actual answers and stored response IDs, and evaluate
+the question/answer pairs using `builtin.coherence`. Print run metadata, result counts, and per-item
 scores. This is not a local string comparison presented as a Foundry evaluation.
 
 ## Deploy
@@ -42,15 +42,52 @@ python demo.py
 ```
 
 1. Show the agent's two answers and their stored response IDs.
-2. Explain that Foundry retrieves the stored interactions and uses the deployed
-   model as a coherence judge; the script does not invent a local score.
+2. Explain that the script sends the exact generated question/answer pairs as
+   inline JSONL to Foundry, retaining response IDs for traceability. Foundry uses
+   the deployed model as a coherence judge; this is not a local score.
 3. Compare the per-item results and open the reported run/report URL when present.
 
 The script polls for up to ten minutes. A failed run, errored item, incomplete
-counts, or timeout exits nonzero. A completed low-scoring evaluation is a valid
+counts, mismatched source rows, missing grader results, or timeout exits nonzero.
+The script checks that output items are `completed` and contain actual completed
+coherence results; their pass/fail values are separate from processing status.
+A completed low-scoring evaluation is a valid
 result, not a transport failure. The temporary agent version is deleted even
 when evaluation fails; stored responses/evaluation runs remain for inspection.
 Timed-out cloud runs may continue and incur charges.
+
+### Why response-ID evaluation previously returned HTTP 404
+
+The original script created responses through an **agent-scoped client**, then
+asked the **project-scoped cloud evaluator** to retrieve those IDs using
+`azure_ai_responses` / `response_retrieval`. Live testing on 2026-10-26 showed
+the same newly stored response was retrievable through the agent client
+(HTTP 200, identical text), but not through the project client (HTTP 404).
+`store=True` did not make the response available in that other scope.
+
+The fix uses the documented custom-dataset route: send the exact `query` and
+`response`, alongside `response_id`, using inline `jsonl` / `file_content`,
+with explicit evaluator field mappings. IDs are correlation metadata rather
+than lookup instructions. This still runs the real cloud `builtin.coherence`
+evaluator; it does not substitute generated answers or local scoring.
+
+### Live verification on 2026-10-26
+
+- Deployed to `rg-foundry-agent-evaluation-demo` in East US 2.
+- Reproduced the old response-ID failure in cloud run
+  `evalrun_1a2899c0709440e8ab01b6f241ec9ec4`.
+- Fixed run `evalrun_a87a335f1e5943f79ea9dbaa1522db58` completed with two actual
+  output items: **2 passed, 0 failed, 0 errored**, coherence **5/5** each.
+- Independently read the run/items back from Azure and checked both response IDs.
+- Confirmed temporary agent deletion with a separate HTTP 404 readback.
+- Serialized project/model deployment after an actual ARM `RequestConflict`.
+- Eight regression tests and Bicep lint passed.
+
+Evidence is retained locally in ignored `.azure/live-before-fix.log`,
+`.azure/response-scope-probe.json`, `.azure/live-after-fix.log`, and
+`.azure/live-testing-summary.json`. Resources remain deployed.
+Coherence is not factual correctness: a coherent explanation can still contain
+incorrect product claims. This small lab does not verify groundedness or accuracy.
 
 ## Validate, costs, and cleanup
 
@@ -66,5 +103,5 @@ need time to propagate after deployment. Use **projectEndpoint**, not the
 account inference URL. A coherence score on two benign questions is neither a
 safety certification nor a comprehensive agent-quality benchmark.
 
-- [Evaluate deployed interactions by response ID](https://learn.microsoft.com/azure/foundry/observability/how-to/cloud-evaluation-deployed-interactions)
+- [Evaluate precomputed datasets, including inline data](https://learn.microsoft.com/azure/foundry/observability/how-to/cloud-evaluation-datasets)
 - [Feature F008](../BACKLOG.md#f008---microsoft-foundry-agent-evaluation)

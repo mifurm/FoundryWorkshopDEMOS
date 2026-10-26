@@ -248,7 +248,7 @@ Management, persistence, native cache toggle, cross-user reuse, or speed guarant
 
 **Type:** Feature
 
-**Status:** Implemented; live deployment and presentation smoke test pending
+**Status:** Implemented and live-tested on 2026-10-26
 
 **Demo:** [Agent evaluation](./8-agent-evaluation/README.md)
 
@@ -261,12 +261,30 @@ managed coherence evaluator and inspect actual run and per-item results.
 
 - [x] Standalone Bicep deploys account/project/model and presenter/project RBAC.
 - [x] Generate two interactions with a temporary Foundry tutor agent.
-- [x] Submit stored response IDs to Foundry cloud `builtin.coherence` evaluation.
+- [x] Submit exact generated question/answer pairs with response-ID metadata to
+  Foundry cloud `builtin.coherence` evaluation using inline JSONL.
 - [x] Poll with a deadline and reject failed, errored, or incomplete results.
 - [x] Display run metadata/counts/per-item scores and clean up the agent version.
 - [x] Include dependencies, offline tests, preview/cost/setup/cleanup documentation.
 - [x] Compile/lint Bicep and pass local tests.
-- [ ] Deploy and confirm managed evaluation/judge permissions and completed results.
+- [x] Deploy and confirm managed evaluation/judge permissions and completed results.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-agent-evaluation-demo` on 2026-10-26.
+Reproduced HTTP 404 in response-retrieval cloud evaluation. A same-ID probe
+proved the stored response exists through the agent-scoped client (HTTP 200),
+but not the project-scoped client (HTTP 404). Replaced cross-scope retrieval
+with documented inline JSONL over the exact questions/answers and response IDs.
+Cloud coherence evaluation remains real, with strict source/grader/count checks.
+
+Run `evalrun_a87a335f1e5943f79ea9dbaa1522db58` completed with 2 passed,
+0 failed, 0 errored and coherence score 5/5 each. Independently verified
+Azure run/items and agent-version deletion. Also serialized model/project
+ARM writes after a reproduced `RequestConflict`. Evidence is retained locally
+in ignored `8-agent-evaluation/.azure/live-testing-summary.json` and
+`response-scope-probe.json` under the same directory. Resources remain deployed.
+Coherence alone does not prove factual correctness.
 
 ### Scope
 

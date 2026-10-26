@@ -5,12 +5,43 @@
 5 — Decision Model	Passed on 2026-10-26: DataZoneStandard; 3/3 default tickets plus custom invoice request, with explicit throttling retries
 6 — Content Safety	Passed
 7 — Semantic Cache	Passed
-8 — Agent Evaluation	Failed: evaluation response ID returned HTTP 404
+8 — Agent Evaluation	Passed on 2026-10-26: fixed cross-scope response retrieval; real inline-data cloud evaluation completed, 2/2 coherence passes
 9 — Red Teaming	Passed after retry
 10 — Fine-tuning	Failed: API requires fineTuningJob payload field
 11 — Foundry IQ	Blocked by Azure capacity in both East US 2 and Sweden Central
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
+
+## Lab 8: response-ID evaluation fix on 2026-10-26
+
+Reproduced the original HTTP 404 against a fresh East US 2 deployment in
+`rg-foundry-agent-evaluation-demo`. Failed cloud run
+`evalrun_1a2899c0709440e8ab01b6f241ec9ec4` reported
+`Response with id ... not found`. A same-ID probe confirmed **agent-scoped
+retrieval HTTP 200 with identical text, project-scoped retrieval HTTP 404**.
+The script had created agent-scoped responses then asked the project evaluator
+to retrieve them; `store=True` did not bridge those scopes.
+
+Changed the evaluation source to documented inline JSONL containing the exact
+generated questions/answers and response IDs, with explicit coherence mappings.
+This is still real cloud `builtin.coherence`, not a local surrogate or mock.
+Corrected output-item validation to require processing status `completed` and
+separate completed grader results, source matching, and aggregate consistency.
+Serialized model/project deployment after a reproduced ARM `RequestConflict`.
+
+Fixed run `evalrun_a87a335f1e5943f79ea9dbaa1522db58` completed with two
+actual output items: **2 passed, 0 failed, 0 errored**, coherence **5/5** each.
+Independently retrieved the cloud run/items and verified the two actual response
+IDs. Temporary agent deletion was separately confirmed by HTTP 404.
+Eight regression tests and Bicep lint passed, covering exact source mapping,
+infrastructure failure, timeout, missing/mismatched/duplicate results,
+valid low scores, and cleanup on evaluation failure.
+Coherence does not prove factual accuracy or groundedness.
+
+Evidence is retained locally in ignored `8-agent-evaluation/.azure/`:
+`live-before-fix.log`, `response-scope-probe.json`, `live-after-fix.log`,
+`live-testing-summary.json`, and deployment outputs. Resources remain deployed;
+generation and judge inference are billable.
 
 ## Lab 5: Data Zone Standard verification on 2026-10-26
 

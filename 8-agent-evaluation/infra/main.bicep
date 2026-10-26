@@ -38,6 +38,9 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
     displayName: 'Agent evaluation demo'
     description: 'Evaluate stored agent responses using Foundry cloud evaluators.'
   }
+  dependsOn: [
+    model
+  ]
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
