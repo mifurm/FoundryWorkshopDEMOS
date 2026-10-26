@@ -87,15 +87,49 @@ class WebSearchTests(unittest.TestCase):
                 self.assertIn("Raw response JSON:", output.getvalue())
                 self.assertIn(item.model_dump_json(indent=2), output.getvalue())
 
+    def test_no_tool_answer_does_not_require_grounding(self) -> None:
+        for answer in (
+            "I cannot browse the web.",
+            "See https://learn.microsoft.com/azure/foundry/",
+        ):
+            with self.subTest(answer=answer), redirect_stdout(io.StringIO()) as output:
+                item = response(search=False, citation=False, text=answer)
+                demo.show_response(item, expect_web_search=False, debug_response=True)
+                self.assertIn(answer, output.getvalue())
+                self.assertIn("Search calls: 0", output.getvalue())
+                self.assertIn("URL citations: 0", output.getvalue())
+                self.assertIn("not verified search citations", output.getvalue())
+                self.assertIn(item.model_dump_json(indent=2), output.getvalue())
+
+    def test_no_tool_response_still_rejects_errors_and_unexpected_grounding(self) -> None:
+        for item in (
+            response(search=False, citation=False, status="incomplete"),
+            response(search=False, citation=False, text=""),
+            response(search=True, citation=False),
+            response(search=False, citation=True),
+        ):
+            with self.subTest(item=item), redirect_stdout(io.StringIO()), self.assertRaises(RuntimeError):
+                demo.show_response(item, expect_web_search=False)
+
     def test_temporary_agent_deleted_on_success_and_failure(self) -> None:
-        for failure in ("", "service", "validation"):
+        for failure in ("", "search-service", "search-validation", "no-tool-service", "no-tool-validation"):
             project = MagicMock()
-            project.agents.create_version.return_value = SimpleNamespace(name="test-agent", version="1")
+            project.agents.create_version.side_effect = [
+                SimpleNamespace(name="test-agent", version="1"),
+                SimpleNamespace(name="test-agent", version="2"),
+            ]
             client = project.get_openai_client.return_value.__enter__.return_value
-            if failure == "service":
-                client.responses.create.side_effect = RuntimeError("service failed")
-            else:
-                client.responses.create.return_value = response(search=failure != "validation")
+            grounded: Response | RuntimeError = response()
+            no_tool: Response | RuntimeError = response(search=False, citation=False)
+            if failure == "search-service":
+                grounded = RuntimeError("service failed")
+            elif failure == "search-validation":
+                grounded = response(search=False)
+            elif failure == "no-tool-service":
+                no_tool = RuntimeError("service failed")
+            elif failure == "no-tool-validation":
+                no_tool = response(search=False, citation=False, status="incomplete")
+            client.responses.create.side_effect = [grounded, no_tool]
             with (
                 patch("demo.AzureCliCredential"),
                 patch("demo.AIProjectClient") as factory,
@@ -104,17 +138,44 @@ class WebSearchTests(unittest.TestCase):
                 factory.return_value.__enter__.return_value = project
                 args = ["--project-endpoint", "https://example/api/projects/demo", "--debug-response"]
                 if failure:
-                    message = "service failed" if failure == "service" else "Grounding evidence missing"
+                    if failure.endswith("service"):
+                        message = "service failed"
+                    elif failure == "search-validation":
+                        message = "Grounding evidence missing"
+                    else:
+                        message = "Agent did not complete"
                     with self.assertRaisesRegex(RuntimeError, message):
                         demo.main(args)
                 else:
-                    demo.main(args)
-            project.agents.delete_version.assert_called_once_with(
-                agent_name="test-agent", agent_version="1",
-            )
-            self.assertEqual(client.responses.create.call_args.kwargs["tool_choice"], "required")
-            definition = project.agents.create_version.call_args.kwargs["definition"]
-            self.assertEqual(definition.tools[0].type, "web_search")
+                    with redirect_stdout(io.StringIO()) as output:
+                        demo.main(args)
+                    self.assertIn("=== WITH WebSearchTool() ===", output.getvalue())
+                    self.assertIn("=== WITHOUT WebSearchTool() ===", output.getvalue())
+                    self.assertIn("Comparison:", output.getvalue())
+            expected_runs = 1 if failure.startswith("search-") else 2
+            self.assertEqual(project.agents.delete_version.call_count, expected_runs)
+            for index, call in enumerate(project.agents.delete_version.call_args_list, start=1):
+                self.assertEqual(call.kwargs, {"agent_name": "test-agent", "agent_version": str(index)})
+            requests = client.responses.create.call_args_list
+            self.assertEqual(requests[0].kwargs["tool_choice"], "required")
+            definitions = project.agents.create_version.call_args_list
+            self.assertEqual(definitions[0].kwargs["definition"].tools[0].type, "web_search")
+            if expected_runs == 2:
+                self.assertEqual(requests[1].kwargs["tool_choice"], "none")
+                self.assertEqual(requests[0].kwargs["input"], requests[1].kwargs["input"])
+                self.assertNotIn("previous_response_id", requests[1].kwargs)
+                self.assertEqual(definitions[1].kwargs["definition"].tools, [])
+                self.assertEqual(
+                    definitions[0].kwargs["agent_name"], definitions[1].kwargs["agent_name"],
+                )
+                self.assertEqual(
+                    definitions[0].kwargs["definition"].instructions,
+                    definitions[1].kwargs["definition"].instructions,
+                )
+                self.assertEqual(
+                    definitions[0].kwargs["definition"].model,
+                    definitions[1].kwargs["definition"].model,
+                )
 
     def test_default_deployment_and_explicit_overrides(self) -> None:
         for environment, arguments, expected in (
@@ -126,7 +187,7 @@ class WebSearchTests(unittest.TestCase):
                 project = MagicMock()
                 project.agents.create_version.return_value = SimpleNamespace(name="test-agent", version="1")
                 client = project.get_openai_client.return_value.__enter__.return_value
-                client.responses.create.return_value = response()
+                client.responses.create.side_effect = [response(), response(search=False, citation=False)]
                 with (
                     patch.dict("os.environ", environment, clear=True),
                     patch("demo.AzureCliCredential"),

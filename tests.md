@@ -4,13 +4,59 @@
 4 — Agent Tools	Passed on 2026-10-26: Windows P0v3 in West US 2; real Function -> Toolbox -> agent verified
 5 — Decision Model	Passed on 2026-10-26: DataZoneStandard; 3/3 default tickets plus custom invoice request, with explicit throttling retries
 6 — Content Safety	Passed
-7 — Semantic Cache	Passed
+7 — Semantic Cache	APIM Consumption + Managed Redis migration: offline tests and Bicep build/lint passed; new live gateway cache verification pending (previous pass covered the removed local cache)
 8 — Agent Evaluation	Passed on 2026-10-26: fixed cross-scope response retrieval; real inline-data cloud evaluation completed, 2/2 coherence passes
 9 — Red Teaming	Passed after retry
 10 — Fine-tuning	Passed on 2026-10-26: corrected trainingType; real paid one-epoch job succeeded, model ID retained; optional inference not run
 11 — Foundry IQ	Passed on 2026-10-26: Basic Search in West US 2, Foundry in East US 2; both real grounded retrieval scenarios verified
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
+
+## Labs 29-33: offline validation on 2026-10-26
+
+All five additions have standalone Bicep, dependency manifests, runnable examples,
+offline tests, deployment instructions, cost/preview notes and cleanup guidance.
+The catalog and backlog cover all 33 demos. Validation does not deploy Azure.
+
+| Lab | Offline Python tests | Evidence checked |
+| --- | --- | --- |
+| [29: Toolbox skill discovery](./29-toolbox-skill-discovery/README.md) | 11 | Real SDK/MCP model shapes; metadata pagination; relevant skill selection; on-demand checklist reads; contract checks; URI bounds and cleanup |
+| [30: Skill-powered analyst](./30-skill-data-analyst/README.md) | 16 | Pinned skill bytes; Code Interpreter execution/citations; downloaded report/PNG validation; independent totals and cleanup |
+| [31: Native memory](./31-native-agent-memory/README.md) | 20 | Real API wire serialization/polling; two-user authentication; scoped extraction/search/deletion; fresh recall conversations and cleanup |
+| [32: Browser runbook](./32-browser-runbook/README.md) | 21 | Native browser SDK shapes; remote tool evidence; fixture state; exact-action approval/replay rejection; configuration preflight and cleanup |
+| [33: Skill release governance](./33-skill-release-governance/README.md) | 9 | Candidate gate; unchanged default before promotion; pinned isolation; read-back promotion; regression failure and rollback |
+
+All **77 lab tests** passed. Lab 32's suite also runs the Node fixture checks.
+The root runner passed **34 tests**, including discovery/selection of all 33 labs,
+preflight failures before Azure changes, supported/unsupported browser regions,
+and tag rules for taggable resources (management policies cannot carry ARM tags).
+All five Bicep templates built and linted successfully; Python sources compiled
+and parsed using Python 3.10 syntax rules. Pylance was unavailable.
+
+Validation used isolated environments: Projects SDK 2.7.0 for labs 29/30/31/33,
+and 2.8.0 for lab 32's native Browser Automation Toolbox model. Failure-path tests
+intentionally print some rejected-action/cleanup/CLI errors; their assertions
+pass and no real service calls are made.
+
+No Azure resources, paid inference, real MCP browser sessions, skill operations,
+or memory calls were run. Live preview support, regional quota and actual model
+behavior remain unverified. Lab 31 requires two real user logins; lab 32 requires
+a supported region such as `eastus`, remote MCP preview access and a manually
+created project-managed-identity Browser Automation connection. Its default run
+never approves submission.
+
+## Lab 28: Agent skills offline validation on 2026-10-26
+
+[Agent skills](./28-agent-skills/README.md) passed 13 focused offline tests,
+32 root runner tests, Pylance syntax checks, and Bicep build/lint.
+Tests cover SDK multipart ZIP upload, pinned-version download and byte comparison,
+with/without-skill requests, exact output validation, and cleanup after failures.
+The SDK upload uses a binary stream to preserve ZIP bytes during model
+serialization. The new folder is discovered and selectable as `--demo 28`.
+
+No Azure deployment or live Skills API/model calls were performed for this lab.
+Preview availability, actual agent instruction following, and data-plane deletion
+still require a live smoke test; mocked responses are not service evidence.
 
 ## Lab 27: Storage-backed Foundry IQ and persistent portal agent on 2026-10-26
 

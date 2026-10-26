@@ -31,6 +31,60 @@ class DecisionTests(unittest.TestCase):
             with self.assertRaises(httpx.HTTPStatusError):
                 demo.classify(client, "decision", "Refund please")
 
+    def test_subdomain_routing_error_retries_then_succeeds(self):
+        responses = iter([
+            httpx.Response(404, json={"error": {
+                "code": "ResourceNotFound", "message": "Subdomain does not map to a resource.",
+            }}, headers={"apim-request-id": "routing-request"}),
+            httpx.Response(200, json={"answers": {"team": {"type": "choice", "choice": "billing"}}}),
+        ])
+        with httpx.Client(
+            base_url="https://example/",
+            transport=httpx.MockTransport(lambda request: next(responses)),
+        ) as client, patch("demo.sleep") as sleep, patch("builtins.print") as output:
+            self.assertEqual(demo.classify(client, "decision", "Refund please"), "billing")
+            sleep.assert_called_once_with(1)
+            self.assertIn("routing-request", output.call_args.args[0])
+
+    def test_subdomain_routing_retries_are_bounded_and_report_service_error(self):
+        calls = []
+        def handle(request):
+            calls.append(request)
+            return httpx.Response(404, json={"error": {
+                "code": "ResourceNotFound", "message": "Subdomain does not map to a resource.",
+            }}, headers={"apim-request-id": "routing-request"})
+        with httpx.Client(
+            base_url="https://example/", transport=httpx.MockTransport(handle),
+        ) as client, patch("demo.sleep") as sleep:
+            with self.assertRaises(httpx.HTTPStatusError) as raised:
+                demo.classify(client, "decision", "Refund please")
+            self.assertEqual(len(calls), 3)
+            self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+            self.assertIn("Subdomain does not map to a resource.", str(raised.exception))
+            self.assertIn("routing-request", str(raised.exception))
+            self.assertIn("Deployment: decision", str(raised.exception))
+            self.assertEqual(raised.exception.response.status_code, 404)
+
+    def test_other_not_found_responses_are_not_retried(self):
+        for payload in ({"error": {"code": "DeploymentNotFound", "message": "Missing deployment"}},
+                        {"error": {"code": "ResourceNotFound", "message": "Wrong API path"}},
+                        {"error": {"code": "ResourceNotFound", "message": None}},
+                        {"error": "not found"}, [], {}):
+            with self.subTest(payload=payload), self.client(payload, 404) as client, \
+                    patch("demo.sleep") as sleep:
+                with self.assertRaises(httpx.HTTPStatusError):
+                    demo.classify(client, "decision", "Refund please")
+                sleep.assert_not_called()
+
+    def test_non_json_not_found_is_not_retried(self):
+        with httpx.Client(
+            base_url="https://example/",
+            transport=httpx.MockTransport(lambda request: httpx.Response(404, text="Not found")),
+        ) as client, patch("demo.sleep") as sleep:
+            with self.assertRaises(httpx.HTTPStatusError):
+                demo.classify(client, "decision", "Refund please")
+            sleep.assert_not_called()
+
     def test_throttling_respects_retry_header(self):
         for headers, delay in (({"retry-after-ms": "2500"}, 2.5),
                                ({"Retry-After": "3"}, 3)):

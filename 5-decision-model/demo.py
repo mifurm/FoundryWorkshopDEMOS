@@ -1,6 +1,7 @@
 """Route three support tickets using Microsoft's typed Decision API, not chat."""
 
 import argparse
+import json
 import os
 from time import perf_counter, sleep
 
@@ -32,19 +33,44 @@ def classify(client: httpx.Client, deployment: str, ticket: str) -> str:
     }
     for attempt in range(3):
         response = client.post("providers/microsoft/v1/systemone", json=request)
+        if response.status_code == 404:
+            try:
+                payload = response.json()
+            except json.JSONDecodeError:
+                break
+            error = payload.get("error") if isinstance(payload, dict) else None
+            if (not isinstance(error, dict)
+                    or error.get("code") != "ResourceNotFound"
+                    or error.get("message") != "Subdomain does not map to a resource."
+                    or attempt == 2):
+                break
+            delay = 2 ** attempt
+            print("Decision API routing error (HTTP 404): Subdomain does not map to a resource. "
+                  f"Request ID: {response.headers.get('apim-request-id', '(not supplied)')}; "
+                  f"retrying in {delay}s (retry {attempt + 1}/2).", flush=True)
+            sleep(delay)
+            continue
         if response.status_code != 429 or attempt == 2:
             break
         milliseconds = response.headers.get("retry-after-ms")
         seconds = response.headers.get("Retry-After")
         if milliseconds is None and seconds is None:
-            response.raise_for_status()
+            break
         delay = float(milliseconds) / 1000 if milliseconds is not None else float(seconds)
         if not 0 <= delay <= 65:
-            response.raise_for_status()
+            break
         print(f"Decision API throttled (HTTP 429); retrying in {delay:.2f}s "
               f"(retry {attempt + 1}/2).", flush=True)
         sleep(delay)
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as error:
+        raise httpx.HTTPStatusError(
+            f"{error}\nDeployment: {deployment}; "
+            f"request ID: {response.headers.get('apim-request-id', '(not supplied)')}; "
+            f"service response: {response.text}",
+            request=response.request, response=response,
+        ) from error
     payload = response.json()
     answer = payload.get("answers", {}).get("team", {})
     if answer.get("type") != "choice" or answer.get("choice") not in TEAMS:

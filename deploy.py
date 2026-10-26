@@ -208,6 +208,12 @@ def main(argv: list[str] | None = None) -> None:
             ["az", "bicep", "build", "--file", str(demo / "infra/main.bicep"), "--stdout"],
             capture=True,
         ))
+        allowed_locations = template.get("parameters", {}).get("location", {}).get("allowedValues")
+        if allowed_locations and args.location not in allowed_locations:
+            parser.error(
+                f"{demo.name} does not support --location {args.location!r}; "
+                f"choose one of: {', '.join(allowed_locations)}."
+            )
         providers.update(
             resource["type"].split("/")[0] for resource in template.get("resources", [])
             if not resource["type"].startswith("Microsoft.Authorization/")
@@ -224,7 +230,9 @@ def main(argv: list[str] | None = None) -> None:
             [str(python), "-m", "unittest", "discover", "-s", ".", "-p", "test_*.py", "-v"],
             cwd=demo,
         )
-        if demo.name == "21-permission-aware-retrieval":
+        if demo.name in (
+            "21-permission-aware-retrieval", "31-native-agent-memory", "32-browser-runbook",
+        ):
             run([str(python), "demo.py", "--preflight"], cwd=demo)
 
     if args.search_location and not search_location_applied:

@@ -28,6 +28,13 @@ class DeployTests(unittest.TestCase):
             "Microsoft.Web/sites/functions",
             "Microsoft.Storage/storageAccounts/blobServices",
             "Microsoft.Storage/storageAccounts/blobServices/containers",
+            "Microsoft.Storage/storageAccounts/managementPolicies",
+            "Microsoft.Cache/redisEnterprise/databases",
+            "Microsoft.ApiManagement/service/caches",
+            "Microsoft.ApiManagement/service/backends",
+            "Microsoft.ApiManagement/service/apis",
+            "Microsoft.ApiManagement/service/apis/operations",
+            "Microsoft.ApiManagement/service/apis/operations/policies",
         }
         templates = sorted(Path(__file__).parent.glob("*/infra/*.bicep"))
         self.assertTrue(templates)
@@ -183,7 +190,9 @@ class DeployTests(unittest.TestCase):
              "17-rag-fundamentals", "18-agent-tracing", "19-conversation-state",
              "20-human-approval", "21-permission-aware-retrieval", "22-prompt-injection",
              "23-evaluation-cicd", "24-agent-lifecycle", "25-resilience-cost",
-             "26-multimodal", "27-FoundryIQwithKB"],
+             "26-multimodal", "27-FoundryIQwithKB", "28-agent-skills",
+             "29-toolbox-skill-discovery", "30-skill-data-analyst", "31-native-agent-memory",
+             "32-browser-runbook", "33-skill-release-governance"],
         )
 
     def test_storage_and_search_resource_outputs_override_stale_environment(self) -> None:
@@ -218,7 +227,7 @@ class DeployTests(unittest.TestCase):
             int(number) for number in re.findall(r"^## F(\d{3}) - ",
                                                 (root / "BACKLOG.md").read_text(), re.MULTILINE)
         ]
-        self.assertEqual(proposals, list(range(1, 28)))
+        self.assertEqual(proposals, list(range(1, 34)))
         self.assertEqual(features, proposals)
         for demo in deploy.discover(root):
             with self.subTest(demo=demo.name):
@@ -310,16 +319,69 @@ class DeployTests(unittest.TestCase):
                 raise RuntimeError("second identity is not configured")
             return ""
 
+        for folder in (
+            "21-permission-aware-retrieval", "31-native-agent-memory", "32-browser-runbook",
+        ):
+            commands.clear()
+            with (
+                self.subTest(folder=folder),
+                patch("deploy.discover", return_value=[Path(folder)]),
+                patch("deploy.run", side_effect=fake_run),
+                redirect_stdout(io.StringIO()),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "second identity"):
+                    deploy.main(["--principal-id", "presenter", "--demo", folder.split("-")[0]])
+            self.assertTrue(any(command[-2:] == ["demo.py", "--preflight"] for command in commands))
+            self.assertFalse(any(command[:2] == ["az", "group"] for command in commands))
+            self.assertFalse(any(command[:2] == ["az", "provider"] for command in commands))
+
+    def test_unsupported_lab_region_fails_before_resource_changes(self) -> None:
+        commands = []
+
+        def fake_run(command, **kwargs):
+            commands.append(command)
+            if command[:3] == ["az", "account", "show"]:
+                return json.dumps({"id": "sub", "name": "test", "user": {"type": "user"}})
+            if command[:3] == ["az", "bicep", "build"]:
+                return json.dumps({
+                    "parameters": {"location": {"allowedValues": ["eastus"]}},
+                    "resources": [{"type": "Microsoft.CognitiveServices/accounts"}],
+                })
+            return ""
+
         with (
-            patch("deploy.discover", return_value=[Path("21-permission-aware-retrieval")]),
+            patch("deploy.discover", return_value=[Path("32-browser-runbook")]),
+            patch("deploy.run", side_effect=fake_run),
+            redirect_stdout(io.StringIO()),
+            patch("sys.stderr", new_callable=io.StringIO) as errors,
+        ):
+            with self.assertRaises(SystemExit) as raised:
+                deploy.main(["--principal-id", "presenter", "--demo", "32"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("does not support --location 'eastus2'", errors.getvalue())
+        self.assertFalse(any(command[:2] in (["az", "group"], ["az", "provider"]) for command in commands))
+
+    def test_supported_browser_region_reaches_configuration_preflight(self) -> None:
+        commands = []
+
+        def fake_run(command, **kwargs):
+            commands.append(command)
+            if command[:3] == ["az", "account", "show"]:
+                return json.dumps({"id": "sub", "name": "test", "user": {"type": "user"}})
+            if command[:3] == ["az", "bicep", "build"]:
+                return json.dumps({"parameters": {"location": {"allowedValues": ["eastus"]}}})
+            if command[-2:] == ["demo.py", "--preflight"]:
+                raise RuntimeError("reached configuration preflight")
+            return ""
+
+        with (
+            patch("deploy.discover", return_value=[Path("32-browser-runbook")]),
             patch("deploy.run", side_effect=fake_run),
             redirect_stdout(io.StringIO()),
         ):
-            with self.assertRaisesRegex(RuntimeError, "second identity"):
-                deploy.main(["--principal-id", "presenter", "--demo", "21"])
-        self.assertTrue(any(command[-2:] == ["demo.py", "--preflight"] for command in commands))
-        self.assertFalse(any(command[:2] == ["az", "group"] for command in commands))
-        self.assertFalse(any(command[:2] == ["az", "provider"] for command in commands))
+            with self.assertRaisesRegex(RuntimeError, "reached configuration preflight"):
+                deploy.main(["--principal-id", "presenter", "--demo", "32", "--location", "eastus"])
+        self.assertFalse(any(command[:2] in (["az", "group"], ["az", "provider"]) for command in commands))
 
     def test_content_safety_output_mapping(self) -> None:
         outputs = {"endpoint": {"value": "https://model.example/"},

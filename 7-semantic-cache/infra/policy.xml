@@ -1,0 +1,35 @@
+<policies>
+  <inbound>
+    <base />
+    <validate-azure-ad-token tenant-id="__TENANT_ID__" header-name="Authorization" failed-validation-httpcode="401" output-token-variable-name="caller">
+      <audiences>
+        <audience>https://cognitiveservices.azure.com</audience>
+      </audiences>
+      <required-claims>
+        <claim name="oid" match="all">
+          <value>__PRINCIPAL_ID__</value>
+        </claim>
+      </required-claims>
+    </validate-azure-ad-token>
+    <llm-semantic-cache-lookup score-threshold="__SCORE_THRESHOLD__" embeddings-backend-id="workshop-embeddings" embeddings-backend-auth="system-assigned" ignore-system-messages="false" max-message-count="1">
+      <vary-by>__TENANT_ID__:__PRINCIPAL_ID__:__CHAT_DEPLOYMENT__:v1</vary-by>
+      <vary-by>@(context.Request.Headers.GetValueOrDefault("x-workshop-cache-session", "shared"))</vary-by>
+    </llm-semantic-cache-lookup>
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com/" />
+    <set-header name="x-workshop-cache-session" exists-action="delete" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <choose>
+      <when condition='@(context.Response.StatusCode == 200 &amp;&amp; (string)context.Response.Body.As&lt;JObject&gt;(preserveContent: true)["choices"]?[0]?["finish_reason"] == "stop" &amp;&amp; !String.IsNullOrWhiteSpace((string)context.Response.Body.As&lt;JObject&gt;(preserveContent: true)["choices"]?[0]?["message"]?["content"]))'>
+        <llm-semantic-cache-store duration="__CACHE_DURATION__" />
+      </when>
+    </choose>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

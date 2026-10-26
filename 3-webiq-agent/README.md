@@ -1,7 +1,9 @@
 # Microsoft Foundry - Simple WebIQ Agent
 
-A 3-minute terminal demo: a Foundry prompt agent searches the public web,
+A short terminal comparison: a Foundry prompt agent searches the public web,
 answers a question about model router, and prints **source titles and URLs**.
+The script then runs the same model, instructions, and prompt **without the
+Web Search tool**, displaying the answer and zero search calls/citations.
 Here, the workshop label "WebIQ" means Foundry's built-in **Web Search** tool;
 it is not a separate WebIQ product or a private enterprise search integration.
 
@@ -9,8 +11,10 @@ it is not a separate WebIQ product or a private enterprise search integration.
 
 Bicep creates a Foundry account, project, `gpt-5-mini` Global Standard deployment
 (`2025-08-07`), and a Foundry User role for the presenter. The Python script
-creates a temporary server-side prompt-agent version with `WebSearchTool`,
-invokes it, and deletes that version in `finally`, even on inference failure.
+creates and invokes a temporary server-side prompt-agent version with
+`WebSearchTool`, then repeats with an otherwise identical definition using
+`tools=[]`. Each version is deleted in `finally`, even on inference failure,
+before the next version is created. A failure stops the comparison.
 No separate Bing resource, connection, or API key is required for this path.
 The template serializes model and project creation to avoid Azure `RequestConflict`
 from concurrent writes to the same account.
@@ -20,7 +24,8 @@ and permissions to create resources and assign roles. Your organization must
 permit Web Search; access policies can disable it independently of deployment.
 Contributor alone cannot assign roles.
 
-**Costs and data:** model requests and web search incur charges. Web Search uses
+**Costs and data:** each full comparison makes two model requests, with web
+search enabled only in the first. Model requests and web search incur charges. Web Search uses
 Grounding with Bing, whose terms apply; data can leave Azure compliance and
 geographic boundaries, and the Microsoft DPA does not apply to that data.
 Use only public, non-sensitive questions. Public endpoints and Global Standard
@@ -76,12 +81,26 @@ The [root runner](../README.md) deploys and executes all four demos.
 
 1. Show that the agent definition contains `WebSearchTool()` and that the request
    sets `tool_choice="required"`.
-2. Run the example. Point out the actual web-search call count and source URLs.
-3. Explain that citations provide provenance, not a guarantee of truth. Visit
+2. Run the example. Under **WITH WebSearchTool()**, point out the actual
+   web-search call count and structured source citations.
+3. Under **WITHOUT WebSearchTool()**, show the otherwise identical definition
+   with `tools=[]`. This request uses `tool_choice="none"` because requiring a
+   tool when none exists would test an invalid configuration rather than model
+   behavior. No previous response or conversation is passed between requests,
+   so the second run does not receive the first answer or its search results.
+4. Point out the zero search calls and structured citations. The model may
+   answer from prior knowledge or explain that it cannot browse. It may also
+   print plausible URLs; those are not evidence of retrieval. Asking for a
+   search in instructions does not grant the ability to search.
+5. Explain that citations provide provenance, not a guarantee of truth. Visit
    the source and verify important claims; search results and wording can change.
+   This comparison demonstrates retrieval, not that the no-tool answer must be
+   wrong or that the two answers must differ in their factual claims.
 
-The script rejects responses without completed searches, text, and URL citations.
-It never substitutes a made-up grounded answer.
+The with-tool run requires completed searches, text, and URL citations. The
+no-tool run requires completed text and rejects unexpected web-search calls or
+structured URL citations. It explicitly labels its answer as not web-retrieved.
+Neither run substitutes a made-up answer on failure.
 
 ## Validate and troubleshoot
 
@@ -99,7 +118,7 @@ and structured URL-citation count before validation, including on failure.
 non-sensitive prompts with this flag; captured output may contain response text
 and source data. Raw JSON is not printed by default.
 
-If grounding validation fails:
+If grounding validation fails in the with-tool run:
 
 - **Citations but no search-call output:** inspect the Foundry agent trace and raw
   response for how this API surfaces tool execution. Do not assume the model did
@@ -111,9 +130,10 @@ If grounding validation fails:
   time-sensitive question, such as the latest Microsoft Foundry announcement and
   its publication date, explicitly requesting sources.
 
-These diagnostics do not relax the checks: completed search calls, nonempty answer
-text, and structured citations are still required. Failed or unfinished searches
-report their statuses and fail explicitly.
+These diagnostics do not relax the with-tool checks: completed search calls,
+nonempty answer text, and structured citations are still required. Failed or
+unfinished searches report their statuses and fail explicitly. Missing search
+calls and citations are expected only for the no-tool run.
 
 For 403, check RBAC propagation and organizational Web Search policy. For 404,
 use the Bicep **projectEndpoint** and correct deployment name. For 429 or deployment
@@ -121,6 +141,9 @@ failure, check model quota and region. If cleanup fails, the error remains visib
 remove the named agent version in Foundry or delete the dedicated group.
 
 ## Live verification (2026-10-26)
+
+The results below describe the original with-tool-only demo. The new two-run
+comparison needs a separate live smoke test; offline tests mock both responses.
 
 Redeployed in East US 2 under `rg-foundry-webiq-agent-live-20261026` using
 `gpt-5-mini`. The first deployment reproduced `RequestConflict`; serializing the
@@ -143,7 +166,7 @@ Its state is recorded for the existing `cleanup.py` helper.
 
 ## Cleanup
 
-The agent version is deleted automatically; the account/project/model remain:
+Both temporary agent versions are deleted automatically; the account/project/model remain:
 
 ```bash
 az group delete --name "$RESOURCE_GROUP" --yes

@@ -24,6 +24,10 @@ configurable, consumes model quota, and does not guarantee absence of throttling
 The script reports HTTP 429 and honors `retry-after-ms` or numeric `Retry-After`
 for at most two retries per ticket, with a maximum 65-second delay per retry.
 Missing or excessive retry delays and exhausted retries fail explicitly.
+The same three-attempt budget also covers the specific HTTP 404
+`ResourceNotFound` message `Subdomain does not map to a resource.`, with waits
+of 1 and 2 seconds. Other 404 responses are not retried. Failures include the
+deployment name, service response, and Azure request ID when available.
 
 Run from this folder:
 
@@ -87,7 +91,12 @@ az group delete --name "$RESOURCE_GROUP" --yes
 
 Tests are offline. Live inference is billed and model/region availability can
 change. Allow time for RBAC propagation after a 403; check the model deployment
-and endpoint after a 404. HTTP errors and malformed decisions fail explicitly.
+and endpoint after a 404. On 2026-10-26, identical requests to the verified
+Decision endpoint returned the subdomain-mapping 404 followed by three HTTP 200
+responses without configuration changes. Correct exports therefore do not rule
+out intermittent service-side routing failures. If this persists beyond the
+bounded retries, retain the request ID and timestamp for Azure support rather
+than repeatedly redeploying. HTTP errors and malformed decisions fail explicitly.
 Use only non-sensitive tickets; don't use the model as the sole decision-maker
 for consequential decisions about people.
 

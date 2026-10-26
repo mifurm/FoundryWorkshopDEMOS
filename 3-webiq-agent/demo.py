@@ -1,4 +1,4 @@
-"""Ask a Foundry prompt agent to search the web and display its source citations."""
+"""Compare a Foundry prompt agent with and without the Web Search tool."""
 
 import argparse
 import os
@@ -17,7 +17,9 @@ DEFAULT_PROMPT = (
 )
 
 
-def show_response(response: Response, *, debug_response: bool = False) -> None:
+def show_response(
+    response: Response, *, expect_web_search: bool = True, debug_response: bool = False,
+) -> None:
     searches = [item for item in response.output if item.type == "web_search_call"]
     citations = [
         annotation
@@ -37,6 +39,19 @@ def show_response(response: Response, *, debug_response: bool = False) -> None:
         print(f"\nRaw response JSON:\n{response.model_dump_json(indent=2)}", flush=True)
     if response.status != "completed" or not response.output_text.strip():
         raise RuntimeError(f"Agent did not complete with text: {response.status}; {response.error}")
+    if not expect_web_search:
+        if searches or citations:
+            raise RuntimeError(
+                "The no-tool agent unexpectedly returned web-search calls or URL citations. "
+                "Inspect the response diagnostics and agent configuration."
+            )
+        print(
+            f"\n{response.output_text}\n\n"
+            "No Web Search tool: this run did not retrieve web sources. "
+            "Any plain-text URLs are not verified search citations.",
+            flush=True,
+        )
+        return
     if not searches or not citations:
         missing = []
         if not searches:
@@ -76,24 +91,44 @@ def main(argv: Sequence[str] | None = None) -> None:
         AzureCliCredential() as credential,
         AIProjectClient(endpoint=args.project_endpoint, credential=credential) as project,
     ):
-        agent = project.agents.create_version(
-            agent_name=f"webiq-demo-{uuid4().hex[:8]}",
-            definition=PromptAgentDefinition(
-                model=args.deployment,
-                instructions="Search the public web before answering. Be concise and cite sources.",
-                tools=[WebSearchTool()],
-            ),
+        agent_name = f"webiq-demo-{uuid4().hex[:8]}"
+        instructions = "Search the public web before answering. Be concise and cite sources."
+        for expect_web_search, definition in (
+            (True, PromptAgentDefinition(
+                model=args.deployment, instructions=instructions, tools=[WebSearchTool()],
+            )),
+            (False, PromptAgentDefinition(
+                model=args.deployment, instructions=instructions, tools=[],
+            )),
+        ):
+            label = "WITH WebSearchTool()" if expect_web_search else "WITHOUT WebSearchTool()"
+            print(f"\n=== {label} ===", flush=True)
+            agent = project.agents.create_version(
+                agent_name=agent_name, definition=definition,
+            )
+            print(f"Temporary Foundry agent: {agent.name} / {agent.version}", flush=True)
+            try:
+                with project.get_openai_client(agent_name=agent.name) as client:
+                    response = client.responses.create(
+                        input=args.prompt,
+                        tool_choice="required" if expect_web_search else "none",
+                        timeout=120.0,
+                    )
+                    show_response(
+                        response, expect_web_search=expect_web_search,
+                        debug_response=args.debug_response,
+                    )
+            finally:
+                project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
+                print("Temporary agent version deleted.")
+        print(
+            "\nComparison: the same model, instructions, and prompt were used in independent requests. "
+            "With the tool, the answer has completed searches and structured citations. "
+            "Without it, instructions alone cannot enable browsing: the model may answer from "
+            "prior knowledge or explain that it cannot search. "
+            "This comparison demonstrates source retrieval, not which answer is more accurate.",
+            flush=True,
         )
-        print(f"Temporary Foundry agent: {agent.name} / {agent.version}", flush=True)
-        try:
-            with project.get_openai_client(agent_name=agent.name) as client:
-                response = client.responses.create(
-                    input=args.prompt, tool_choice="required", timeout=120.0,
-                )
-                show_response(response, debug_response=args.debug_response)
-        finally:
-            project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
-            print("Temporary agent version deleted.")
 
 
 if __name__ == "__main__":

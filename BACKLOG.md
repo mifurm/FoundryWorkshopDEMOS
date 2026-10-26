@@ -243,24 +243,29 @@ custom classifier, image moderation, production policy, or UI.
 
 ### Goal
 
-As a presenter, I can show Foundry embeddings enabling reuse of model answers
-for semantically similar prompts without deploying a cache server.
+As a presenter, I can show centralized semantic caching in the APIM AI gateway:
+policies use Foundry embeddings to check and store responses in Azure Managed
+Redis, without application-side caching logic.
 
 ### Acceptance criteria
 
-- [x] Standalone keyless Bicep creates generation and embedding deployments/RBAC.
-- [x] Cache locally by cosine similarity rather than exact prompt equality.
-- [x] Display actual HIT/MISS, similarity, latency, and inference request counts.
-- [x] Tests prove inclusive threshold hits skip generation and unrelated prompts miss.
-- [x] Reject invalid vectors, invalid thresholds, and incomplete model answers.
-- [x] Document application-side scope, cache isolation limitations, charges/cleanup.
-- [x] Compile/lint Bicep and pass local tests; wire embedding output into the runner.
-- [ ] Deploy and observe real embedding similarities and generation savings.
+- [x] Bicep creates APIM Consumption and Managed Redis Balanced B0 without HA.
+- [x] Enable RediSearch, Enterprise clustering, NoEviction, and TLS Redis access.
+- [x] Configure semantic lookup/store policies with an embeddings backend and TTL.
+- [x] Authenticate the presenter before lookup and use APIM managed identity for Foundry.
+- [x] Route every chat request through APIM; no application cache or embedding calls.
+- [x] Display response IDs, observed reuse, and latency without invented cache metrics.
+- [x] Test request routing, response validation, policy ordering, and cost defaults.
+- [x] Document gateway tracing, distance threshold, isolation, costs, and cleanup.
+- [x] Compile/lint Bicep and pass local tests; preserve shared-runner output mapping.
+- [ ] Deploy the new gateway/Redis stack and confirm real semantic hits in APIM traces.
 
 ### Scope
 
-An in-memory, per-process cache over public workshop questions. No Redis, API
-Management, persistence, native cache toggle, cross-user reuse, or speed guarantees.
+Centralized Redis-backed gateway caching over public, single-turn workshop
+questions. APIM Consumption minimizes gateway cost; Redis B0 without HA is for
+development/test only. No production isolation, native Foundry cache toggle,
+provider prompt caching, or latency guarantee.
 
 ## F008 - Microsoft Foundry: Agent Evaluation
 
@@ -1120,3 +1125,158 @@ are provided. Resources remain deployed and billable; ignored evidence is in
 A synthetic text-only support corpus with shared project access. No real support
 records, official Surface repair advice, production ACL configuration, Copilot
 Studio deployment, or guarantee about subquery counts or model factuality.
+
+## F028 - Microsoft Foundry: Agent Using a Reusable Skill
+
+**Type:** Feature
+
+**Status:** Implemented; live Azure deployment and Skills API smoke test pending
+
+**Demo:** [Agent skills](./28-agent-skills/README.md)
+
+### Goal
+
+As a presenter, I can store a reusable workshop procedure centrally in Foundry,
+pin its version, and show the effect of its instructions on a Foundry agent.
+
+### Acceptance criteria
+
+- [x] Provide standalone Bicep for Foundry, project, model, and presenter RBAC.
+- [x] Include a reusable skill with discovery metadata and an exact output contract.
+- [x] Upload a uniquely named skill and download its immutable version.
+- [x] Verify downloaded content before explicitly injecting it into an agent.
+- [x] Compare independent requests with and without the skill using the same input/model.
+- [x] Validate the skill-enabled answer and expose incomplete/service failures.
+- [x] Clean up temporary agent versions and the skill on success or failure.
+- [x] Document preview support, direct-injection scope, costs, deployment, and cleanup.
+- [x] Pass 13 focused offline tests, 32 root runner tests, syntax checks, and Bicep build/lint.
+- [ ] Deploy and verify real skill upload/download, both agent responses, and deletion.
+
+### Scope
+
+Application-managed direct injection of a version-pinned `SKILL.md` into a
+temporary Foundry prompt agent. No autonomous skill discovery, Toolbox/MCP,
+script execution, or hosted-container deployment. Offline tests and Bicep
+compilation do not establish live preview access.
+
+## F029 - Microsoft Foundry: Toolbox Skill Discovery
+
+**Type:** Feature
+**Status:** Implemented; offline validation only, live preview smoke test pending
+**Demo:** [Toolbox skill discovery](./29-toolbox-skill-discovery/README.md)
+
+### Goal
+
+Discover three version-pinned skills over the native Toolbox MCP endpoint, let
+the model choose a relevant skill, and load only that instruction body.
+
+### Acceptance criteria
+
+- [x] Standalone Bicep, Entra authentication, dependencies, tests and instructions.
+- [x] Upload three skills and attach immutable references to a temporary Toolbox.
+- [x] Discover metadata without loading bodies; require relevant skill and on-demand reference reads.
+- [x] Validate all three independent output contracts and bounded error paths.
+- [x] Delete owned Toolbox/skills after success, partial creation, or failure.
+- [ ] Verify real MCP discovery and model behavior against Azure.
+
+### Scope
+
+Local Python read-only provider with Foundry inference and native MCP resources.
+Instructions and a bundled checklist reference; no hosted containers or scripts.
+
+## F030 - Microsoft Foundry: Skill-powered Data Analyst
+
+**Type:** Feature
+**Status:** Implemented; offline validation only, live smoke test pending
+**Demo:** [Skill-powered analyst](./30-skill-data-analyst/README.md)
+
+### Goal
+
+Use a version-pinned procedure and native Code Interpreter to analyze synthetic
+workshop data and produce verifiable downloadable artifacts.
+
+### Acceptance criteria
+
+- [x] Standalone infrastructure, authenticated demo, tests and instructions.
+- [x] Require actual managed execution and generated-file evidence.
+- [x] Download report/chart and verify fixed report ground truth and artifact shape.
+- [x] Surface failures and clean up temporary service objects.
+- [ ] Verify managed execution and artifact downloads against Azure.
+
+### Scope
+
+Skill instructions guide native sandbox execution; no local analysis fallback,
+production data, or general statistical quality claims.
+
+## F031 - Microsoft Foundry: Native Agent Memory
+
+**Type:** Feature
+**Status:** Implemented; offline validation only, live preview smoke test pending
+**Demo:** [Native agent memory](./31-native-agent-memory/README.md)
+
+### Goal
+
+Demonstrate real managed memory retrieval across independent conversations,
+scope isolation and forgetting without replaying local history.
+
+### Acceptance criteria
+
+- [x] Standalone infrastructure, authenticated demo, tests and instructions.
+- [x] Use real Foundry memory operations, not local persistent-state substitutes.
+- [x] Check fresh-conversation retrieval, distinct scopes, deletion and failures.
+- [x] Document scope ownership, identity boundaries and preview prerequisites.
+- [ ] Verify extraction, recall, isolation and deletion against Azure.
+
+### Scope
+
+Synthetic preferences only. Scope partitioning is distinct from authentication;
+the lab README defines the supported identity and authorization boundary.
+
+## F032 - Microsoft Foundry: Browser Runbook with Approval
+
+**Type:** Feature
+**Status:** Implemented; offline validation only, live browser smoke test pending
+**Demo:** [Browser runbook](./32-browser-runbook/README.md)
+
+### Goal
+
+Use a reusable procedure and managed remote browser to prepare a synthetic
+registration, with explicit approval before any submission.
+
+### Acceptance criteria
+
+- [x] Standalone infrastructure, authenticated demo, tests and instructions.
+- [x] Use remote Playwright Workspaces MCP, not a local browser substitute.
+- [x] Require browser evidence and exact-action approval before submission.
+- [x] Keep default execution non-approving; document controlled-site setup.
+- [ ] Verify remote browser state and approved submission against Azure.
+
+### Scope
+
+Controlled synthetic website and explicit browser prerequisites. No real
+registration, personal data, or automatic consequential-action approval.
+
+## F033 - Microsoft Foundry: Skill Release Governance
+
+**Type:** Feature
+**Status:** Implemented; offline validation only, live preview smoke test pending
+**Demo:** [Skill release governance](./33-skill-release-governance/README.md)
+
+### Goal
+
+Evaluate a skill candidate before default promotion, demonstrate pinned consumer
+isolation, and verify rollback without changing consumer code.
+
+### Acceptance criteria
+
+- [x] Standalone Bicep, Entra authentication, dependencies, tests and instructions.
+- [x] Create immutable versions and gate real answers on fixed factual expectations.
+- [x] Read back promotion and restore the original default in a finally block.
+- [x] Compare fresh default-resolving and pinned consumers before/after rollback.
+- [x] Reject an incorrect candidate without promotion and clean up after failures.
+- [ ] Verify promotion, pinning and rollback against Azure.
+
+### Scope
+
+Local deterministic gate and explicit snapshot injection into temporary Foundry
+prompt agents. No hot reload, hosted app deployment, or cloud evaluation claim.

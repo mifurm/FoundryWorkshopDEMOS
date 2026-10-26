@@ -7,7 +7,7 @@ Python versions), Azure CLI, Bicep (`az bicep version`), and an interactive
 Azure user with resource creation and role-assignment permissions. See each
 demo's prerequisites for model quota and access requirements.
 
-There are **27 standalone demos**. Prefer selecting a small subset rather than
+There are **33 standalone demos**. Prefer selecting a small subset rather than
 deploying every resource and running every paid operation at once:
 
 ```bash
@@ -18,7 +18,12 @@ python3 deploy.py --subscription "<subscription-id>" --demo 20 --demo 25
 
 `--demo` accepts a demo number or exact folder name and can be repeated. Selected
 demos run in numeric order; prerequisites for unselected demos are not required.
-Without `--demo`, the runner selects all 27.
+Without `--demo`, the runner selects all 33.
+Lab 32 requires a Browser Automation-supported region such as `eastus`, not the
+runner's `eastus2` default. The runner rejects unsupported template locations
+before any Azure resource changes. Present lab 32 separately using its manual
+connection setup instructions; selecting every lab with default settings now
+fails that regional check rather than partially provisioning the collection.
 
 Before running **all demos**, complete the tenant setup in
 [Entra Agent ID](./12-entra-agent-id/README.md). It requires separate tenant
@@ -27,11 +32,11 @@ roles/admin consent and sets `ENTRA_TENANT_ID`, `ENTRA_BLUEPRINT_CLIENT_ID`,
 same PowerShell session (change back to the repository root). The runner checks
 these prerequisites before any Azure changes and passes only the non-secret
 agent ID to Bicep. The blueprint secret is not a deployment parameter or output.
-Lab 21 additionally requires `AZURE_TENANT_ID` and `SECOND_AZURE_CONFIG_DIR`,
+Labs 21 and 31 additionally require `AZURE_TENANT_ID` and `SECOND_AZURE_CONFIG_DIR`,
 an isolated Azure CLI configuration authenticated as a different real user in
-the same tenant. The runner invokes that lab's `--preflight` after installing
+the same tenant. The runner invokes each selected lab's `--preflight` after installing
 its dependencies but before provider registration or resource creation. Its
-README documents the Graph checks and optional restricted-group setup.
+README documents the Graph checks; lab 21 also covers optional restricted-group setup.
 Labs 23 and 24 require their documented evaluation/publishing permissions and
 regional API support. Lab 23's workflow, protected environment, scoped managed
 identity, and GitHub OIDC are configured and live-verified in this repository;
@@ -75,8 +80,9 @@ Lab 24 also sets both tags under `properties.tags` when creating or updating its
 Agent Applications and managed agent deployments at runtime.
 
 Azure does not support resource tags on role assignments, federated identity
-credentials, individual Function definitions, Blob services, or Blob containers
-used by these templates. Entra directory objects and data-plane objects are not
+credentials, individual Function definitions, Blob services, Blob containers,
+and Blob lifecycle management policies used by these templates. Entra directory
+objects and data-plane objects are not
 ARM-tagged resources. These objects are excluded; their taggable parent resources
 receive both tags.
 
@@ -167,7 +173,7 @@ Lab 27 additionally uses `searchResourceId`, `storageEndpoint`, and
 - [Agent with Simple Tools: Azure Function through Foundry Toolbox](./4-agent-tools/README.md)
 - [Microsoft Decision Model: typed support-ticket routing](./5-decision-model/README.md)
 - [Content Safety: category severity and a simple policy gate](./6-content-safety/README.md)
-- [Semantic caching: Foundry embeddings and a local answer cache](./7-semantic-cache/README.md)
+- [Semantic caching: APIM Consumption AI gateway and Azure Managed Redis](./7-semantic-cache/README.md)
 - [Agent evaluation: Foundry cloud coherence evaluation](./8-agent-evaluation/README.md)
 - [Agent red teaming: a small managed baseline scan](./9-agent-red-teaming/README.md)
 - [Fine-tuning: a one-epoch supervised training job](./10-fine-tuning/README.md)
@@ -188,6 +194,12 @@ Lab 27 additionally uses `searchResourceId`, `storageEndpoint`, and
 - [Resilience, quotas, deadlines, and cost controls](./25-resilience-cost/README.md)
 - [Multimodal extraction with synthetic images and uncertainty](./26-multimodal/README.md)
 - [Foundry IQ with Blob knowledge sources and a persistent new-portal agent](./27-FoundryIQwithKB/README.md)
+- [Agent skills: version-pinned workshop instructions from Foundry](./28-agent-skills/README.md)
+- [Toolbox skill discovery and progressive disclosure](./29-toolbox-skill-discovery/README.md)
+- [Skill-powered Code Interpreter analysis and verified artifacts](./30-skill-data-analyst/README.md)
+- [Native Foundry memory across independent conversations](./31-native-agent-memory/README.md)
+- [Browser runbook automation with explicit approval](./32-browser-runbook/README.md)
+- [Skill evaluation, default promotion, pinned consumers, and rollback](./33-skill-release-governance/README.md)
 - [Backlog](./BACKLOG.md)
 
 Each demo has standalone Bicep, local Python code, dependencies, tests, and manual
@@ -203,6 +215,28 @@ Basic Azure AI Search, which has ongoing charges while deployed. The Entra demo
 uses a one-day local-development blueprint secret; production should use
 managed identity federation/certificates. All included example data is
 synthetic/non-sensitive.
+
+Lab 28 requires the preview Foundry Skills API. Its local harness downloads a
+pinned skill version and explicitly injects it into a Foundry prompt agent;
+it does not deploy a custom hosted application or use automatic skill discovery.
+
+Labs 29-33 extend that introduction with Toolbox/MCP discovery, native Code
+Interpreter, managed memory, remote browser automation, and independent skill
+release governance. Skills are reusable instructions, not executable tools:
+the execution and persistence capabilities come from the respective Foundry tools.
+Lab 31 uses the low-level native Memory Store API with explicit injection of
+search results into fresh prompt-agent conversations, not an attached auto-writing
+memory tool. The Python orchestration/providers still run locally; these labs do not silently
+claim hosted-container deployment. Read lab 31's scope/identity requirements and
+lab 32's remote-browser/controlled-site setup before selecting them. Browser
+submission requires explicit approval and is not enabled by the all-demo runner.
+Lab 32's configuration-only preflight requires
+`BROWSER_AUTOMATION_CONNECTION_NAME` or `BROWSER_AUTOMATION_PROJECT_CONNECTION_ID`.
+Provision its infrastructure and create the manual project-managed-identity
+Browser Automation connection before the live step; the runner does not create
+that connection. Use `--demo 32 --location eastus` after that setup.
+Skills/discovery and memory have preview dependencies; offline tests do not
+establish regional API availability. These five labs have not been live-deployed.
 
 Demos 1-7 are intended for short terminal presentations. Managed evaluation and
 red teaming can take several minutes; submit fine-tuning ahead of time and show
