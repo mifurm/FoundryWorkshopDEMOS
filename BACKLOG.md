@@ -403,3 +403,498 @@ Group Chat, and Magentic orchestration using Microsoft Agent Framework and Found
 Local orchestration with Foundry inference, one deployment shared by all four
 samples. No tools, web research, hosted workflows, database, or UI.
 Manager decisions are model-driven and not guaranteed to follow a fixed order.
+
+## F014 - Microsoft Foundry: Project and Deployment Fundamentals
+
+**Type:** Feature
+
+**Status:** Partially live-tested on 2026-10-25; intended 403 blocked by inherited rights
+
+**Demo:** [Foundry fundamentals](./14-foundry-fundamentals/README.md)
+
+### Goal
+
+As a student, I can explain account/project/model deployment relationships,
+authenticate without keys, and obtain my first streamed model response.
+
+### Acceptance criteria
+
+- [x] Provide standalone Bicep, local Python, dependencies, offline tests, and instructions.
+- [x] Distinguish project endpoints, inference endpoints, model IDs, and deployment names.
+- [x] Stream a real response and display actual usage when supplied by the service.
+- [x] Demonstrate explicit wrong-deployment and missing-permission errors safely.
+- [x] Document quota, RBAC propagation, costs, deployment, and cleanup.
+- [x] Deploy and verify real streaming, usage, and wrong-deployment HTTP 404.
+- [ ] Verify the intended HTTP 403 with an identity without inherited inference rights.
+
+### Live verification
+
+East US 2 deployment, real inference, streaming/usage, and wrong-deployment 404
+all succeeded. The signed-in presenter inherits subscription-level Foundry Owner,
+so the deliberately unassigned account is still accessible. The full negative
+probe correctly exits nonzero instead of manufacturing a permission failure.
+An appropriately restricted test identity is needed to complete that branch;
+no inherited roles were removed. Evidence for labs 14/15/16/26 is retained in
+`14-foundry-fundamentals/.azure/live-validation-summary.json`.
+
+### Scope
+
+One small model-backed tutor. No UI or API-key authentication. Error demonstrations
+must not silently fall back to another deployment or identity.
+
+## F015 - Microsoft Foundry: Repeatable Model Benchmark
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Model benchmark](./15-model-benchmark/README.md)
+
+### Goal
+
+As a student, I can compare two models and Model Router on the same labeled tasks
+and justify a quality/latency/cost trade-off.
+
+### Acceptance criteria
+
+- [x] Provide standalone model deployment Bicep and a repeatable synthetic dataset.
+- [x] Use consistent prompts/scoring and display per-item failures and serving model evidence.
+- [x] Compare accuracy, schema compliance, repeated-call latency, token usage, and estimated cost.
+- [x] State pricing assumptions and limitations of a tiny benchmark explicitly.
+- [x] Include offline scoring tests, setup, prerequisites, and cleanup.
+- [x] Run all three deployment paths and inspect actual benchmark results.
+
+### Live verification
+
+Ran 54 actual model calls in East US 2. Mini/full/router task accuracy was
+83.3%/83.3%/50%, respectively. Genuine schema and truncation failures remain
+visible and count against the benchmark; a successful experiment does not mean
+every model answer passed. Request pacing was verified for the observed 10-RPM
+limit. Resources remain deployed. Evidence is retained in
+`14-foundry-fundamentals/.azure/live-validation-summary.json`.
+
+### Scope
+
+A small instructional benchmark, not a statistically representative production
+model ranking or a guarantee of router choices.
+
+## F016 - Microsoft Foundry: Prompt Design and Structured Outputs
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Structured outputs](./16-structured-outputs/README.md)
+
+### Goal
+
+As a student, I can compare prompt strategies and consume schema-validated model
+output without confusing structural validity with factual correctness.
+
+### Acceptance criteria
+
+- [x] Compare free-form instructions, few-shot examples, and supported strict JSON Schema.
+- [x] Extract category, priority, and summary from synthetic support tickets.
+- [x] Validate structure separately from labeled field correctness.
+- [x] Handle missing information, refusal, and incomplete output explicitly.
+- [x] Include Bicep, Python, offline tests, costs, prerequisites, and cleanup.
+- [x] Verify the supported model's live responses for each prompting strategy.
+
+### Live verification
+
+All 12 real prompt-strategy comparisons were correct in East US 2. Additional
+live probes observed actual `length` truncation and HTTP 400 `content_filter`;
+service-side filtering is labeled separately from an assistant-message refusal.
+Probe false-success handling was corrected without claiming a refused/truncated
+response was a valid answer. Evidence is retained in
+`14-foundry-fundamentals/.azure/live-validation-summary.json`.
+
+### Scope
+
+One extraction task and one model deployment. No training job or production
+accuracy claim; simulated failure tests are distinguished from live observations.
+
+## F017 - Microsoft Foundry: RAG Fundamentals
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [RAG fundamentals](./17-rag-fundamentals/README.md)
+
+### Goal
+
+As a student, I can follow ingestion, chunking, embeddings, retrieval, and cited
+generation before using a managed knowledge abstraction.
+
+### Acceptance criteria
+
+- [x] Deploy Foundry inference/embeddings and Azure AI Search with keyless access.
+- [x] Index a synthetic corpus and compare keyword, vector, and hybrid retrieval.
+- [x] Compare a chunking change on fixed questions and inspect retrieved evidence.
+- [x] Generate cited answers and explicitly abstain when evidence is insufficient.
+- [x] Include meaningful offline tests and setup/run/cost/cleanup guidance.
+- [x] Verify indexing, retrieval comparisons, and grounded generation against Azure.
+
+### Live verification
+
+East US 2 Search provisioning returned `InsufficientResourcesAvailable`.
+The documented `searchLocation=westus2` alternative succeeded, keeping Foundry
+in East US 2 in `rg-foundry-rag-fundamentals-demo`. Tested 24 real retrieval/
+generation cases across keyword/vector/hybrid search and two chunk sizes
+(11 versus 3 chunks): 18 validated cited answers and six abstentions.
+Recall@3 was 1 throughout; MRR was 0.833 for 12-word keyword chunks and 1 for
+the remaining configurations. Six offline tests pass. Actual errors, commands,
+and outcomes are retained in `17-rag-fundamentals/.azure/live-result.json`.
+
+### Scope
+
+A tiny application-managed RAG pipeline. Search has ongoing provisioning charges;
+this is not a replacement implementation of managed Foundry IQ.
+
+## F018 - Microsoft Foundry: Agent Tracing
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Agent tracing](./18-agent-tracing/README.md)
+
+### Goal
+
+As a student, I can diagnose agent latency and failures using correlated model
+and tool spans rather than inspecting only the final answer.
+
+### Acceptance criteria
+
+- [x] Provide Foundry and monitoring infrastructure plus supported OpenTelemetry wiring.
+- [x] Capture correlated model/tool spans, status, durations, and available usage.
+- [x] Introduce controlled slow and failed synthetic tool calls.
+- [x] Print trace correlation evidence and explain inspection in monitoring tools.
+- [x] Avoid sensitive prompt/token logging and include offline tests and cleanup.
+- [x] Verify exported spans and diagnose the slow/failing operations in Azure.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-agent-tracing-demo`. Queried nine actually
+ingested correlated spans, including a 2005-ms slow tool and a failed tool's
+failure flag and safe error label. Fixed exporter-provider wiring and preserved
+`workshop.error_type` because the exporter discarded reserved `error.type`.
+Three offline tests pass. Full trace IDs and ingestion evidence are retained in
+`18-agent-tracing/.azure/live-testing-summary.json`.
+
+### Scope
+
+A small locally executed instrumented agent, not a production observability stack.
+Exporter submission alone is not proof of ingestion or dashboard visibility.
+
+## F019 - Microsoft Foundry: Conversation State and Context
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Conversation state](./19-conversation-state/README.md)
+
+### Goal
+
+As a student, I can resume an isolated multi-turn conversation and explain how
+explicit context management differs from model knowledge and durable memory.
+
+### Acceptance criteria
+
+- [x] Persist and resume model-backed conversation state using an explicit mechanism.
+- [x] Isolate two sessions/users and demonstrate reset/deletion.
+- [x] Bound growing history and make information loss visible.
+- [x] Document the local trust boundary and limitations of the history budget.
+- [x] Include Bicep, offline state tests, prerequisites, costs, and cleanup.
+- [x] Verify multi-turn behavior, persistence, and context-management effects live.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-conversation-state-demo`. Eighteen real
+model calls exercised the default scenario and separate-process CLI persistence,
+session isolation, bounded-history truncation, reset, and deletion. Five offline
+tests pass. Evidence is retained in
+`19-conversation-state/.azure/live-result.json`; resources remain deployed.
+
+### Scope
+
+Small synthetic tutor sessions with application-managed state, not a production
+multi-tenant memory service or a claim that user labels authenticate callers.
+
+## F020 - Microsoft Foundry: Human-Approved Tool Actions
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Human approval](./20-human-approval/README.md)
+
+### Goal
+
+As a student, I can enforce exact-action approval outside the model before a
+synthetic booking changes application state.
+
+### Acceptance criteria
+
+- [x] Use a real model function call to propose, never automatically execute, a booking.
+- [x] Validate operation, attendee policy, authenticated actor, and exact-action digest.
+- [x] Require explicit approval/rejection and expire pending proposals.
+- [x] Bind execution to immutable reviewed arguments and prevent duplicate replay.
+- [x] Test approval, rejection, wrong actor, mutation, expiry, and idempotency.
+- [x] Include standalone Bicep, dependencies, deployment, limitations, and cleanup.
+- [x] Generate and approve/reject proposals with an actual Entra-authenticated user.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-human-approval-demo`. Verified real model
+proposals, explicit rejection and approval, duplicate replay, wrong-digest
+rejection, and changed-payload rejection. Exactly one synthetic booking was
+created across the approval-path test. Fixed an observed Foundry response
+compatibility issue: a complete tool call can have finish reason `stop`.
+Seven offline tests pass, including this regression. Evidence is retained in
+`20-human-approval/.azure/live-approval-paths.log`; resources remain deployed.
+
+### Scope
+
+Local SQLite synthetic bookings only; no payments or real reservations. The
+local OS/database are trusted, and a digest is not an administrator-proof signature.
+
+## F021 - Microsoft Foundry: Permission-Aware Retrieval
+
+**Type:** Feature
+
+**Status:** Live testing blocked on 2026-10-25: second authenticated identity missing
+
+**Demo:** [Permission-aware retrieval](./21-permission-aware-retrieval/README.md)
+
+### Goal
+
+As a student, I can show that authenticated callers with different permissions
+retrieve different evidence, without asking the model to enforce access.
+
+### Acceptance criteria
+
+- [x] Index synthetic public/restricted documents with explicit access metadata.
+- [x] Derive trusted filtering from authenticated identity rather than prompt-supplied claims.
+- [x] Support two genuinely authenticated test identities with documented setup.
+- [x] Verify unauthorized content is excluded from passages, answers, and citations.
+- [x] Test filter enforcement and document cache isolation requirements.
+- [x] Include infrastructure, costs, tenant prerequisites, and cleanup.
+- [ ] Provision the authorized identities and verify both access paths live.
+
+### Live verification attempt
+
+Ran the actual preflight with the selected subscription's tenant. It exited 2
+because `SECOND_AZURE_CONFIG_DIR` is missing. A separate Azure CLI configuration
+must be authenticated as a different real user in that tenant; no identities
+were invented and no tenant consent or identity provisioning was performed.
+Ten offline tests pass, but they do not prove live permission isolation.
+Evidence is retained in
+`21-permission-aware-retrieval/.azure/live-result.json`.
+
+### Scope
+
+A trusted application-side access-control teaching example over Azure AI Search,
+not automatic SharePoint permission synchronization or a synthetic identity proof.
+
+## F022 - Microsoft Foundry: Prompt-Injection Defenses
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Prompt-injection defenses](./22-prompt-injection/README.md)
+
+### Goal
+
+As a student, I can distinguish untrusted source data from instructions and
+compare raw model behavior with constrained, validated processing.
+
+### Acceptance criteria
+
+- [x] Use harmless instruction overrides in synthetic document and tool-result text.
+- [x] Compare real baseline responses with factual projection and strict-schema output.
+- [x] Integrate real Prompt Shields classification with explicit optional omission.
+- [x] Validate the exact allowed fact and expose no executable side-effect tools.
+- [x] Test malformed facts, extra output, injection markers, and classifier errors.
+- [x] Explain residual risks, category filtering differences, costs, and cleanup.
+- [x] Observe actual model/classifier behavior and verify protected output on Azure.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-prompt-injection-demo`. Prompt Shields
+detected the document override but did not flag the synthetic tool-output
+override. Azure inference content filtering blocked both raw baselines.
+Both independently tested protected paths returned the validated `09:00` fact.
+The application now explicitly reports a service-filtered baseline rather than
+crashing or claiming an answer; other API errors still propagate. Seven offline
+tests pass. Evidence is in `22-prompt-injection/.azure/live-test-after-fix.log`.
+These observations are not a claim of perfect attack detection.
+
+### Scope
+
+Two tiny fixed-format sources, not a general sanitizer or complete injection
+protection claim. Baseline attack success is not guaranteed or fabricated.
+
+## F023 - Microsoft Foundry: Evaluation-Driven CI/CD
+
+**Type:** Feature
+
+**Status:** Cloud evaluation live-tested on 2026-10-25; GitHub OIDC workflow not configured
+
+**Demo:** [Evaluation CI/CD](./23-evaluation-cicd/README.md)
+
+### Goal
+
+As a student, I can block a prompt regression using repeatable correctness checks
+and Foundry evaluation rather than accepting better-looking prose.
+
+### Acceptance criteria
+
+- [x] Version a synthetic dataset and prompt variants with reproducible metadata.
+- [x] Combine deterministic task checks with actual supported Foundry evaluation.
+- [x] Apply explicit release thresholds and report per-item failures.
+- [x] Provide an installable GitHub Actions workflow using federated Azure authentication.
+- [x] Fail visibly on evaluation infrastructure errors and regression thresholds.
+- [x] Include infrastructure, offline tests, OIDC permissions, costs, and cleanup.
+- [x] Verify a passing baseline and failing regression against real cloud evaluation.
+- [ ] Configure repository federation and observe a passing and deliberately failing CI run.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-evaluation-cicd-demo`. The baseline exited
+0 at 100% correctness and 100% coherence; the deliberate regression exited 1
+at 0% correctness despite 100% coherence. Thresholds were not lowered.
+Response-ID evaluation returned HTTP 404, so the documented inline-JSONL route
+now evaluates the exact generated responses using real `builtin.coherence`.
+Result status/count/source validation remains strict. Seven offline tests pass.
+Run IDs and evidence are retained in
+`23-evaluation-cicd/.azure/live-testing-summary.json`.
+
+The GitHub workflow was not run: no installed workflow, configured variables/
+environment, or reusable OIDC federation was available. No tenant identity or
+federated credential was created. Local cloud evaluation is not reported as
+proof of a passing GitHub Actions run.
+
+### Scope
+
+One small regression gate, not a production-quality evaluation dataset. The
+workflow template must be installed/configured as documented before GitHub runs it.
+
+## F024 - Microsoft Foundry: Agent Application Lifecycle
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Agent lifecycle](./24-agent-lifecycle/README.md)
+
+### Goal
+
+As a student, I can publish an agent application, invoke its authenticated
+endpoint, update its serving version, and restore known-good behavior.
+
+### Acceptance criteria
+
+- [x] Use a documented Foundry agent application publishing/deployment route.
+- [x] Create distinguishable versions and invoke the actual published endpoint.
+- [x] Inspect version/correlation evidence and restore the previous version.
+- [x] Verify restored behavior with the same client requests.
+- [x] Include infrastructure, API-contract tests, permissions, costs, and cleanup.
+- [x] Publish, update, monitor, and roll back against the target Azure region.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-agent-lifecycle-demo`. Published the actual
+agent application and verified six endpoint responses across version 1 -> 2 -> 1.
+Three successful Activity Log writes and final ARM readback confirm rollback
+to version 1. Application `workshop-app-82af60e1` and deployment `active` remain
+deployed. Five offline tests pass. Evidence and IDs are retained in
+`24-agent-lifecycle/.azure/live-testing-summary.json`.
+
+Live ARM `RequestConflict` failures exposed concurrent model/project writes;
+the templates in labs 18/23/24 now serialize these writes.
+
+### Scope
+
+A tiny published prompt agent, not a local-only script presented as a hosted
+application. Uses the documented legacy Agent Application ARM publishing route;
+requires Contributor and subscription Activity Log read access. Preview/API and
+regional prerequisites must be checked before use.
+
+## F025 - Microsoft Foundry: Resilience, Quotas, and Cost Controls
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Resilience and cost](./25-resilience-cost/README.md)
+
+### Goal
+
+As a student, I can bound retries, runtime, concurrency, and request costs while
+handling transient failures without duplicating write operations.
+
+### Acceptance criteria
+
+- [x] Inject throttling/timeouts locally without exhausting service quota.
+- [x] Disable hidden SDK retries and enforce attempt/deadline/request/tool budgets.
+- [x] Respect Retry-After and propagate permanent failures explicitly.
+- [x] Demonstrate bounded concurrency and idempotent recovery after a committed write.
+- [x] Report real successful token usage and clearly labeled illustrative costs.
+- [x] Test limits, outages, retry headers, idempotency, and deadline handling.
+- [x] Include Bicep and explain quota/capacity and budget-alert limitations.
+- [x] Run the two real model calls and inspect the bounded recovery demonstration.
+
+### Live verification
+
+Deployed in East US 2 to `rg-foundry-resilience-cost-demo`. Both actual inference
+requests succeeded after explicitly local injected faults, reporting 30 input
+and 37 output tokens in total. Model attempts were bounded at 5/6 and tool
+attempts at 4/4; the retried committed write created one synthetic booking.
+Permanent-error, outage-budget, and deadline stops were all observed explicitly.
+Eight offline tests pass. Evidence is in `25-resilience-cost/.azure/demo.log`;
+resources remain deployed. The printed USD estimate uses illustrative rates,
+not a current price quotation or billing record.
+
+### Scope
+
+Two inference calls and local synthetic tools; no real payments/reservations or
+deliberate quota exhaustion. Local timeout does not prove server-side cancellation.
+
+## F026 - Microsoft Foundry: Multimodal Understanding
+
+**Type:** Feature
+
+**Status:** Implemented and live-tested on 2026-10-25
+
+**Demo:** [Multimodal understanding](./26-multimodal/README.md)
+
+### Goal
+
+As a student, I can extract structured data from synthetic images, compare it
+with ground truth, and represent unreadable information without guessing.
+
+### Acceptance criteria
+
+- [x] Provide clear and ambiguous synthetic image examples without personal data.
+- [x] Invoke a supported image-capable Foundry model with structured extraction.
+- [x] Validate schema separately from ground-truth field correctness.
+- [x] Explicitly mark missing/unreadable values and report observed errors.
+- [x] Include image prerequisites, infrastructure, offline tests, usage/cost caveats, and cleanup.
+- [x] Verify extraction and uncertainty behavior with the actual model deployment.
+
+### Live verification
+
+Both real image-inference cases in East US 2 matched every ground-truth field,
+including the ambiguous image's explicit unreadable/missing values. Resources
+remain deployed. Evidence for this run is retained in
+`14-foundry-fundamentals/.azure/live-validation-summary.json`; these two images
+do not establish general visual accuracy or uncertainty calibration.
+
+### Scope
+
+A few instructional images, not OCR certification, financial automation, or a
+guarantee of model-calibrated uncertainty.

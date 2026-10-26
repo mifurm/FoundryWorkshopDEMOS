@@ -1,0 +1,4 @@
+azure-identity>=1.25.0,<2
+openai>=2.26.0,<3
+azure-monitor-opentelemetry-exporter>=1.0.0b48,<2
+opentelemetry-sdk>=1.39,<2

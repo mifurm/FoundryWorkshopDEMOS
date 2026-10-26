@@ -7,14 +7,37 @@ Python versions), Azure CLI, Bicep (`az bicep version`), and an interactive
 Azure user with resource creation and role-assignment permissions. See each
 demo's prerequisites for model quota and access requirements.
 
-Before running **all 13 demos**, complete the tenant setup in
+There are **26 standalone demos**. Prefer selecting a small subset rather than
+deploying every resource and running every paid operation at once:
+
+```bash
+az login
+python3 deploy.py --subscription "<subscription-id>" --demo 14
+python3 deploy.py --subscription "<subscription-id>" --demo 20 --demo 25
+```
+
+`--demo` accepts a demo number or exact folder name and can be repeated. Selected
+demos run in numeric order; prerequisites for unselected demos are not required.
+Without `--demo`, the runner selects all 26.
+
+Before running **all demos**, complete the tenant setup in
 [Entra Agent ID](./12-entra-agent-id/README.md). It requires separate tenant
 roles/admin consent and sets `ENTRA_TENANT_ID`, `ENTRA_BLUEPRINT_CLIENT_ID`,
 `ENTRA_AGENT_ID`, and `ENTRA_BLUEPRINT_SECRET`. Run the root command from that
 same PowerShell session (change back to the repository root). The runner checks
 these prerequisites before any Azure changes and passes only the non-secret
 agent ID to Bicep. The blueprint secret is not a deployment parameter or output.
-To present individual demos, use their standalone deployment instructions instead.
+Lab 21 additionally requires `AZURE_TENANT_ID` and `SECOND_AZURE_CONFIG_DIR`,
+an isolated Azure CLI configuration authenticated as a different real user in
+the same tenant. The runner invokes that lab's `--preflight` after installing
+its dependencies but before provider registration or resource creation. Its
+README documents the Graph checks and optional restricted-group setup.
+Labs 23 and 24 require their documented evaluation/publishing permissions and
+regional API support. GitHub OIDC must be configured separately to run lab 23
+in GitHub Actions. Lab 24 uses the documented legacy Agent Application ARM
+publishing route and additionally needs subscription Activity Log read access;
+read its API/availability caveats before presenting. To present individual demos,
+use `--demo` or their standalone deployment instructions.
 
 From the repository root, after that setup:
 
@@ -27,6 +50,16 @@ If `--subscription` is omitted, the script uses the currently selected Azure CLI
 subscription. It does not change that selection. Optional flags:
 `--location eastus2`, `--prefix rg-foundry`, and `--principal-id <user-object-id>`
 (useful when Microsoft Graph access is restricted).
+For templates exposing `searchLocation`, `--search-location` keeps Search in a
+separate supported region. Live lab 17 required West US 2 Search because East
+US 2 lacked capacity:
+
+```bash
+python3 deploy.py --demo 17 --location eastus2 --search-location westus2
+```
+
+Keep this override on subsequent deployments to that resource group: Azure
+cannot move an existing Search service to another region in place.
 
 The script:
 
@@ -41,6 +74,11 @@ The script:
    output plus optional `deployment`, `embeddingDeployment`, `projectEndpoint`, and `toolEndpoint`
    outputs to the demo's environment, and runs `demo.py`.
    Foundry IQ also uses `searchEndpoint`; Entra Agent ID uses `agentIdentityId`.
+   Prompt injection uses `contentSafetyEndpoint` for its separate safety classifier.
+   Fundamentals uses `deniedEndpoint` for its intentional authorization failure;
+   benchmarking uses `alternateDeployment` and `routerDeployment`.
+   Tracing uses `applicationInsightsConnectionString`; lifecycle operations use
+   `projectResourceId`.
 6. Saves live output to `<demo>/.azure/demo.log` and stops with a nonzero exit code
    if any step fails. Newly assigned 403 access errors and 404
    `DeploymentNotFound` errors, plus explicit DNS name-resolution failures, are
@@ -81,6 +119,13 @@ Cognitive Services URL through the shared endpoint variable. The Decision Model
 consumes its Foundry services URL through that variable. Foundry IQ uses
 `AZURE_SEARCH_ENDPOINT` from `searchEndpoint`; the Entra identity demo receives
 `ENTRA_AGENT_ID` from `agentIdentityId` and needs its separate tenant setup.
+Fundamentals maps `deniedEndpoint` to `WORKSHOP_DENIED_ENDPOINT`. Benchmarking
+maps `alternateDeployment` to `AZURE_OPENAI_ALTERNATE_DEPLOYMENT` and
+`routerDeployment` to `AZURE_OPENAI_ROUTER_DEPLOYMENT`. Prompt Shields maps
+`contentSafetyEndpoint` to `CONTENT_SAFETY_ENDPOINT`.
+Tracing maps `applicationInsightsConnectionString` to
+`APPLICATIONINSIGHTS_CONNECTION_STRING`; publishing maps `projectResourceId` to
+`FOUNDRY_PROJECT_RESOURCE_ID`.
 Other output contracts
 require updating the runner. Numbered folders are processed in numeric order.
 
@@ -99,11 +144,25 @@ require updating the runner. Numbered folders are processed in numeric order.
 - [Foundry IQ: a tiny Learn-based managed knowledge base](./11-foundry-iq/README.md)
 - [Entra Agent ID: an Agent Framework tutor with its own identity](./12-entra-agent-id/README.md)
 - [Agent Framework: Sequential, Concurrent, Group Chat, and Magentic](./13-agent-orchestrations/README.md)
+- [Foundry fundamentals: project, deployment, streaming, and errors](./14-foundry-fundamentals/README.md)
+- [Model benchmark: two models versus Model Router](./15-model-benchmark/README.md)
+- [Prompt design and schema-constrained outputs](./16-structured-outputs/README.md)
+- [RAG fundamentals: ingestion, chunking, and retrieval comparisons](./17-rag-fundamentals/README.md)
+- [Agent tracing: correlated model/tool spans and controlled failures](./18-agent-tracing/README.md)
+- [Conversation state, user isolation, and context limits](./19-conversation-state/README.md)
+- [Human approval: exact-action approval and idempotent synthetic bookings](./20-human-approval/README.md)
+- [Permission-aware retrieval with authenticated identities](./21-permission-aware-retrieval/README.md)
+- [Prompt injection: trust boundaries, Prompt Shields, and validated output](./22-prompt-injection/README.md)
+- [Evaluation-driven CI/CD and GitHub OIDC](./23-evaluation-cicd/README.md)
+- [Agent application publishing, versioning, and rollback](./24-agent-lifecycle/README.md)
+- [Resilience, quotas, deadlines, and cost controls](./25-resilience-cost/README.md)
+- [Multimodal extraction with synthetic images and uncertainty](./26-multimodal/README.md)
 - [Backlog](./BACKLOG.md)
 
 Each demo has standalone Bicep, local Python code, dependencies, tests, and manual
 deployment/cleanup instructions. Generative agent demos use `gpt-4.1-mini` by
-default; Model Router and Microsoft Decision use their own specialized models.
+default, except WebIQ, which uses `gpt-5-mini`; Model Router and Microsoft Decision
+use their own specialized models.
 Content Safety needs no model, and semantic caching adds an embedding deployment.
 The cache is an application pattern, not a native Foundry cache toggle.
 Model access, quota, regional availability, Web Search policy, Toolbox/evaluation/
@@ -117,9 +176,18 @@ synthetic/non-sensitive.
 Demos 1-7 are intended for short terminal presentations. Managed evaluation and
 red teaming can take several minutes; submit fine-tuning ahead of time and show
 the existing job during the presentation. Each demo can be deployed and run
-independently using its own instructions. The new templates and offline tests
-are locally validated; this does not claim successful Azure deployment or live
-service access in your subscription.
+independently using its own instructions. See [live test results](./tests.md)
+and the [backlog](./BACKLOG.md) for actual service verification and remaining
+blockers. Offline tests and template compilation are not proof of live access.
+
+Labs 14-26 extend the feature demonstrations with engineering exercises. Start
+with fundamentals and structured outputs, then retrieval, state, tools, tracing,
+and evaluation before publishing or advanced identity scenarios. Expected
+failures are explicitly labeled; mocked unit-test results are not live service
+verification. Approval lab 20 proposes an action by default and never grants
+approval automatically. Follow its README to approve or reject the exact proposal.
+The CI regression variant in lab 23 is intentionally expected to exit nonzero.
+Search and monitoring resources can have ongoing charges while provisioned.
 
 ## Test the runner without Azure
 

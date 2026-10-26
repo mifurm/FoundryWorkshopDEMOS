@@ -1,0 +1,5 @@
+[
+  {"id": "refund", "query": "How many days do I have to request a refund?", "expected": "14"},
+  {"id": "delivery", "query": "How many business days does delivery take?", "expected": "3"},
+  {"id": "support", "query": "What is the support email address?", "expected": "help@example.invalid"}
+]

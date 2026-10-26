@@ -1,0 +1,17 @@
+{
+  "clear.png": {
+    "merchant": "WORKSHOP CAFE",
+    "currency": "USD",
+    "total": 12.5,
+    "uncertainty": []
+  },
+  "ambiguous.png": {
+    "merchant": "WORKSHOP CAFE",
+    "currency": null,
+    "total": null,
+    "uncertainty": [
+      "currency_missing",
+      "total_unreadable"
+    ]
+  }
+}

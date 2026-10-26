@@ -1,0 +1,4 @@
+.venv/
+.azure/
+__pycache__/
+evaluation-report.json

@@ -7,9 +7,9 @@ param principalId string
 
 param accountName string = 'foundry-webiq-${uniqueString(resourceGroup().id)}'
 param projectName string = 'webiq-demo'
-param deploymentName string = 'gpt-4.1-mini'
-param modelName string = 'gpt-4.1-mini'
-param modelVersion string = '2025-04-14'
+param deploymentName string = 'gpt-5-mini'
+param modelName string = 'gpt-5-mini'
+param modelVersion string = '2025-08-07'
 
 @minValue(1)
 param capacity int = 10

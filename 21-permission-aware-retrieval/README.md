@@ -1,0 +1,172 @@
+# 21 — Permission-aware retrieval with real user identities
+
+Use two **real Microsoft Entra user sessions**, a real Azure AI Search service and a
+Foundry chat deployment. The backend derives a trusted security filter from Graph-
+authenticated user/group identities. Prompt text can never supply or change ACLs.
+This is application-enforced security trimming, **not** Search's native token-based
+document ACL feature, and not proof that two invented names authenticate.
+
+## Tenant prerequisites (complete before the live runner)
+
+- Python 3.10+, Azure CLI/Bicep, an Azure subscription and two different test **users
+  in the same tenant**. Use synthetic documents and dedicated accounts where possible.
+- The presenter/backend deployer needs resource creation and role-assignment rights
+  (e.g. Contributor plus User Access Administrator). Register
+  `Microsoft.CognitiveServices` and `Microsoft.Search` if needed.
+- Model `gpt-4.1-mini` version `2025-04-14` must be available with GlobalStandard quota
+  for capacity 10 in the selected region.
+- Both users need successful delegated Microsoft Graph `/me` and
+  `/me/transitiveMemberOf/microsoft.graph.group` access using their Azure CLI login.
+  Reading the signed-in user's own profile and memberships uses delegated `User.Read`;
+  tenant consent/Conditional Access policy may require administrator approval or block
+  the Azure CLI application. Resolve that policy with your administrator. This runner
+  does not request directory-wide application permissions, create users, or bypass MFA.
+  A Graph error or incomplete/malformed membership result fails closed.
+  Hidden memberships require `Member.Read.Hidden` to enumerate; this example does not
+  grant access based on memberships it cannot see.
+- The second user needs **no Search/inference Azure RBAC assignment**. It authenticates
+  to Graph; the backend uses the presenter's resource credential. Do not grant end users
+  direct Search access in an application relying on this filter.
+
+From this directory, establish separate sessions (these setup logins are interactive;
+`demo.py` itself is not):
+
+```sh
+export AZURE_TENANT_ID=YOUR_TENANT_UUID
+az login --tenant "$AZURE_TENANT_ID"
+az account set --subscription YOUR_SUBSCRIPTION_ID
+export SECOND_AZURE_CONFIG_DIR="$PWD/.identity-b"
+AZURE_CONFIG_DIR="$SECOND_AZURE_CONFIG_DIR" az login \
+  --tenant "$AZURE_TENANT_ID" --allow-no-subscriptions
+python3 demo.py --preflight
+```
+
+Sign in as the **second** user in the second command; logging in twice as the same user
+is rejected. Keep the first session as presenter. `.identity-b/` is gitignored and holds
+sensitive credential cache files: never commit/copy them. `AZURE_CONFIG_DIR` for the
+first user may also be set explicitly, but must differ from `SECOND_AZURE_CONFIG_DIR`.
+The script acquires tenant-specific Graph tokens, calls Graph to authenticate each
+user and enumerates transitive group membership, including pagination. It does not
+trust unsigned token decoding, environment-supplied user IDs or group names.
+
+## Standalone deploy/run
+
+```sh
+export RG=rg-lab21
+export LOCATION=eastus2
+az group create --name "$RG" --location "$LOCATION"
+PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv)
+mkdir -p .azure
+az deployment group create --resource-group "$RG" --name lab21 \
+  --template-file infra/main.bicep \
+  --parameters principalId="$PRINCIPAL_ID" location="$LOCATION" \
+  --query properties.outputs -o json > .azure/outputs.json
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+export AZURE_OPENAI_ENDPOINT=$(python -c 'import json; print(json.load(open(".azure/outputs.json"))["endpoint"]["value"])')
+export AZURE_OPENAI_DEPLOYMENT=$(python -c 'import json; print(json.load(open(".azure/outputs.json"))["deployment"]["value"])')
+export AZURE_SEARCH_ENDPOINT=$(python -c 'import json; print(json.load(open(".azure/outputs.json"))["searchEndpoint"]["value"])')
+python demo.py
+```
+
+Run `python3 demo.py --preflight` **before deployment**. This uses only the standard
+library and Azure CLI, authenticates both real users and checks the optional group,
+without provisioning anything or calling Search/model inference.
+Missing two-user setup produces an explicit preflight error, never a fake access proof.
+These outputs match root `deploy.py`; it must inherit `AZURE_TENANT_ID` and
+`SECOND_AZURE_CONFIG_DIR` and invoke this preflight before provisioning this lab.
+No project endpoint is needed.
+`endpoint` is the inference service root; the app appends `/openai/v1/`.
+The Bicep roles are Cognitive Services OpenAI User, Search Service Contributor and
+Search Index Data Contributor for the backend presenter only. Local API-key auth is
+disabled. If 403 occurs, check identity/roles and wait for role-assignment propagation.
+
+Default restricted access uses the **first Graph-authenticated user's object ID**,
+namespaced by tenant. For a group ACL demonstration, optionally set:
+
+```sh
+export RESTRICTED_GROUP_ID=YOUR_EXISTING_ENTRA_GROUP_UUID
+python demo.py
+unset RESTRICTED_GROUP_ID
+```
+
+That group must contain the first user (possibly transitively) but not the second.
+The runner verifies both real membership sets before uploading documents. It never
+adds memberships or accepts group claims from the question. Creating a suitable test
+group/memberships may require a Groups Administrator; allow propagation before running.
+
+## What happens and what is verified
+
+1. Authenticate both real user principals through successful Graph requests.
+2. Upload one public agenda and one restricted launch-code document to a unique index.
+3. Ask the same public question, restricted question and prompt-injection question
+   as each identity.
+4. Apply `public eq true or acl/any(p:search.in(...))` on **every Search query**,
+   with canonical tenant/user/group UUID principals, before any passage reaches the model.
+5. Print filtered evidence, the trusted filter, model-selected answer and citations.
+   Verify public answers for both, restricted answer for the allowed user, and explicit
+   insufficient evidence for the excluded user's restricted question. Verify excluded
+   passages, answers and citations never contain the restricted document/canary.
+6. Remove the unique index in `finally`.
+
+The real model selects exact supporting quotes in JSON; the application validates
+those against authorized passages and renders them as an **extractive answer**.
+There is intentionally no freeform model answer channel that could introduce content
+outside the authorized evidence. Invalid quotes/citations fail closed. No caching,
+conversation state, reranking or model-based authorization is used.
+
+The first user is also the trusted backend operator and can inspect all synthetic
+content. This CLI demonstrates the retrieval boundary, not protection against a
+malicious backend administrator/local file reader. A production service must validate
+incoming bearer tokens (issuer/audience/signature/expiry), derive the end-user subject,
+resolve membership through a trusted path and keep Search credentials server-side.
+Never expose this example's helper functions as arbitrary client-controlled identity APIs.
+The Graph group cast uses the documented `$count=true` plus
+`ConsistencyLevel: eventual` advanced query contract. Membership snapshots are refreshed
+per run, not continuously, and the directory index can lag recent changes. Wait for
+membership propagation and rerun; this is not an immediate revocation mechanism.
+No claim is made about preventing all semantic inference from public data.
+
+An **agent identity** authorizes an agent/backend to call services. It does not
+automatically authorize every document for every end user. Here the backend's Azure
+credential and the caller's effective document access are deliberately separate.
+
+## Offline tests and Bicep validation
+
+```sh
+python3 -m unittest -v test_demo.py
+mkdir -p .azure
+az bicep build --file infra/main.bicep --stdout > .azure/template.json
+```
+
+Offline tests need no installed SDKs or credentials. They use explicitly synthetic
+UUID fixtures to test filter construction, prompt independence, Graph authentication
+failures/pagination, group validation, public/restricted ACLs and output quote/citation
+rejection. **Offline fixtures are not live authentication or access-control proof.**
+Only an actual two-user cloud run can verify tenant setup and Search enforcement.
+
+## Costs and cleanup
+
+Basic Search bills continuously for one replica/partition even with an empty index.
+One run makes six short chat requests. The model is pay-per-token GlobalStandard;
+there is no embedding deployment, provisioned throughput or semantic ranker.
+Check current regional Search/model prices in the Azure pricing calculator.
+The app removes its unique index, but interrupted runs may leave one. Index deletion
+does not stop Search service costs: delete this lab's dedicated resource group.
+
+```sh
+az group delete --name "$RG" --yes --no-wait
+AZURE_CONFIG_DIR="$SECOND_AZURE_CONFIG_DIR" az logout
+rm -rf .identity-b .azure .venv __pycache__
+unset SECOND_AZURE_CONFIG_DIR RESTRICTED_GROUP_ID
+```
+
+Remove any test groups/users/memberships you created via your tenant's normal process.
+Do not delete a shared group or remove other users' memberships.
+
+## Official API references
+
+- [Search security trimming and trusted application filters](https://learn.microsoft.com/azure/search/search-security-trimming-for-azure-search)
+- [Graph: signed-in user's transitive memberships and permissions](https://learn.microsoft.com/graph/api/user-list-transitivememberof?view=graph-rest-1.0)
+- [Azure OpenAI v1 Python and Entra authentication](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/switching-endpoints)

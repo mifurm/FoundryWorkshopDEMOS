@@ -17,9 +17,7 @@ DEFAULT_PROMPT = (
 )
 
 
-def show_response(response: Response) -> None:
-    if response.status != "completed" or not response.output_text.strip():
-        raise RuntimeError(f"Agent did not complete with text: {response.status}; {response.error}")
+def show_response(response: Response, *, debug_response: bool = False) -> None:
     searches = [item for item in response.output if item.type == "web_search_call"]
     citations = [
         annotation
@@ -27,10 +25,34 @@ def show_response(response: Response) -> None:
         for content in item.content if content.type == "output_text"
         for annotation in content.annotations if annotation.type == "url_citation"
     ]
+    print(
+        f"\nResponse status: {response.status}\n"
+        f"Output types: {[item.type for item in response.output]}\n"
+        f"Search calls: {len(searches)}\n"
+        f"Search statuses: {[search.status for search in searches]}\n"
+        f"URL citations: {len(citations)}",
+        flush=True,
+    )
+    if debug_response:
+        print(f"\nRaw response JSON:\n{response.model_dump_json(indent=2)}", flush=True)
+    if response.status != "completed" or not response.output_text.strip():
+        raise RuntimeError(f"Agent did not complete with text: {response.status}; {response.error}")
     if not searches or not citations:
-        raise RuntimeError("Expected an actual web-search call and URL citations, not an ungrounded answer.")
+        missing = []
+        if not searches:
+            missing.append("web_search_call output")
+        if not citations:
+            missing.append("url_citation annotations")
+        raise RuntimeError(
+            f"Grounding evidence missing: {', '.join(missing)}. "
+            "Inspect the response diagnostics and Foundry agent trace; "
+            "plain-text URLs are not structured citations. "
+            "Use --debug-response to inspect the raw response."
+        )
     if any(search.status != "completed" for search in searches):
-        raise RuntimeError("A web-search call failed or did not complete.")
+        raise RuntimeError(
+            f"A web-search call failed or did not complete: {[search.status for search in searches]}."
+        )
     print(f"\nWeb searches: {len(searches)}\n\n{response.output_text}\n\nSources:")
     for citation in citations:
         print(f"- {citation.title}: {citation.url}")
@@ -39,8 +61,12 @@ def show_response(response: Response) -> None:
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-endpoint", default=os.getenv("FOUNDRY_PROJECT_ENDPOINT"))
-    parser.add_argument("--deployment", default=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1-mini"))
+    parser.add_argument("--deployment", default=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini"))
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
+    parser.add_argument(
+        "--debug-response", action="store_true",
+        help="Print the full response JSON, including on validation failure; use only non-sensitive prompts.",
+    )
     args = parser.parse_args(argv)
     if not args.project_endpoint or not args.project_endpoint.startswith("https://"):
         parser.error("Set FOUNDRY_PROJECT_ENDPOINT to the Bicep projectEndpoint HTTPS URL.")
@@ -64,7 +90,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 response = client.responses.create(
                     input=args.prompt, tool_choice="required", timeout=120.0,
                 )
-                show_response(response)
+                show_response(response, debug_response=args.debug_response)
         finally:
             project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
             print("Temporary agent version deleted.")

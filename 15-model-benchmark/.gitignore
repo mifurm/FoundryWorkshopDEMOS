@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+deployment.json
+results.json
+rates.json

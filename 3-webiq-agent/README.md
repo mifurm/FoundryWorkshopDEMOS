@@ -7,8 +7,8 @@ it is not a separate WebIQ product or a private enterprise search integration.
 
 ## Infrastructure and prerequisites
 
-Bicep creates a Foundry account, project, `gpt-4.1-mini` Global Standard deployment
-(`2025-04-14`), and a Foundry User role for the presenter. The Python script
+Bicep creates a Foundry account, project, `gpt-5-mini` Global Standard deployment
+(`2025-08-07`), and a Foundry User role for the presenter. The Python script
 creates a temporary server-side prompt-agent version with `WebSearchTool`,
 invokes it, and deletes that version in `finally`, even on inference failure.
 No separate Bing resource, connection, or API key is required for this path.
@@ -59,9 +59,15 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 python demo.py
 python demo.py --prompt "Search Microsoft Learn for Foundry Agent Service and summarize its purpose with citations."
+python demo.py --debug-response
 ```
 
 `--project-endpoint` and `--deployment` can replace environment variables.
+The default deployment name is `gpt-5-mini`. Redeploy the Bicep template to create
+the new model deployment; changing the Python deployment name alone does not
+upgrade an existing `gpt-4.1-mini` deployment. Refresh the environment variables
+from the deployment outputs afterward, especially if a previous session set
+`AZURE_OPENAI_DEPLOYMENT` to the old name.
 The [root runner](../README.md) deploys and executes all four demos.
 
 ### Presenter talk track
@@ -85,6 +91,28 @@ python -m unittest discover -s . -p 'test_*.py' -v
 
 Tests mock service calls and use real SDK response objects. They do not prove
 subscription access; perform a separate live smoke test before presenting.
+Every response prints its status, output item types, search-call count/statuses,
+and structured URL-citation count before validation, including on failure.
+`--debug-response` additionally prints the full response JSON. Use only public,
+non-sensitive prompts with this flag; captured output may contain response text
+and source data. Raw JSON is not printed by default.
+
+If grounding validation fails:
+
+- **Citations but no search-call output:** inspect the Foundry agent trace and raw
+  response for how this API surfaces tool execution. Do not assume the model did
+  not search solely because the response lacks `web_search_call`.
+- **Search-call output but no citations:** inspect message annotations. Plain-text
+  URLs do not count as structured `url_citation` annotations.
+- **Neither:** compare the same model and Web Search configuration in the Foundry
+  playground and check tool availability and organizational policy. Try a public,
+  time-sensitive question, such as the latest Microsoft Foundry announcement and
+  its publication date, explicitly requesting sources.
+
+These diagnostics do not relax the checks: completed search calls, nonempty answer
+text, and structured citations are still required. Failed or unfinished searches
+report their statuses and fail explicitly.
+
 For 403, check RBAC propagation and organizational Web Search policy. For 404,
 use the Bicep **projectEndpoint** and correct deployment name. For 429 or deployment
 failure, check model quota and region. If cleanup fails, the error remains visible;

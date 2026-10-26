@@ -1,0 +1,53 @@
+name: Foundry evaluation gate
+on:
+  pull_request:
+    paths:
+      - '23-evaluation-cicd/**'
+      - '.github/workflows/foundry-evaluation.yml'
+  workflow_dispatch:
+    inputs:
+      prompt:
+        type: choice
+        options: [baseline, regression]
+        default: baseline
+permissions:
+  contents: read
+jobs:
+  evaluation:
+    # Never evaluate untrusted fork code with Azure access. Same-repo PRs still
+    # require approval through the protected GitHub environment configured below.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    environment: foundry-evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: 23-evaluation-cicd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - run: pip install -r requirements.txt
+      - run: python -m unittest -v
+      - name: Cloud evaluation and release gate
+        env:
+          FOUNDRY_PROJECT_ENDPOINT: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOYMENT }}
+          PROMPT: ${{ inputs.prompt || 'baseline' }}
+        run: python demo.py --prompt "$PROMPT" --correctness-threshold 1 --coherence-threshold 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: foundry-evaluation-${{ github.sha }}
+          path: 23-evaluation-cicd/evaluation-report.json
+          if-no-files-found: warn
+          retention-days: 7

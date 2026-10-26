@@ -47,6 +47,21 @@ def discover(root: Path) -> list[Path]:
     return demos
 
 
+def select_demos(demos: list[Path], selectors: list[str] | None) -> list[Path]:
+    if not selectors:
+        return demos
+    selected = set()
+    for selector in selectors:
+        matches = [
+            demo for demo in demos
+            if demo.name == selector or demo.name.split("-", 1)[0] == selector
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"--demo {selector!r} must identify exactly one demo number or folder.")
+        selected.add(matches[0])
+    return [demo for demo in demos if demo in selected]
+
+
 def demo_environment(outputs: dict, base: dict[str, str]) -> dict[str, str]:
     values = {}
     base = dict(base)
@@ -65,6 +80,12 @@ def demo_environment(outputs: dict, base: dict[str, str]) -> dict[str, str]:
         ("toolEndpoint", "WORKSHOP_TOOL_ENDPOINT"),
         ("searchEndpoint", "AZURE_SEARCH_ENDPOINT"),
         ("agentIdentityId", "ENTRA_AGENT_ID"),
+        ("contentSafetyEndpoint", "CONTENT_SAFETY_ENDPOINT"),
+        ("deniedEndpoint", "WORKSHOP_DENIED_ENDPOINT"),
+        ("alternateDeployment", "AZURE_OPENAI_ALTERNATE_DEPLOYMENT"),
+        ("routerDeployment", "AZURE_OPENAI_ROUTER_DEPLOYMENT"),
+        ("applicationInsightsConnectionString", "APPLICATIONINSIGHTS_CONNECTION_STRING"),
+        ("projectResourceId", "FOUNDRY_PROJECT_RESOURCE_ID"),
     ):
         if output in outputs:
             value = outputs[output].get("value")
@@ -128,13 +149,20 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--subscription", help="Subscription ID/name; defaults to the Azure CLI selection.")
     parser.add_argument("--location", default="eastus2")
+    parser.add_argument("--search-location",
+                        help="Override Search region for templates with searchLocation (for example demo 17).")
     parser.add_argument("--prefix", default="rg-foundry", help="Resource group prefix (default: rg-foundry).")
     parser.add_argument("--principal-id", help="Presenter user object ID; defaults to the signed-in user.")
+    parser.add_argument("--demo", action="append", metavar="NUMBER_OR_FOLDER",
+                        help="Deploy only this demo; repeat to select several. Default: all demos.")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,50}", args.prefix):
         parser.error("--prefix must contain 1-50 letters, numbers, underscores, or hyphens.")
 
-    demos = discover(ROOT)
+    try:
+        demos = select_demos(discover(ROOT), args.demo)
+    except ValueError as error:
+        parser.error(str(error))
     extra_parameters = {}
     if any(demo.name == "12-entra-agent-id" for demo in demos):
         identity_variables = (
@@ -167,6 +195,7 @@ def main(argv: list[str] | None = None) -> None:
     print("This deploys billable Azure resources and sends live model requests.", flush=True)
 
     providers = set()
+    search_location_applied = False
     for demo in demos:
         template = json.loads(run(
             ["az", "bicep", "build", "--file", str(demo / "infra/main.bicep"), "--stdout"],
@@ -176,6 +205,9 @@ def main(argv: list[str] | None = None) -> None:
             resource["type"].split("/")[0] for resource in template.get("resources", [])
             if not resource["type"].startswith("Microsoft.Authorization/")
         )
+        if args.search_location and "searchLocation" in template.get("parameters", {}):
+            extra_parameters.setdefault(demo.name, []).append(f"searchLocation={args.search_location}")
+            search_location_applied = True
         run(["az", "bicep", "lint", "--file", str(demo / "infra/main.bicep")])
         python = demo / ".venv" / "bin" / "python"
         if not python.is_file():
@@ -185,6 +217,11 @@ def main(argv: list[str] | None = None) -> None:
             [str(python), "-m", "unittest", "discover", "-s", ".", "-p", "test_*.py", "-v"],
             cwd=demo,
         )
+        if demo.name == "21-permission-aware-retrieval":
+            run([str(python), "demo.py", "--preflight"], cwd=demo)
+
+    if args.search_location and not search_location_applied:
+        parser.error("--search-location requires a selected template exposing searchLocation.")
 
     for provider in sorted(providers):
         run([

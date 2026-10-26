@@ -2,6 +2,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -71,8 +72,170 @@ class DeployTests(unittest.TestCase):
             ["1-model-router", "2-workflow-agent", "3-webiq-agent", "4-agent-tools",
              "5-decision-model", "6-content-safety", "7-semantic-cache",
              "8-agent-evaluation", "9-agent-red-teaming", "10-fine-tuning",
-             "11-foundry-iq", "12-entra-agent-id", "13-agent-orchestrations"],
+             "11-foundry-iq", "12-entra-agent-id", "13-agent-orchestrations",
+             "14-foundry-fundamentals", "15-model-benchmark", "16-structured-outputs",
+             "17-rag-fundamentals", "18-agent-tracing", "19-conversation-state",
+             "20-human-approval", "21-permission-aware-retrieval", "22-prompt-injection",
+             "23-evaluation-cicd", "24-agent-lifecycle", "25-resilience-cost",
+             "26-multimodal"],
         )
+
+    def test_selects_number_or_folder_in_discovery_order(self) -> None:
+        demos = [Path("1-first"), Path("12-identity"), Path("14-fundamentals")]
+        self.assertEqual(deploy.select_demos(demos, None), demos)
+        self.assertEqual(deploy.select_demos(demos, ["14", "1-first", "14"]),
+                         [demos[0], demos[2]])
+        with self.assertRaisesRegex(ValueError, "exactly one demo"):
+            deploy.select_demos(demos, ["missing"])
+
+    def test_every_proposal_has_documentation_and_a_backlog_feature(self) -> None:
+        root = Path(__file__).parent
+        proposals = [
+            int(number) for number in re.findall(r"^(\d+)\. ", (root / "demos.md").read_text(),
+                                                re.MULTILINE)
+        ]
+        features = [
+            int(number) for number in re.findall(r"^## F(\d{3}) - ",
+                                                (root / "BACKLOG.md").read_text(), re.MULTILINE)
+        ]
+        self.assertEqual(proposals, list(range(1, 27)))
+        self.assertEqual(features, proposals)
+        for demo in deploy.discover(root):
+            with self.subTest(demo=demo.name):
+                self.assertTrue((demo / "README.md").is_file())
+
+    def test_selected_demo_does_not_require_unselected_identity_setup(self) -> None:
+        with (
+            patch("deploy.discover", return_value=[Path("12-entra-agent-id"), Path("20-human-approval")]),
+            patch("deploy.run", side_effect=RuntimeError("reached account lookup")) as run,
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "reached account lookup"):
+                deploy.main(["--demo", "20"])
+            self.assertEqual(run.call_args.args[0][:3], ["az", "account", "show"])
+
+    def test_unknown_demo_fails_before_azure_changes(self) -> None:
+        with (
+            patch("deploy.discover", return_value=[Path("1-first")]),
+            patch("deploy.run") as run,
+        ):
+            with self.assertRaises(SystemExit):
+                deploy.main(["--demo", "99"])
+            run.assert_not_called()
+
+    def test_search_location_is_passed_to_a_supporting_template(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / "17-rag-fundamentals"
+            folder.mkdir()
+            commands = []
+
+            def fake_run(command, **kwargs):
+                commands.append(command)
+                if command[:3] == ["az", "account", "show"]:
+                    return json.dumps({"id": "sub", "name": "test", "user": {"type": "user"}})
+                if command[:3] == ["az", "bicep", "build"]:
+                    return '{"resources": [], "parameters": {"searchLocation": {"type": "string"}}}'
+                if command[:4] == ["az", "deployment", "group", "create"]:
+                    return '{"endpoint": {"value": "https://example/"}}'
+                return ""
+
+            with (
+                patch("deploy.ROOT", root), patch("deploy.discover", return_value=[folder]),
+                patch("deploy.run", side_effect=fake_run), patch("deploy.run_live"),
+                redirect_stdout(io.StringIO()),
+            ):
+                deploy.main(["--demo", "17", "--principal-id", "presenter",
+                             "--search-location", "westus2"])
+            deployment = next(command for command in commands
+                              if command[:4] == ["az", "deployment", "group", "create"])
+            self.assertIn("searchLocation=westus2", deployment)
+
+    def test_search_location_without_support_fails_before_resource_changes(self) -> None:
+        commands = []
+
+        def fake_run(command, **kwargs):
+            commands.append(command)
+            if command[:3] == ["az", "account", "show"]:
+                return json.dumps({"id": "sub", "name": "test", "user": {"type": "user"}})
+            if command[:3] == ["az", "bicep", "build"]:
+                return '{"resources": []}'
+            return ""
+
+        with (
+            patch("deploy.discover", return_value=[Path("20-human-approval")]),
+            patch("deploy.run", side_effect=fake_run), redirect_stdout(io.StringIO()),
+        ):
+            with self.assertRaises(SystemExit):
+                deploy.main(["--demo", "20", "--principal-id", "presenter",
+                             "--search-location", "westus2"])
+        self.assertFalse(any(command[:2] == ["az", "group"] for command in commands))
+        self.assertFalse(any(command[:2] == ["az", "provider"] for command in commands))
+
+    def test_retrieval_identity_preflight_fails_before_resource_changes(self) -> None:
+        commands = []
+
+        def fake_run(command, **kwargs):
+            commands.append(command)
+            if command[:3] == ["az", "account", "show"]:
+                return json.dumps({"id": "sub", "name": "test", "user": {"type": "user"}})
+            if command[:3] == ["az", "bicep", "build"]:
+                return '{"resources": [{"type": "Microsoft.Search/searchServices"}]}'
+            if command[-2:] == ["demo.py", "--preflight"]:
+                raise RuntimeError("second identity is not configured")
+            return ""
+
+        with (
+            patch("deploy.discover", return_value=[Path("21-permission-aware-retrieval")]),
+            patch("deploy.run", side_effect=fake_run),
+            redirect_stdout(io.StringIO()),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "second identity"):
+                deploy.main(["--principal-id", "presenter", "--demo", "21"])
+        self.assertTrue(any(command[-2:] == ["demo.py", "--preflight"] for command in commands))
+        self.assertFalse(any(command[:2] == ["az", "group"] for command in commands))
+        self.assertFalse(any(command[:2] == ["az", "provider"] for command in commands))
+
+    def test_content_safety_output_mapping(self) -> None:
+        outputs = {"endpoint": {"value": "https://model.example/"},
+                   "contentSafetyEndpoint": {"value": "https://safety.example/"}}
+        result = deploy.demo_environment(outputs, {"CONTENT_SAFETY_ENDPOINT": "stale"})
+        self.assertEqual(result["CONTENT_SAFETY_ENDPOINT"], "https://safety.example/")
+        with self.assertRaisesRegex(ValueError, "contentSafetyEndpoint"):
+            deploy.demo_environment({**outputs, "contentSafetyEndpoint": {"value": ""}}, {})
+
+    def test_model_lab_output_mappings(self) -> None:
+        for output, variable in (
+            ("deniedEndpoint", "WORKSHOP_DENIED_ENDPOINT"),
+            ("alternateDeployment", "AZURE_OPENAI_ALTERNATE_DEPLOYMENT"),
+            ("routerDeployment", "AZURE_OPENAI_ROUTER_DEPLOYMENT"),
+        ):
+            with self.subTest(output=output):
+                result = deploy.demo_environment(
+                    {"endpoint": {"value": "https://model.example/"}, output: {"value": "new"}},
+                    {variable: "stale"},
+                )
+                self.assertEqual(result[variable], "new")
+                with self.assertRaisesRegex(ValueError, output):
+                    deploy.demo_environment(
+                        {"endpoint": {"value": "https://model.example/"}, output: {"value": ""}}, {},
+                    )
+
+    def test_lifecycle_lab_output_mappings(self) -> None:
+        for output, variable in (
+            ("applicationInsightsConnectionString", "APPLICATIONINSIGHTS_CONNECTION_STRING"),
+            ("projectResourceId", "FOUNDRY_PROJECT_RESOURCE_ID"),
+        ):
+            with self.subTest(output=output):
+                result = deploy.demo_environment(
+                    {"endpoint": {"value": "https://model.example/"}, output: {"value": "configured"}},
+                    {variable: "stale"},
+                )
+                self.assertEqual(result[variable], "configured")
+                with self.assertRaisesRegex(ValueError, output):
+                    deploy.demo_environment(
+                        {"endpoint": {"value": "https://model.example/"}, output: {"value": ""}}, {},
+                    )
 
     def test_search_and_agent_identity_output_mapping(self) -> None:
         outputs = {
