@@ -71,7 +71,8 @@ designer, UI, persistence, or additional infrastructure.
 ## F003 - Microsoft Foundry: Simple WebIQ Agent
 
 **Type:** Feature  
-**Status:** Implemented; live deployment and presentation smoke test pending  
+**Status:** Live-tested successfully on 2026-10-26; deployment conflict fixed
+
 **Demo:** [WebIQ Agent](./3-webiq-agent/README.md)
 
 ### Goal
@@ -88,7 +89,24 @@ search activity and source citations rather than relying on model memory.
 - [x] Delete the temporary agent version after success or inference failure.
 - [x] Document the WebIQ interpretation, Bing terms, costs, setup, and cleanup.
 - [x] Compile/lint Bicep and pass local mocked tests.
-- [ ] Deploy and smoke-test search/citations under the target organization's policy.
+- [x] Deploy and smoke-test search/citations under the target organization's policy.
+
+### Live verification
+
+Redeployed `gpt-5-mini` in East US 2 under
+`rg-foundry-webiq-agent-live-20261026` because the prior lab group was deleted.
+Reproduced ARM `RequestConflict` from concurrent account child writes; fixed the
+template by making the project depend on the model deployment.
+
+Default and custom questions both completed with exit 0. Actual response JSON
+contained one completed `web_search_call` each and three/five structured
+`url_citation` annotations respectively. The default response cited Microsoft
+Learn model-router pages; the custom response cited Agent Service sources.
+Independent agent-version readback returned HTTP 404 for both deleted temporary
+agents. Grounding checks were not relaxed. Nine offline tests and Bicep build/lint
+passed. Evidence is retained under `3-webiq-agent/.azure/` in
+`live-default-2026-10-26.log`, `live-custom-2026-10-26.log`, and
+`live-2026-10-26.json`. The new infrastructure remains deployed and tracked for cleanup.
 
 ### Scope
 
@@ -626,7 +644,7 @@ accuracy claim; simulated failure tests are distinguished from live observations
 
 **Type:** Feature
 
-**Status:** Implemented and live-tested on 2026-10-25
+**Status:** Implemented and live-tested on 2026-10-25; full live rerun passed 2026-10-26
 
 **Demo:** [RAG fundamentals](./17-rag-fundamentals/README.md)
 
@@ -654,6 +672,14 @@ generation cases across keyword/vector/hybrid search and two chunk sizes
 Recall@3 was 1 throughout; MRR was 0.833 for 12-word keyword chunks and 1 for
 the remaining configurations. Six offline tests pass. Actual errors, commands,
 and outcomes are retained in `17-rag-fundamentals/.azure/live-result.json`.
+
+On 2026-10-26, reran the full real Azure pipeline against the same deployment.
+All 24 cases passed: 18 independently parsed cited/quoted answers and six
+abstentions with empty citations/quotes. Retrieval metrics matched the original
+run. Independent index listing confirmed no new indexes remained after cleanup.
+Six offline tests passed. Fresh evidence is retained in
+`17-rag-fundamentals/.azure/live-2026-10-26.log` and
+`17-rag-fundamentals/.azure/live-2026-10-26.json`.
 
 ### Scope
 

@@ -94,6 +94,20 @@ Tests cover lossless chunking, labeled metrics, distinct retrieval modes, citati
 and quote rejection, abstention, model request boundaries and bounded indexing wait.
 They do not prove live service availability, model quality, or Azure permissions.
 
+## Live rerun (2026-10-26)
+
+Reused `rg-foundry-rag-fundamentals-demo`, with Foundry in East US 2 and Basic
+Search in West US 2. The full run exited 0 across all 24 combinations: two chunk
+sizes, three retrieval modes, and four questions. Independently parsed 18
+nonempty cited/quoted answers and six abstentions with empty citations/quotes.
+The live runner validated citations and quotes against actual retrieved passages.
+
+Recall@3 was 1.0 in every configuration. MRR@3 was 0.833 for 12-word keyword
+chunks and 1.0 otherwise, matching the previous run. Index-name readback before
+and after the run confirmed no new indexes remained. Six offline tests passed
+separately. Evidence is retained in ignored `.azure/live-2026-10-26.log` and
+`.azure/live-2026-10-26.json`.
+
 ## Costs and cleanup
 
 Basic Search charges continuously for one replica/partition, including when idle.

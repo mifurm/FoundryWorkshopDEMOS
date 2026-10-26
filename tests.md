@@ -1,6 +1,6 @@
  — Model Router	Passed
 2 — Workflow Agent	Passed after retry
-3 — WebIQ Agent	Failed: required web-search call/citations missing
+3 — WebIQ Agent	Passed on 2026-10-26: default/custom prompts each made a completed real web-search call, with 3/5 structured citations; temporary-agent deletion independently verified
 4 — Agent Tools	Passed on 2026-10-26: Windows P0v3 in West US 2; real Function -> Toolbox -> agent verified
 5 — Decision Model	Passed on 2026-10-26: DataZoneStandard; 3/3 default tickets plus custom invoice request, with explicit throttling retries
 6 — Content Safety	Passed
@@ -11,6 +11,61 @@
 11 — Foundry IQ	Passed on 2026-10-26: Basic Search in West US 2, Foundry in East US 2; both real grounded retrieval scenarios verified
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
+
+## Labs 3 and 17: fresh live validation on 2026-10-26
+
+Both labs passed actual Azure calls in subscription
+`1217c203-6c76-47b4-b61c-9bba62dc8e02`; offline fixtures are not counted as live evidence.
+
+### Lab 3: WebIQ Agent
+
+The recorded previous group had been deleted. Created the dedicated
+`rg-foundry-webiq-agent-live-20261026` group in East US 2 and deployed the current
+`gpt-5-mini` template. The first deployment failed with `RequestConflict` while
+project/model child writes overlapped. Added the same explicit project-after-model
+dependency used by other labs; redeployment succeeded.
+
+| Scenario | Actual response | Completed web-search calls | Structured citations | Independent cleanup check |
+| --- | --- | --- | --- | --- |
+| Default model-router question | Completed; exit 0 | 1 | 3 | Agent version GET returned 404 |
+| Custom Agent Service question | Completed; exit 0 | 1 | 5 | Agent version GET returned 404 |
+
+Verified actual response JSON, including `web_search_call` items with status
+`completed` and message `url_citation` annotations. The default sources were
+Microsoft Learn model-router documentation; the custom question returned Agent
+Service sources. No grounding assertion was weakened and no answer was substituted.
+The old missing-grounding failure was not reproduced with this current deployment;
+this run does not establish its historical cause.
+
+Nine offline tests and Bicep build/lint passed separately. Local ignored evidence:
+`3-webiq-agent/.azure/live-default-2026-10-26.log`,
+`3-webiq-agent/.azure/live-custom-2026-10-26.log`, and
+`3-webiq-agent/.azure/live-2026-10-26.json`.
+
+### Lab 17: RAG fundamentals
+
+Reused `rg-foundry-rag-fundamentals-demo`: Foundry remained in East US 2 and
+Basic Search in West US 2. Real embedding, indexing, retrieval and generation
+completed with exit 0 for all **24 cases**. Independently parsed **18 cited/quoted
+answers and six abstentions**, with empty citations/quotes for every abstention.
+Runtime checks validated every answer's citations/quotes against retrieved evidence.
+
+| Chunk words | Indexed chunks | Retrieval mode | Recall@3 | MRR@3 |
+| --- | --- | --- | --- | --- |
+| 12 | 11 | Keyword | 1.000 | 0.833 |
+| 12 | 11 | Vector | 1.000 | 1.000 |
+| 12 | 11 | Hybrid | 1.000 | 1.000 |
+| 48 | 3 | Keyword | 1.000 | 1.000 |
+| 48 | 3 | Vector | 1.000 | 1.000 |
+| 48 | 3 | Hybrid | 1.000 | 1.000 |
+
+Metrics matched the original run. Index-name listing before and after confirmed
+**no new indexes remained**. Six offline tests passed separately. Ignored evidence:
+`17-rag-fundamentals/.azure/live-2026-10-26.log` and
+`17-rag-fundamentals/.azure/live-2026-10-26.json`.
+
+Both labs' infrastructure remains deployed. Lab 17's Basic Search continues
+charging while provisioned, even though the temporary indexes were removed.
 
 ## Lab 10: completed paid fine-tuning on 2026-10-26
 
@@ -168,7 +223,7 @@ Evidence is retained locally in ignored `4-agent-tools/.azure/deployment.json`,
 The dedicated plan remains deployed and incurs continuous charges even when
 idle or the app is stopped; delete the dedicated resource group after use.
 
-## Added labs: live validation on 2026-10-25, labs 14/23 follow-up on 2026-10-26
+## Added labs: live validation on 2026-10-25, follow-ups on 2026-10-26
 
 The results above for labs 1-13 are historical and were not rerun in this pass.
 All added labs 14-26 were attempted using the current Azure CLI subscription.
@@ -186,7 +241,7 @@ Mocked tests and successful ARM deployment alone are not counted as live passes.
 | [14 - Foundry fundamentals](./14-foundry-fundamentals/README.md) | Passed after identity/status fix on 2026-10-26 | The same restricted service principal passed real inference (83 tokens), streaming/usage (71 tokens), HTTP 404, and actual HTTP 401 `PermissionDenied`; full exit 0. The service uses 401, not the originally assumed 403, for the verified missing inference data action. Presenter roles were not changed. |
 | [15 - Model benchmark](./15-model-benchmark/README.md) | Passed | 54 real requests across mini/full/router; task accuracy 83.3%/83.3%/50%. Genuine schema and truncation failures remain visible in the measurements. Benchmark execution passed, not every model prediction. |
 | [16 - Structured outputs](./16-structured-outputs/README.md) | Passed | All 12 live strategy comparisons correct. Additional probes observed actual `length` truncation and HTTP 400 `content_filter`, distinguished from an assistant-message refusal. |
-| [17 - RAG fundamentals](./17-rag-fundamentals/README.md) | Passed after region change | East US 2 Search returned `InsufficientResourcesAvailable`; `searchLocation=westus2` succeeded. Two chunk sizes produced 11/3 chunks; 24 real cases yielded 18 validated cited answers and six abstentions. Recall@3=1; MRR=0.833 for 12-word keyword chunks and 1 otherwise. |
+| [17 - RAG fundamentals](./17-rag-fundamentals/README.md) | Passed; full live rerun 2026-10-26 | Search in West US 2, Foundry in East US 2. Both chunk sizes and all retrieval modes passed 24 real cases: 18 cited answers and six abstentions. Recall@3=1; MRR=0.833 for 12-word keyword chunks and 1 otherwise. Independent readback confirmed no new indexes remained. |
 | [18 - Agent tracing](./18-agent-tracing/README.md) | Passed | Queried nine actually ingested correlated spans. Observed the slow tool at 2005 ms and verified the failed tool's failure flag and safe error label. |
 | [19 - Conversation state](./19-conversation-state/README.md) | Passed | 18 real calls verified the default scenario, separate-process persistence/resume, session isolation, history truncation, reset, and deletion. |
 | [20 - Human approval](./20-human-approval/README.md) | Passed after fix | Real model proposals exercised rejection, exact approval, replay, wrong-digest rejection, and changed-payload rejection. Exactly one synthetic booking was created. |

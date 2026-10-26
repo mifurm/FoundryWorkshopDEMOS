@@ -43,6 +43,8 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
     displayName: 'WebIQ demo'
     description: 'A prompt agent using built-in web search and URL citations.'
   }
+  // Concurrent project/model writes can fail with Azure RequestConflict.
+  dependsOn: [model]
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {

@@ -12,6 +12,8 @@ Bicep creates a Foundry account, project, `gpt-5-mini` Global Standard deploymen
 creates a temporary server-side prompt-agent version with `WebSearchTool`,
 invokes it, and deletes that version in `finally`, even on inference failure.
 No separate Bing resource, connection, or API key is required for this path.
+The template serializes model and project creation to avoid Azure `RequestConflict`
+from concurrent writes to the same account.
 
 Requires Python 3.10+, Azure CLI with Bicep, model access/quota in **East US 2**,
 and permissions to create resources and assign roles. Your organization must
@@ -117,6 +119,27 @@ For 403, check RBAC propagation and organizational Web Search policy. For 404,
 use the Bicep **projectEndpoint** and correct deployment name. For 429 or deployment
 failure, check model quota and region. If cleanup fails, the error remains visible;
 remove the named agent version in Foundry or delete the dedicated group.
+
+## Live verification (2026-10-26)
+
+Redeployed in East US 2 under `rg-foundry-webiq-agent-live-20261026` using
+`gpt-5-mini`. The first deployment reproduced `RequestConflict`; serializing the
+project after the model fixed the deployment.
+
+| Actual request | Response | Completed web-search calls | Structured URL citations |
+| --- | --- | --- | --- |
+| Default model-router question | Completed; exit 0 | 1 | 3 |
+| Custom Agent Service question | Completed; exit 0 | 1 | 5 |
+
+Parsed the actual service response JSON to verify completed `web_search_call`
+items and `url_citation` annotations; plain-text URLs were not accepted instead.
+Independent `get_version` calls returned HTTP 404 for both temporary agents after
+cleanup. Nine offline tests and Bicep build/lint passed separately.
+
+Ignored evidence is retained in `.azure/live-default-2026-10-26.log`,
+`.azure/live-custom-2026-10-26.log`, and `.azure/live-2026-10-26.json`.
+The previous lab deployment had been deleted; the new group remains deployed.
+Its state is recorded for the existing `cleanup.py` helper.
 
 ## Cleanup
 
