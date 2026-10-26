@@ -12,15 +12,16 @@
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
 
-## Added labs: live validation on 2026-10-25
+## Added labs: live validation on 2026-10-25, lab 23 follow-up on 2026-10-26
 
 The results above for labs 1-13 are historical and were not rerun in this pass.
 All added labs 14-26 were attempted using the current Azure CLI subscription.
 Provisioned resources remain deployed. Foundry resources are in East US 2;
 lab 17's Search service is in West US 2 after an East US 2 capacity failure.
 
-**Summary: 10 passed, two partially validated, one blocked.** Lab 23's cloud
-evaluation passed, but its GitHub Actions/OIDC execution remains unverified.
+**Current summary: 11 passed, one partially validated, one blocked.** Lab 23's
+GitHub Actions/OIDC coverage was completed on 2026-10-26; it had been unverified
+during the original 2026-10-25 pass.
 Mocked tests and successful ARM deployment alone are not counted as live passes.
 
 | Lab | Result | Live evidence |
@@ -34,7 +35,7 @@ Mocked tests and successful ARM deployment alone are not counted as live passes.
 | [20 - Human approval](./20-human-approval/README.md) | Passed after fix | Real model proposals exercised rejection, exact approval, replay, wrong-digest rejection, and changed-payload rejection. Exactly one synthetic booking was created. |
 | [21 - Permission-aware retrieval](./21-permission-aware-retrieval/README.md) | Blocked | Actual tenant-specific preflight exited 2 because `SECOND_AZURE_CONFIG_DIR` is missing. No second user was simulated; live permission isolation was not claimed. |
 | [22 - Prompt injection](./22-prompt-injection/README.md) | Passed after fix | Prompt Shields flagged the document override but not the tool-output override. Azure inference filtering blocked both raw baselines. Both separately tested protected paths returned the validated `09:00` fact. |
-| [23 - Evaluation CI/CD](./23-evaluation-cicd/README.md) | Partial: cloud passed; GitHub not run | Baseline exited 0 at 100% correctness/100% coherence; deliberate regression exited 1 at 0% correctness/100% coherence. Real cloud evaluation ran; the GitHub workflow/OIDC configuration was unavailable. |
+| [23 - Evaluation CI/CD](./23-evaluation-cicd/README.md) | Passed, including GitHub on 2026-10-26 | [Baseline Actions run](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281692169) succeeded at 100% correctness/100% coherence. [Regression Actions run](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281830195) failed at the intended gate with 0% correctness/100% coherence. Both used real OIDC login, environment approval, and uploaded verified cloud reports. |
 | [24 - Agent lifecycle](./24-agent-lifecycle/README.md) | Passed | Published the actual application, verified six endpoint responses across versions 1 -> 2 -> 1, confirmed three successful Activity Log writes and final ARM version-1 readback. |
 | [25 - Resilience and cost](./25-resilience-cost/README.md) | Passed | Two real model calls returned 30 input/37 output tokens after local injected faults. Observed model budget 5/6, tool budget 4/4, permanent-error/deadline stops, and one idempotent synthetic booking. |
 | [26 - Multimodal](./26-multimodal/README.md) | Passed | Both synthetic images matched every expected truth field, including unreadable/missing values. |
@@ -83,6 +84,40 @@ readbacks are retained locally in ignored evidence files:
 - Lab 22: `22-prompt-injection/.azure/live-test-after-fix.log`.
 - Lab 25: `25-resilience-cost/.azure/demo.log`.
 
+### Lab 23 GitHub configuration and verification on 2026-10-26
+
+- Installed `.github/workflows/foundry-evaluation.yml` and kept the lab's example
+  identical, enforced by an eighth unit test.
+- Created dedicated user-assigned managed identity `foundry-evaluation-github`
+  in the existing lab resource group, with only Foundry User access to the lab's
+  Foundry account. No subscription Contributor/Owner or stored Azure secret.
+- Configured environment `foundry-evaluation`: required reviewer `mifurm`,
+  administrator bypass disabled, allowed `main` and `refs/pull/*/merge` refs,
+  and all five non-secret environment variables. Fork PRs remain excluded.
+  Self-review is allowed for this single-maintainer workshop.
+- Verified GitHub uses immutable subjects. Initial run `40281468905` failed
+  `AADSTS700213` because a name-only example did not match the actual claim.
+  Federation now exactly matches
+  `repo:mifurm@16135464/FoundryWorkshopDEMOS@1433238170:environment:foundry-evaluation`;
+  immutable subject protection was not disabled.
+- Approved both reviewed main-branch verification runs through the required
+  environment gate. Azure login, eight unit tests, and artifact upload succeeded
+  in both. Downloaded reports confirmed three actual responses per run and
+  completed cloud evaluation, with unchanged 100% release thresholds.
+- Baseline cloud evaluation: `eval_375e42d5feb2486bb9e439f61013a8bc` /
+  `evalrun_1443c330f96b4289b8ea467b90e7235c`.
+- Regression cloud evaluation: `eval_e645335034c54fd9bfa5a1cdd8ec2a0c` /
+  `evalrun_84d576532ded41abb03dd6ae7ac1ae02`. Its failure was
+  `Release blocked: correctness=0.000, coherence=1.000`, not infrastructure.
+- Exact run metadata and downloaded artifacts are retained locally under
+  `23-evaluation-cicd/.azure/github-baseline*` and
+  `23-evaluation-cicd/.azure/github-regression*`.
+
+Repository-wide branch protection was left unchanged: requiring a path-filtered
+workflow for every PR could block unrelated changes indefinitely. Environment
+approval and the workflow's failing exit status are enforced, but a failed check
+does not itself create a repository-wide merge restriction.
+
 To complete the remaining live coverage:
 
 1. Lab 14 needs an inference identity without the presenter's inherited Foundry
@@ -90,9 +125,8 @@ To complete the remaining live coverage:
 2. Lab 21 needs a genuine second user session in an isolated Azure CLI
    configuration, supplied through `SECOND_AZURE_CONFIG_DIR`, with the documented
    tenant/Graph prerequisites.
-3. Lab 23 needs the documented workflow installed and its GitHub variables,
-   environment, Azure identity, OIDC federation, and RBAC configured before a
-   passing and deliberately failing Actions run can be verified.
-
-No tenant identities, consent grants, or federated credentials were created.
+The original 2026-10-25 pass created no tenant identities or federated credentials.
+The 2026-10-26 follow-up created the dedicated lab 23 managed identity and its
+environment-bound federation; no client secrets or tenant consent grants were
+created.
 Search and monitoring resources may continue charging while provisioned.

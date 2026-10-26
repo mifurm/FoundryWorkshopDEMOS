@@ -742,7 +742,7 @@ protection claim. Baseline attack success is not guaranteed or fabricated.
 
 **Type:** Feature
 
-**Status:** Cloud evaluation live-tested on 2026-10-25; GitHub OIDC workflow not configured
+**Status:** Implemented; cloud-tested on 2026-10-25 and GitHub OIDC verified on 2026-10-26
 
 **Demo:** [Evaluation CI/CD](./23-evaluation-cicd/README.md)
 
@@ -760,7 +760,7 @@ and Foundry evaluation rather than accepting better-looking prose.
 - [x] Fail visibly on evaluation infrastructure errors and regression thresholds.
 - [x] Include infrastructure, offline tests, OIDC permissions, costs, and cleanup.
 - [x] Verify a passing baseline and failing regression against real cloud evaluation.
-- [ ] Configure repository federation and observe a passing and deliberately failing CI run.
+- [x] Configure repository federation and observe a passing and deliberately failing CI run.
 
 ### Live verification
 
@@ -769,19 +769,34 @@ Deployed in East US 2 to `rg-foundry-evaluation-cicd-demo`. The baseline exited
 at 0% correctness despite 100% coherence. Thresholds were not lowered.
 Response-ID evaluation returned HTTP 404, so the documented inline-JSONL route
 now evaluates the exact generated responses using real `builtin.coherence`.
-Result status/count/source validation remains strict. Seven offline tests pass.
+Result status/count/source validation remains strict. Eight offline tests pass,
+including installed/example workflow consistency.
 Run IDs and evidence are retained in
 `23-evaluation-cicd/.azure/live-testing-summary.json`.
 
-The GitHub workflow was not run: no installed workflow, configured variables/
-environment, or reusable OIDC federation was available. No tenant identity or
-federated credential was created. Local cloud evaluation is not reported as
-proof of a passing GitHub Actions run.
+The missing GitHub configuration was completed on 2026-10-26. The installed
+workflow uses a dedicated managed identity with only lab-account Foundry User
+access and exact immutable repository/environment OIDC trust. The protected
+environment requires owner approval, disables administrator bypass, restricts
+branch refs, and holds five non-secret variables; no client secret was created.
+
+[Baseline Actions run](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281692169)
+passed with 100% correctness/coherence.
+[Regression Actions run](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281830195)
+failed at the intended correctness gate (0% correctness, 100% coherence).
+Both runs passed real OIDC login and eight unit tests and uploaded their cloud
+report. Downloaded artifacts verified completed cloud evaluation and three
+actual responses per run. An initial `AADSTS700213` mismatch was fixed by using
+GitHub's exact immutable-ID subject rather than disabling that protection.
+
+Repository-wide branch protection was not changed: the path-filtered workflow
+must be made always-reporting before requiring its check for unrelated PRs.
 
 ### Scope
 
-One small regression gate, not a production-quality evaluation dataset. The
-workflow template must be installed/configured as documented before GitHub runs it.
+One small regression gate, not a production-quality evaluation dataset.
+The workflow is installed and configured in this repository; other repositories
+must configure their own environment, identity trust, and variables.
 
 ## F024 - Microsoft Foundry: Agent Application Lifecycle
 

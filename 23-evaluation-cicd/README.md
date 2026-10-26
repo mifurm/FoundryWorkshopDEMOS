@@ -151,6 +151,24 @@ path-filtered: making it required for every PR without handling unrelated paths
 can leave unrelated PRs permanently pending. Deliberately configure an
 always-reported gate before making it a repository-wide required check.
 
+### Verified GitHub runs on 2026-10-26
+
+Both runs used the reviewed main-branch configuration at commit `a9b4da5`,
+waited for required environment approval, authenticated through the scoped
+managed identity, passed eight unit tests, and uploaded their real cloud report.
+
+| Prompt | Actions outcome | Correctness | Coherence |
+| --- | --- | --- | --- |
+| [Baseline](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281692169) | Success | 100% | 100% |
+| [Regression](https://github.com/mifurm/FoundryWorkshopDEMOS/actions/runs/40281830195) | Expected failure at the release gate | 0% | 100% |
+
+Downloaded artifacts were checked: three real responses per run, completed
+cloud evaluation, unchanged 100% thresholds, and regression error
+`Release blocked: correctness=0.000, coherence=1.000`. The red regression run
+is the intended demonstration, not a broken OIDC login or evaluation service.
+Initial run `40281468905` failed with the old name-only federation subject;
+the successful runs use the corrected immutable-ID subject above.
+
 Fork PRs are skipped; they are not claimed to have passed cloud evaluation.
 The workflow never uses `pull_request_target`, `continue-on-error`, a stored Azure
 secret, or `|| true` on the gate. Artifact upload uses `always()` and doesn't

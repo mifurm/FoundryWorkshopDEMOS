@@ -33,8 +33,11 @@ the same tenant. The runner invokes that lab's `--preflight` after installing
 its dependencies but before provider registration or resource creation. Its
 README documents the Graph checks and optional restricted-group setup.
 Labs 23 and 24 require their documented evaluation/publishing permissions and
-regional API support. GitHub OIDC must be configured separately to run lab 23
-in GitHub Actions. Lab 24 uses the documented legacy Agent Application ARM
+regional API support. Lab 23's workflow, protected environment, scoped managed
+identity, and GitHub OIDC are configured and live-verified in this repository;
+other repositories need their own exact subject, environment, and variables.
+See its README for owner approval and baseline/regression runs.
+Lab 24 uses the documented legacy Agent Application ARM
 publishing route and additionally needs subscription Activity Log read access;
 read its API/availability caveats before presenting. To present individual demos,
 use `--demo` or their standalone deployment instructions.
