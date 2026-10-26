@@ -92,8 +92,15 @@ The federated credential trusts only:
 ```text
 issuer:   https://token.actions.githubusercontent.com
 audience: api://AzureADTokenExchange
-subject:  repo:mifurm/FoundryWorkshopDEMOS:environment:foundry-evaluation
+subject:  repo:mifurm@16135464/FoundryWorkshopDEMOS@1433238170:environment:foundry-evaluation
 ```
+
+This repository enables GitHub's immutable subject format. A name-only subject
+fails Azure login with `AADSTS700213`; do not disable immutable subjects to make
+an older example work. Inspect `gh api repos/OWNER/REPO/actions/oidc/customization/sub`
+for the actual `sub_claim_prefix`, and append the exact environment context.
+Custom subject templates may differ; the credential must match the actual
+issued token's subject, issuer, and audience.
 
 Azure Login uses `id-token: write` OIDC; DefaultAzureCredential then uses the
 short-lived Azure CLI session. No Azure client secret or stored credential is
@@ -105,7 +112,7 @@ az deployment group create \
   -g rg-foundry-evaluation-cicd-demo -n github-oidc \
   -f 23-evaluation-cicd/infra/github-oidc.bicep \
   -p accountName="<existing-Foundry-account-name>" \
-     repository=mifurm/FoundryWorkshopDEMOS environmentName=foundry-evaluation \
+     githubSubject="repo:mifurm@16135464/FoundryWorkshopDEMOS@1433238170:environment:foundry-evaluation" \
   --query properties.outputs -o json
 ```
 
@@ -115,8 +122,8 @@ It requires Managed Identity resource creation and role-assignment permissions,
 not permission to create an Entra app registration. The returned client, tenant,
 and subscription IDs populate the first three GitHub environment variables.
 Use this lab's `projectEndpoint` and `deployment` outputs for the remaining two.
-For another repository, change the federation's `repository` parameter and
-configure its GitHub environment with the same name, review rules, branch
+For another repository, supply its exact `githubSubject` and configure its
+GitHub environment with the corresponding name, review rules, branch
 policies, and variables. Allow Azure role/federation propagation before testing.
 
 ### Run the real GitHub gate

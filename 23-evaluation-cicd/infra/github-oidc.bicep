@@ -4,9 +4,8 @@ param location string = resourceGroup().location
 @description('Existing lab 23 Foundry account; no model or project is redeployed.')
 param accountName string
 param identityName string = 'foundry-evaluation-github'
-@description('Exact GitHub owner/repository allowed to use this identity.')
-param repository string = 'mifurm/FoundryWorkshopDEMOS'
-param environmentName string = 'foundry-evaluation'
+@description('Exact environment-bound OIDC sub claim, including immutable IDs when enabled in GitHub.')
+param githubSubject string
 
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
   name: accountName
@@ -23,7 +22,7 @@ resource federation 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedI
   properties: {
     issuer: 'https://token.actions.githubusercontent.com'
     audiences: ['api://AzureADTokenExchange']
-    subject: 'repo:${repository}:environment:${environmentName}'
+    subject: githubSubject
   }
 }
 
