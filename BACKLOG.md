@@ -1368,3 +1368,37 @@ returned HTTP 400 `tool_user_error` because the OAuth connection has no valid
 target; the connection is absent and the documented Work IQ service principal
 was not found in the tenant. User/admin authorization was unavailable. No Work IQ
 retrieval or two-user live pass is claimed. See [the test log](./tests.md).
+
+## F036 - Microsoft Foundry: Custom-Code Hosted Agent
+
+**Type:** Feature
+**Status:** Implemented, deployed and live-tested
+**Demo:** [Hosted agent and UI](./36-hosted-agent/README.md)
+
+### Acceptance criteria
+
+- [x] Deploy a real custom-code hosted agent and its container registry.
+- [x] Use cloud model tool calls and validate the resulting structured quote.
+- [x] Demonstrate native session persistence and independent session isolation.
+- [x] Provide a simple UI, infrastructure, tests and documented cleanup.
+- [x] Pass live pricing/state checks and correlate all invocations to Azure traces.
+
+## F037 - Microsoft Foundry: Production Quality Monitoring
+
+**Type:** Feature
+**Status:** Deployed; blocked by absent native automatic evaluation runs
+**Demo:** [Production monitoring and UI](./37-production-monitoring/README.md)
+
+### Acceptance criteria
+
+- [x] Deploy two persistent agents, managed endpoints and Azure monitoring.
+- [x] Configure native response-completion evaluation rules and a cloud grader.
+- [x] Provide a simple UI with truthful pending/pass/fail states.
+- [ ] Observe automatic evaluations of actual baseline, regression and recovery traffic.
+- [ ] Pass the complete cloud evaluation and response-correlated telemetry gate.
+
+Manual evaluation diagnostics are not evidence of automatic monitoring success.
+All 14 local tests pass. Real UI baseline/regression/recovery execution and exact
+response/agent/version trace correlation pass for all six requests. The strict
+automatic-evaluation gate timed out after 20 minutes; both good routes were
+restored. See [verification results](./tests.md).

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 37 | Foundry production monitoring</title>
+<style>
+body{font:16px system-ui;background:#0b1220;color:#e5edf8;max-width:1100px;margin:40px auto;padding:0 24px}
+h1{font-size:36px}.muted{color:#a7bad4}section{background:#152238;border:1px solid #2b405b;border-radius:12px;padding:20px;margin:16px 0}
+button{font:inherit;border-radius:7px;padding:10px;border:1px solid #58749c;background:#80c8ff;color:#081324;cursor:pointer;margin:4px}button:disabled{opacity:.5}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:10px;border-bottom:1px solid #2b405b}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px ui-monospace}.good{color:#86efac}.bad{color:#fca5a5}.pending{color:#fde68a}
+</style>
+<header><p class="muted">MICROSOFT FOUNDRY / LAB 37</p><h1>Detect. Diagnose. Recover.</h1>
+<p>Two deployed agents. One controlled regression. Native continuous evaluation of actual live responses.</p>
+<p class="muted">The exact-match price grader checks correctness, not writing style. Pending evaluations are never shown as passing.</p></header>
+<section><button data-mode="baseline">1. Healthy baseline</button><button data-mode="regression">2. Introduce price regression</button>
+<button data-mode="recovery">3. Restore good version</button><button id="refresh">Refresh cloud evaluations</button>
+<p id="status" role="status">Loading deployment...</p></section>
+<section><h2>Live traffic and cloud quality verdict</h2>
+<table><thead><tr><th>Agent / phase</th><th>Version</th><th>Actual answer</th><th>Native evaluation</th></tr></thead><tbody id="rows"></tbody></table>
+<p class="muted">The stable control should remain USD 25 throughout. Regression is an intentionally wrong USD 40, not a model outage.</p></section>
+<section><h2>Response-linked evaluation evidence</h2><pre id="evidence">No cloud evaluation results read yet.</pre></section>
+<section><h2>Azure Monitor traces</h2><button id="traces">Query ingested server-side traces</button><pre id="telemetry">Not queried.</pre></section>
+<section><h2>Native rules and last live gate</h2><pre id="configuration">Loading...</pre></section>
+<script>
+const $=id=>document.getElementById(id);let records=[],evaluations=[];
+async function api(path,body){
+ const response=await fetch(path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});
+ const data=await response.json();if(!response.ok)throw Error(data.error||JSON.stringify(data));return data;
+}
+function render(){
+ $("rows").replaceChildren();
+ $("evidence").textContent=JSON.stringify(evaluations,null,2);
+ for(const record of records){
+  const match=evaluations.find(e=>e.agent===record.agent&&e.item.datasource_item?.response_id===record.response_id);
+  const checks=match?.item.results?.filter(r=>r.name==="price_correct")??[];
+  if(match&&(match.item.datasource_item.agent_name!==record.agent
+    ||String(match.item.datasource_item.agent_version)!==String(record.configured_version)
+    ||checks.length!==1||typeof checks[0].passed!=="boolean"||checks[0].status!=="completed")){
+   throw Error("Native evaluation identity, version or grader output mismatch for "+record.response_id);
+  }
+  const check=checks[0];
+  const row=document.createElement("tr");
+  for(const text of [record.agent+" / "+record.phase,record.configured_version,record.answer,check?check.passed?"PASS":"FAIL":"PENDING"]){
+   const cell=document.createElement("td");cell.textContent=text;row.append(cell);
+  }
+  row.lastChild.className=check?check.passed?"good":"bad":"pending";$("rows").append(row);
+ }
+}
+function status(text,error=false){$("status").textContent=text;$("status").className=error?"bad":""}
+document.querySelectorAll("[data-mode]").forEach(button=>button.onclick=async()=>{
+ document.querySelectorAll("[data-mode]").forEach(b=>b.disabled=true);status("Switching actual deployed routes and generating live traffic...");
+ try{const data=await api("/api/traffic",{mode:button.dataset.mode});records.push(...data.requests);render();status("Live responses received. Refresh evaluations until the native verdicts arrive.")}
+ catch(error){status(error.message,true)}finally{document.querySelectorAll("[data-mode]").forEach(b=>b.disabled=false)}
+});
+$("refresh").onclick=async()=>{try{status("Reading native evaluation runs...");evaluations=(await api("/api/evaluations")).evaluations;render();status("Cloud results refreshed. Missing response-linked verdicts remain PENDING.")}catch(error){status(error.message,true)}};
+$("traces").onclick=async()=>{try{$("telemetry").textContent=JSON.stringify(await api("/api/traces"),null,2)}catch(error){$("telemetry").textContent=error.message;status(error.message,true)}};
+api("/api/status").then(data=>{
+ $("configuration").textContent=JSON.stringify({configuration:data.configuration,last_live_test_passed:data.last_live_test?.passed??null},null,2);
+ records=data.last_live_test?.requests??[];render();status("Ready. Start with the healthy baseline, or refresh previous cloud results.");
+}).catch(error=>status(error.message,true));
+</script>
+</html>

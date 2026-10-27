@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 36 | Foundry hosted agent</title>
+<style>
+body{font:16px system-ui;background:#0b1220;color:#e5edf8;max-width:1000px;margin:40px auto;padding:0 24px}
+h1{font-size:36px} .muted{color:#a7bad4} .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+section{background:#152238;border:1px solid #2b405b;border-radius:12px;padding:20px;margin:16px 0}
+button,input{font:inherit;border-radius:7px;padding:10px;border:1px solid #58749c}button{background:#80c8ff;color:#081324;cursor:pointer;margin:8px 8px 0 0}
+button:disabled{opacity:.5}input{width:75px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px ui-monospace}
+.good{color:#86efac}.error{color:#fca5a5}strong{font-size:24px}label{display:block}
+</style>
+<header><p class="muted">MICROSOFT FOUNDRY / LAB 36</p><h1>Your code. Foundry's runtime.</h1>
+<p>Browser &rarr; local credential proxy &rarr; authenticated hosted endpoint &rarr; live model + read-only tool.</p>
+<p class="muted">The workflow never runs in this UI process. Synthetic prices only; no bookings or payments.</p></header>
+<section><label>Attendees (1-20) <input id="attendees" type="number" min="1" max="20" value="3"></label>
+<button id="run">Run hosted agent</button><button id="fresh">New isolated session</button>
+<p id="status" role="status">Ready</p><small id="session"></small></section>
+<div class="grid">
+<section><h2>Verified quote</h2><strong id="total">Not run</strong><pre id="quote"></pre></section>
+<section><h2>Sandbox session state</h2><p id="visits">No execution yet</p><pre id="state"></pre></section>
+</div>
+<section><h2>Actual cloud execution evidence</h2><pre id="evidence">Run an agent to see model response IDs, tool call ID, session and trace IDs.</pre></section>
+<section><h2>Deployed version and last live gate</h2><pre id="deployment">Loading...</pre></section>
+<script>
+let session="ui-"+crypto.randomUUID(); const $=id=>document.getElementById(id);
+function showSession(){$("session").textContent="Session: "+session}showSession();
+$("fresh").onclick=()=>{session="ui-"+crypto.randomUUID();showSession();$("status").textContent="New session selected. Run to verify isolated state."};
+$("run").onclick=async()=>{
+ $("run").disabled=true;$("fresh").disabled=true;$("status").className="";$("status").textContent="Calling Azure hosted agent (a cold start can take a minute)...";
+ try{
+  const response=await fetch("/api/invoke",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({attendees:Number($("attendees").value),session_id:session})});
+  const data=await response.json();if(!response.ok)throw Error(data.error||JSON.stringify(data));
+  $("total").textContent=data.quote.currency+" "+data.quote.total;$("quote").textContent=JSON.stringify(data.quote,null,2);
+  $("visits").textContent="Visits in this sandbox: "+data.state.visits;$("state").textContent=JSON.stringify(data.state,null,2);
+  const {quote,state,...evidence}=data;$("evidence").textContent=JSON.stringify(evidence,null,2);
+  $("status").textContent="Verified live cloud execution";$("status").className="good";
+ }catch(error){$("status").textContent=error.message;$("status").className="error"}
+ finally{$("run").disabled=false;$("fresh").disabled=false}
+};
+fetch("/api/status").then(r=>{if(!r.ok)throw Error("Could not read deployment");return r.json()}).then(data=>{
+ $("deployment").textContent=JSON.stringify({agent:data.agent,last_live_test_passed:data.last_live_test?.passed??null},null,2);
+}).catch(error=>{$("deployment").textContent=error.message});
+</script>
+</html>

@@ -35,6 +35,7 @@ class DeployTests(unittest.TestCase):
             "Microsoft.ApiManagement/service/apis",
             "Microsoft.ApiManagement/service/apis/operations",
             "Microsoft.ApiManagement/service/apis/operations/policies",
+            "Microsoft.CognitiveServices/accounts/projects/connections",
         }
         templates = sorted(Path(__file__).parent.glob("*/infra/*.bicep"))
         self.assertTrue(templates)
@@ -196,7 +197,7 @@ class DeployTests(unittest.TestCase):
              "26-multimodal", "27-FoundryIQwithKB", "28-agent-skills",
              "29-toolbox-skill-discovery", "30-skill-data-analyst", "31-native-agent-memory",
              "32-browser-runbook", "33-skill-release-governance", "34-document-intelligence",
-             "35-work-iq"],
+             "35-work-iq", "36-hosted-agent", "37-production-monitoring"],
         )
 
     def test_storage_and_search_resource_outputs_override_stale_environment(self) -> None:
@@ -241,7 +242,7 @@ class DeployTests(unittest.TestCase):
             int(number) for number in re.findall(r"^## F(\d{3}) - ",
                                                 (root / "BACKLOG.md").read_text(), re.MULTILINE)
         ]
-        self.assertEqual(proposals, list(range(1, 36)))
+        self.assertEqual(proposals, list(range(1, 38)))
         self.assertEqual(features, proposals)
         for demo in deploy.discover(root):
             with self.subTest(demo=demo.name):

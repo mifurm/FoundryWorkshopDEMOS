@@ -7,7 +7,7 @@ Python versions), Azure CLI, Bicep (`az bicep version`), and an interactive
 Azure user with resource creation and role-assignment permissions. See each
 demo's prerequisites for model quota and access requirements.
 
-There are **35 standalone demos**. Prefer selecting a small subset rather than
+There are **37 standalone demos**. Prefer selecting a small subset rather than
 deploying every resource and running every paid operation at once:
 
 ```bash
@@ -18,7 +18,7 @@ python3 deploy.py --subscription "<subscription-id>" --demo 20 --demo 25
 
 `--demo` accepts a demo number or exact folder name and can be repeated. Selected
 demos run in numeric order; prerequisites for unselected demos are not required.
-Without `--demo`, the runner selects all 35.
+Without `--demo`, the runner selects all 37.
 Lab 32 requires a Browser Automation-supported region such as `eastus`, not the
 runner's `eastus2` default. The runner rejects unsupported template locations
 before any Azure resource changes. Present lab 32 separately using its manual
@@ -85,7 +85,8 @@ Agent Applications and managed agent deployments at runtime.
 
 Azure does not support resource tags on role assignments, federated identity
 credentials, individual Function definitions, Blob services, Blob containers,
-and Blob lifecycle management policies used by these templates. Entra directory
+Blob lifecycle management policies, and Foundry project connections used by
+these templates. Entra directory
 objects and data-plane objects are not
 ARM-tagged resources. These objects are excluded; their taggable parent resources
 receive both tags.
@@ -205,6 +206,8 @@ Lab 27 additionally uses `searchResourceId`, `storageEndpoint`, and
 - [Browser runbook automation with explicit approval](./32-browser-runbook/README.md)
 - [Skill evaluation, default promotion, pinned consumers, and rollback](./33-skill-release-governance/README.md)
 - [Work IQ in a persistent Foundry agent with per-user OAuth](./35-work-iq/README.md)
+- [Custom-code Foundry hosted agent with a simple UI](./36-hosted-agent/README.md)
+- [Live production-quality monitoring and recovery with a simple UI](./37-production-monitoring/README.md)
 - [Backlog](./BACKLOG.md)
 
 Each demo has standalone Bicep, local Python code, dependencies, tests, and manual
@@ -274,7 +277,7 @@ Use [removeAll.sh](./removeAll.sh) with Bash, Azure CLI, and `jq`. Preview first
 ./removeAll.sh --subscription "<subscription-id>" --execute
 ```
 
-The script covers all 35 labs: root and standalone runner defaults, documented
+The script covers all 37 labs: root and standalone runner defaults, documented
 manual/historical names, and saved deployment records for the selected subscription.
 Legacy output-only `deployment.json` files have no subscription/group metadata;
 the script warns and uses known group names instead. Add `--group` if such a

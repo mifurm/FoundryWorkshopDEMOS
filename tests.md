@@ -12,6 +12,49 @@
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
 
+## Labs 36-37: deployed agent demos and live verification, 2026-10-27
+
+Only the two new samples were deployed, in East US 2 in subscription
+`1217c203-6c76-47b4-b61c-9bba62dc8e02`. Both ARM deployments succeeded and were
+successfully repeated through their standalone infrastructure-only runners.
+
+| Verification | Lab 36: hosted agent | Lab 37: production monitoring |
+| --- | --- | --- |
+| Resource group | `rg-foundry-hosted-agent-demo` | `rg-foundry-production-monitoring-demo` |
+| Final local tests | 10 passed | 14 passed |
+| Deployed agents | Custom-code hosted version 2, native Invocations 2.0.0 | Monitored versions 1/2 and stable version 1, native Responses endpoints |
+| Real cloud execution | USD 75/100/50; repeated session retained its marker and incremented its counter; independent session remained isolated | UI baseline USD 25/25, regression USD 40/25, recovery USD 25/25 |
+| Azure telemetry | All three exact invocation trace IDs matched named spans, including model and tool spans | All six browser response IDs matched actual server-side agent names and served versions |
+| Browser UI | Latest hosted version, repeated and fresh sessions passed | All three actual cloud scenarios passed; missing native verdicts correctly stayed PENDING |
+| Complete native live gate | **Passed** | **Blocked, not passed:** zero automatic evaluation runs; baseline wait timed out after 20 minutes |
+
+Lab 37's native rules read back enabled with 100% sampling and a 30-run/hour
+limit per agent. Project-identity evaluation and monitoring roles were deployed.
+Both managed-endpoint requests and the documented project/conversation request
+flow returned actual responses, but neither yielded automatic evaluation runs.
+A separate manual cloud exact-match evaluation succeeded; it was diagnostic
+only, was deleted, and cannot satisfy the native monitoring gate. The supported
+native schedule alternative was also probed, but the service rejected the SDK
+schedule requests; no temporary schedules remain. The precise event-triggering
+failure is unresolved. Both good agent routes are restored.
+
+Ignored local evidence:
+[hosted live report](./36-hosted-agent/.azure/live-report.json),
+[hosted unit tests](./36-hosted-agent/.azure/unit-tests.log),
+[monitoring live gate](./37-production-monitoring/.azure/live-report.json),
+[monitoring timeout log](./37-production-monitoring/.azure/live-test-final.log),
+[native rule/run diagnostics](./37-production-monitoring/.azure/native-monitoring-diagnostics.json),
+[six-request browser/trace report](./37-production-monitoring/.azure/ui-live-report.json),
+and [monitoring unit tests](./37-production-monitoring/.azure/unit-tests.log).
+
+The shared deployment suite has **34/35 passing tests**. Its only failure is the
+previously documented lab 13 model-resource tag-layout assertion; neither new
+lab fails that check. Catalog/discovery, backlog, manual tags and standalone
+runner integration checks pass. No existing demo implementation was changed.
+Both UIs remain available on loopback ports 8036 and 8037, and resources remain
+deployed and billable. Lab 37 must not be presented as fully live-validated until
+automatic evaluation triggering is resolved and its complete gate passes.
+
 ## Lab 35: per-user Work IQ deployment and blocked live validation, 2026-10-27
 
 [Lab 35](./35-work-iq/README.md) is implemented and deployed to
