@@ -86,7 +86,10 @@ class DeployTests(unittest.TestCase):
                 state.parent.mkdir()
                 name = re.sub(r"^\d+-", "", folder.name)
                 group = f"rg-foundry-student-{name}-demo"
-                state.write_text(json.dumps({"subscription": "sub", "resourceGroup": group}))
+                previous = {"subscription": "sub", "resourceGroup": group}
+                if script.parent.name == "13-agent-orchestrations":
+                    previous["accountName"] = "foundry-patterns-" + "0" * 32
+                state.write_text(json.dumps(previous))
                 commands = []
                 owner = namespace["OWNER"]
 
@@ -192,7 +195,8 @@ class DeployTests(unittest.TestCase):
              "23-evaluation-cicd", "24-agent-lifecycle", "25-resilience-cost",
              "26-multimodal", "27-FoundryIQwithKB", "28-agent-skills",
              "29-toolbox-skill-discovery", "30-skill-data-analyst", "31-native-agent-memory",
-             "32-browser-runbook", "33-skill-release-governance"],
+             "32-browser-runbook", "33-skill-release-governance", "34-document-intelligence",
+             "35-work-iq"],
         )
 
     def test_storage_and_search_resource_outputs_override_stale_environment(self) -> None:
@@ -217,6 +221,16 @@ class DeployTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly one demo"):
             deploy.select_demos(demos, ["missing"])
 
+    def test_project_tenant_output_overrides_stale_environment(self) -> None:
+        outputs = {
+            "endpoint": {"value": "https://foundry.openai.azure.com/"},
+            "tenantId": {"value": "project-tenant"},
+        }
+        result = deploy.demo_environment(outputs, {"AZURE_TENANT_ID": "stale-tenant"})
+        self.assertEqual(result["AZURE_TENANT_ID"], "project-tenant")
+        with self.assertRaisesRegex(ValueError, "tenantId"):
+            deploy.demo_environment({**outputs, "tenantId": {"value": ""}}, {})
+
     def test_every_proposal_has_documentation_and_a_backlog_feature(self) -> None:
         root = Path(__file__).parent
         proposals = [
@@ -227,7 +241,7 @@ class DeployTests(unittest.TestCase):
             int(number) for number in re.findall(r"^## F(\d{3}) - ",
                                                 (root / "BACKLOG.md").read_text(), re.MULTILINE)
         ]
-        self.assertEqual(proposals, list(range(1, 34)))
+        self.assertEqual(proposals, list(range(1, 36)))
         self.assertEqual(features, proposals)
         for demo in deploy.discover(root):
             with self.subTest(demo=demo.name):

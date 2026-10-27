@@ -5,7 +5,9 @@ from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, Mock, patch
 from zipfile import ZipFile
 
+import httpx
 from mcp import types
+from openai import NOT_GIVEN, OpenAI
 from openai.types.responses import Response
 
 import demo
@@ -97,7 +99,7 @@ class DiscoveryTests(IsolatedAsyncioTestCase):
         await self.run_case()
         self.assertEqual(self.session.read_resource.await_count, 2)
         calls = self.client.responses.create.call_args_list
-        self.assertIsNone(calls[0].kwargs["previous_response_id"])
+        self.assertIs(calls[0].kwargs["previous_response_id"], NOT_GIVEN)
         self.assertNotIn("BRIEF-29", calls[0].kwargs["instructions"])
         self.assertEqual(calls[1].kwargs["previous_response_id"], "resp-1")
         self.assertIn("BRIEF-29", calls[1].kwargs["input"][0]["output"])
@@ -108,6 +110,33 @@ class DiscoveryTests(IsolatedAsyncioTestCase):
         self.client.responses.create.side_effect = [response(json.dumps(self.expected))]
         with self.assertRaisesRegex(RuntimeError, "relevant skill"):
             await self.run_case()
+
+    async def test_wire_payload_omits_initial_response_id_and_preserves_continuations(self):
+        payloads = []
+        responses = [
+            response(call_uri=URI), response(call_uri=REFERENCE_URI),
+            response(json.dumps(self.expected)),
+        ]
+
+        def handle(request):
+            payload = json.loads(request.content)
+            turn = len(payloads) % 3
+            payloads.append(payload)
+            if turn == 0:
+                self.assertNotIn("previous_response_id", payload)
+            else:
+                self.assertEqual(payload["previous_response_id"], "resp-1")
+            return httpx.Response(200, json=responses[turn].model_dump(mode="json"))
+
+        for _ in range(2):
+            self.setUp()
+            with OpenAI(
+                api_key="test", base_url="https://foundry.example/openai/v1",
+                http_client=httpx.Client(transport=httpx.MockTransport(handle)), max_retries=0,
+            ) as client:
+                self.client = client
+                await self.run_case()
+        self.assertEqual(len(payloads), 6)
 
     async def test_rejects_wrong_uri_blob_wrong_source_or_wrong_contract(self):
         for variant in ("unknown-uri", "blob", "wrong-source", "wrong-contract", "wrong-skill"):

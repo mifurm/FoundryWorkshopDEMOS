@@ -8,6 +8,14 @@ param deploymentName string = 'gpt-4.1-mini'
 param embeddingDeploymentName string = 'text-embedding-3-small'
 param gatewayName string = 'apim-cache-${uniqueString(resourceGroup().id)}'
 param redisName string = 'redis-cache-${uniqueString(resourceGroup().id)}'
+@description('Workshop Balanced-tier Redis SKU. Larger sizes increase standing costs; availability is region/subscription dependent.')
+@allowed([
+  'Balanced_B0'
+  'Balanced_B1'
+  'Balanced_B3'
+  'Balanced_B5'
+])
+param redisSku string = 'Balanced_B0'
 @description('Cosine distance, not similarity: lower values require a closer match.')
 @allowed([
   '0.05'
@@ -67,7 +75,7 @@ resource embeddings 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01
     model
   ]
   sku: {
-    name: 'Standard'
+    name: 'GlobalStandard'
     capacity: capacity
   }
   properties: {
@@ -123,7 +131,7 @@ resource redis 'Microsoft.Cache/redisEnterprise@2025-07-01' = {
   name: redisName
   location: location
   sku: {
-    name: 'Balanced_B0'
+    name: redisSku
   }
   properties: {
     highAvailability: 'Disabled'
@@ -151,10 +159,10 @@ resource database 'Microsoft.Cache/redisEnterprise/databases@2025-07-01' = {
 
 resource externalCache 'Microsoft.ApiManagement/service/caches@2024-05-01' = {
   parent: gateway
-  name: 'semantic-cache'
+  name: 'default'
   properties: {
     connectionString: '${redis.properties.hostName}:10000,password=${database.listKeys().primaryKey},ssl=True,abortConnect=False'
-    resourceId: redis.id
+    resourceId: uri(environment().resourceManager, redis.id)
     useFromLocation: 'default'
   }
 }

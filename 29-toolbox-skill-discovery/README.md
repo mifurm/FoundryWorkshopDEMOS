@@ -74,6 +74,8 @@ Show the three local skill descriptions first. In the transcript, distinguish
 metadata discovery, the model's actual read request, returned skill instructions,
 and checked final JSON. Each request starts without a previous response ID;
 only its own tool-result continuation uses server response state.
+The first request omits `previous_response_id` entirely: sending JSON `null`
+causes Foundry to reject it with HTTP 400, `Expected string, got Null`.
 
 ## Validation and cleanup
 

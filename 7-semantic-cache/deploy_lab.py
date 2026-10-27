@@ -29,6 +29,9 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--subscription", help="Defaults to the Azure CLI subscription.")
     parser.add_argument("--location", default="eastus2")
+    parser.add_argument("--redis-sku", default="Balanced_B0",
+                        choices=("Balanced_B0", "Balanced_B1", "Balanced_B3", "Balanced_B5"),
+                        help="Redis Balanced SKU; larger sizes increase standing costs. No automatic fallback.")
     parser.add_argument("--prefix", default="rg-foundry-student", help="Dedicated lab group prefix.")
     parser.add_argument("--principal-id", help="Defaults to the signed-in user's object ID.")
     args = parser.parse_args(argv)
@@ -68,6 +71,7 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("Cannot resolve user object ID; provide --principal-id.")
     STATE.parent.mkdir(exist_ok=True)
     result = {"lab": LAB.name, "subscription": subscription, "resourceGroup": group,
+              "redisSku": args.redis_sku,
               "status": "running", "stage": "local-tests", "outputs": {}}
     STATE.write_text(json.dumps(result, indent=2) + "\n")
     try:
@@ -98,7 +102,7 @@ def main(argv: list[str] | None = None) -> None:
         result["outputs"] = json.loads(runner.run([
             "az", "deployment", "group", "create", "--resource-group", group, "--name", name,
             *scope, "--template-file", str(template), "--parameters",
-            f"principalId={principal}", f"location={args.location}",
+            f"principalId={principal}", f"location={args.location}", f"redisSku={args.redis_sku}",
             "--query", "properties.outputs", "-o", "json",
         ], capture=True))
         result["stage"] = "live-demo"

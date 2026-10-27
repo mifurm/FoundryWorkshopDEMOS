@@ -17,7 +17,7 @@ from azure.identity import AzureCliCredential
 import httpx
 from mcp import ClientSession, types
 from mcp.client.streamable_http import streamable_http_client
-from openai import OpenAI
+from openai import NOT_GIVEN, OpenAI
 from openai.types.responses import ResponseInputParam, ToolParam
 from pydantic import AnyUrl
 
@@ -112,7 +112,8 @@ async def run_case(
         }]
         response = await asyncio.to_thread(
             client.responses.create, model=deployment, instructions=instructions,
-            input=next_input, previous_response_id=previous, tools=tools,
+            input=next_input, previous_response_id=previous if previous is not None else NOT_GIVEN,
+            tools=tools,
             parallel_tool_calls=False, timeout=90.0,
         )
         print(f"Response: {response.id}; status: {response.status}", flush=True)

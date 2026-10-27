@@ -1,0 +1,39 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Synthetic invoice Document Intelligence tool",
+    "version": "1.1.0"
+  },
+  "servers": [{"url": "https://replace-with-deployed-function.azurewebsites.net/api"}],
+  "security": [{"functionKey": []}],
+  "components": {
+    "securitySchemes": {
+      "functionKey": {"type": "apiKey", "in": "header", "name": "x-functions-key"}
+    }
+  },
+  "paths": {
+    "/invoices/{document_id}": {
+      "get": {
+        "operationId": "extract_invoice",
+        "summary": "Analyze an approved synthetic PDF using Azure Document Intelligence prebuilt-invoice.",
+        "parameters": [{
+          "name": "document_id", "in": "path", "required": true,
+          "schema": {"type": "string", "enum": [
+            "clear", "missing-total", "office-supplies", "training-materials",
+            "catering", "equipment", "printing", "zero-total", "large-total",
+            "eur-invoice", "missing-total-office", "missing-total-catering"
+          ]},
+          "description": "Select an approved repository PDF by ID. Missing-total samples demonstrate absent evidence; zero-total is explicitly zero, not missing."
+        }],
+        "responses": {
+          "200": {
+            "description": "Real service operation ID, submitted PDF SHA-256, extracted fields, confidence, page evidence and review flag.",
+            "content": {"application/json": {"schema": {"type": "object"}}}
+          },
+          "400": {"description": "Unknown document ID."},
+          "502": {"description": "Extraction failed. Do not invent a successful result."}
+        }
+      }
+    }
+  }
+}

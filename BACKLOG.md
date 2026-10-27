@@ -1280,3 +1280,91 @@ isolation, and verify rollback without changing consumer code.
 
 Local deterministic gate and explicit snapshot injection into temporary Foundry
 prompt agents. No hot reload, hosted app deployment, or cloud evaluation claim.
+
+## F034 - Microsoft Foundry: Document Intelligence Agent
+
+**Type:** Feature
+**Status:** Implemented and live-tested on 2026-10-27
+**Demo:** [Document Intelligence agent](./34-document-intelligence/README.md)
+
+### Goal
+
+Present a persistent Foundry project agent that calls Document Intelligence in
+Azure, showing extracted invoice fields, source evidence and missing-value review.
+
+### Acceptance criteria
+
+- [x] Standalone Bicep, dependencies, tests, catalog entry and lab instructions.
+- [x] Cloud OpenAPI tool backed by a key-protected Function and managed-identity
+  access to Document Intelligence, with no local function-call runner.
+- [x] Synthetic complete and missing-total PDFs; bounded polling and visible errors.
+- [x] Persistent agent, project connection and read-back verification.
+- [x] Exact field, confidence, grounding and missing-value quality gates.
+- [x] Deploy and pass repeated independent live agent tests against Azure.
+- [x] Keep the original PDFs plus ten additional samples in the repository;
+  deploy their exact bytes and verify file hashes in every live extraction.
+
+### Live verification
+
+The expanded [twelve-PDF corpus](./34-document-intelligence/samples/) passed
+`python3 deploy.py --demo 34` on 2026-10-27: 12 direct analyses, 24 independent
+agent requests and 96 exact field comparisons. All 36 service operation IDs
+were distinct and every submitted PDF hash matched the repository file.
+Three missing-total documents, explicit zero, EUR and varied vendors/amounts
+passed without lowering the 0.8 confidence gate. Saved agent version 2 exposes
+all twelve IDs. Throttling is handled with bounded retries; final execution
+exited 0. Thirteen Python tests, including seven Node subtests, passed.
+
+Initial two-document baseline:
+
+The shared `python3 deploy.py --demo 34` workflow passed end to end in
+`rg-foundry-document-intelligence-demo`: two direct extractions and four
+agent requests. A separate six-request ask-only run also passed. All ten
+agent requests used completed cloud OpenAPI calls with matching real Document
+Intelligence operation IDs; all 40 ground-truth field comparisons passed.
+Missing totals/currencies remained null and required review. The persisted
+`document-intelligence-agent` version 1 was independently listed afterward.
+Resources remain deployed and billable for the Foundry portal demonstration.
+
+### Scope
+
+Saved prompt agent and approved synthetic invoices, not custom model training,
+arbitrary document uploads, a production review workflow or Agent Application
+publication. Keep resources for the portal demonstration and document cleanup.
+
+## F035 - Microsoft Foundry: Work IQ in the calling user's context
+
+**Type:** Feature
+**Status:** Implemented; live Work IQ authorization blocked
+**Demo:** [Per-user Work IQ agent](./35-work-iq/README.md)
+
+### Goal
+
+Present a persistent native Foundry Work IQ agent without substituting the
+developer, project identity, or a shared service account for the calling user.
+
+### Acceptance criteria
+
+- [x] Standalone Bicep, pinned dependencies, tests, catalog and instructions.
+- [x] Native Work IQ A2A tool and OAuth2 connection setup with no logged secrets.
+- [x] Individual consent continuation bound to authenticated caller and version.
+- [x] Independent Graph caller ground truth, absent from the model's prompt.
+- [x] Repeated identity checks and two-user report comparison with no shared history.
+- [x] Deploy Azure resources and persist/read back native agent version 1.
+- [ ] Complete administrator setup and per-user authorization.
+- [ ] Verify actual Work IQ retrieval and two-user behavior live.
+
+### Scope
+
+Identity-only smoke test with approved real Microsoft 365 users. No mailbox/file
+enumeration, writes, synthetic substitutes for Work IQ, or production ACL-isolation
+claim. OAuth is a separate per-user sign-in, not silent incoming-token OBO.
+
+### Verification
+
+On 2026-10-27, Bicep deployment and native agent version 1 read-back succeeded in
+`rg-foundry-work-iq-demo`. All 13 lab tests passed. The real saved-agent request
+returned HTTP 400 `tool_user_error` because the OAuth connection has no valid
+target; the connection is absent and the documented Work IQ service principal
+was not found in the tenant. User/admin authorization was unavailable. No Work IQ
+retrieval or two-user live pass is claimed. See [the test log](./tests.md).

@@ -3,6 +3,7 @@ targetScope = 'resourceGroup'
 param location string = 'eastus2'
 @description('Object ID of the presenter signed in with az login.')
 param principalId string
+@description('Pass the accountName saved by deploy_lab.py for lifecycle-safe retries. The deterministic default is retained for existing direct/root deployments.')
 param accountName string = 'foundry-patterns-${uniqueString(resourceGroup().id)}'
 param projectName string = 'orchestration-demo'
 param deploymentName string = 'gpt-4.1-mini'
@@ -48,6 +49,10 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
 }
 
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  // Account child operations can conflict when project and model creation overlap.
+  dependsOn: [
+    project
+  ]
   tags: securityTags
   parent: account
   name: deploymentName

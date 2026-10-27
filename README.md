@@ -7,7 +7,7 @@ Python versions), Azure CLI, Bicep (`az bicep version`), and an interactive
 Azure user with resource creation and role-assignment permissions. See each
 demo's prerequisites for model quota and access requirements.
 
-There are **33 standalone demos**. Prefer selecting a small subset rather than
+There are **35 standalone demos**. Prefer selecting a small subset rather than
 deploying every resource and running every paid operation at once:
 
 ```bash
@@ -18,12 +18,16 @@ python3 deploy.py --subscription "<subscription-id>" --demo 20 --demo 25
 
 `--demo` accepts a demo number or exact folder name and can be repeated. Selected
 demos run in numeric order; prerequisites for unselected demos are not required.
-Without `--demo`, the runner selects all 33.
+Without `--demo`, the runner selects all 35.
 Lab 32 requires a Browser Automation-supported region such as `eastus`, not the
 runner's `eastus2` default. The runner rejects unsupported template locations
 before any Azure resource changes. Present lab 32 separately using its manual
 connection setup instructions; selecting every lab with default settings now
 fails that regional check rather than partially provisioning the collection.
+Lab 35 additionally needs a tenant-admin-approved Work IQ OAuth application,
+Copilot Credits billing and individual user authorization. Its first deployment
+without that connection deliberately fails the live phase; complete the
+[Work IQ setup](./35-work-iq/README.md) before expecting an end-to-end pass.
 
 Before running **all demos**, complete the tenant setup in
 [Entra Agent ID](./12-entra-agent-id/README.md). It requires separate tenant
@@ -200,6 +204,7 @@ Lab 27 additionally uses `searchResourceId`, `storageEndpoint`, and
 - [Native Foundry memory across independent conversations](./31-native-agent-memory/README.md)
 - [Browser runbook automation with explicit approval](./32-browser-runbook/README.md)
 - [Skill evaluation, default promotion, pinned consumers, and rollback](./33-skill-release-governance/README.md)
+- [Work IQ in a persistent Foundry agent with per-user OAuth](./35-work-iq/README.md)
 - [Backlog](./BACKLOG.md)
 
 Each demo has standalone Bicep, local Python code, dependencies, tests, and manual
@@ -269,7 +274,7 @@ Use [removeAll.sh](./removeAll.sh) with Bash, Azure CLI, and `jq`. Preview first
 ./removeAll.sh --subscription "<subscription-id>" --execute
 ```
 
-The script covers all 33 labs: root and standalone runner defaults, documented
+The script covers all 35 labs: root and standalone runner defaults, documented
 manual/historical names, and saved deployment records for the selected subscription.
 Legacy output-only `deployment.json` files have no subscription/group metadata;
 the script warns and uses known group names instead. Add `--group` if such a
@@ -280,11 +285,26 @@ options for custom runner prefixes or `--group` for unrecorded manual group name
 Names alone are not proof of ownership: review the preview carefully, especially
 if a group contains resources unrelated to the workshop.
 
+**Execution now includes irreversible purge, scoped only to workshop groups.**
+The preview includes existing soft-deleted Foundry/Cognitive Services accounts and
+API Management services, even when their resource groups are already gone.
+After deleting groups, the script rediscovers and purges newly soft-deleted
+accounts/services, retrying up to six times at ten-second intervals and verifying
+their absence. Azure may take additional time to release names.
+
+Log Analytics workspaces are permanently deleted with `--force`. Azure requires
+recovering already soft-deleted workspaces first; the script temporarily recreates
+their original workshop group if necessary, recovers the workspace, permanently
+deletes it, then deletes that group. Recovery/creation happens only with `--execute`.
+These permanent-delete operations cannot be undone. Purge can require
+subscription-level permissions beyond resource-group deletion permissions.
+
 `--execute` requires typing `DELETE`; add `--yes` for unattended cleanup.
-Deletion waits and verifies each group is absent, continues after individual
-failures, and exits nonzero if any deletion or verification fails. Resource locks
-are not removed. Local logs/state, GitHub configuration, and soft-deleted resources
-are retained; no purge is performed. See `./removeAll.sh --help` for all options.
+Deletion waits and verifies absence, continues after individual operation failures,
+and exits nonzero if any deletion, purge, or verification fails. Resource locks
+are not removed. The script handles the lab services with supported purge APIs,
+not arbitrary retention stores such as soft-deleted Storage blobs. Local logs/state
+and GitHub configuration are retained. See `./removeAll.sh --help` for all options.
 
 **Entra tenant objects aren't deleted with the resource group.** Follow demo 12's
 separate cleanup instructions for its child agent, blueprint principal, blueprint,

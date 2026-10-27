@@ -158,10 +158,35 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("!String.IsNullOrWhiteSpace", condition)
         self.assertIn("preserveContent: true", condition)
 
+    def test_embeddings_use_global_standard_for_sweden_central_support(self):
+        source = (self.infra / "main.bicep").read_text()
+        embeddings = source.split("resource embeddings ", 1)[1].split("\nvar userRoleId", 1)[0]
+        self.assertIn("name: 'GlobalStandard'", embeddings)
+        self.assertNotIn("name: 'Standard'", embeddings)
+        self.assertIn("name: 'text-embedding-3-small'", embeddings)
+        self.assertIn("version: '1'", embeddings)
+
+    def test_external_cache_resource_id_is_an_absolute_management_url(self):
+        source = (self.infra / "main.bicep").read_text()
+        cache = source.split("resource externalCache ", 1)[1].split(
+            "\nresource embeddingsBackend ", 1,
+        )[0]
+        self.assertIn("resourceId: uri(environment().resourceManager, redis.id)", cache)
+        self.assertNotIn("resourceId: redis.id", cache)
+
+    def test_external_cache_identifier_matches_default_gateway_location(self):
+        source = (self.infra / "main.bicep").read_text()
+        cache = source.split("resource externalCache ", 1)[1].split(
+            "\nresource embeddingsBackend ", 1,
+        )[0]
+        self.assertIn("name: 'default'", cache)
+        self.assertIn("useFromLocation: 'default'", cache)
+
     def test_lowest_cost_skus_and_required_redis_configuration(self):
         source = (self.infra / "main.bicep").read_text()
         for setting in (
-            "name: 'Consumption'", "capacity: 0", "name: 'Balanced_B0'",
+            "name: 'Consumption'", "capacity: 0",
+            "param redisSku string = 'Balanced_B0'", "name: redisSku",
             "highAvailability: 'Disabled'", "name: 'RediSearch'",
             "clusteringPolicy: 'EnterpriseCluster'", "evictionPolicy: 'NoEviction'",
             "accessKeysAuthentication: 'Enabled'", "clientProtocol: 'Encrypted'",

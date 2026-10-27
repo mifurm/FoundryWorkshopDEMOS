@@ -90,6 +90,7 @@ def demo_environment(outputs: dict, base: dict[str, str]) -> dict[str, str]:
         ("routerDeployment", "AZURE_OPENAI_ROUTER_DEPLOYMENT"),
         ("applicationInsightsConnectionString", "APPLICATIONINSIGHTS_CONNECTION_STRING"),
         ("projectResourceId", "FOUNDRY_PROJECT_RESOURCE_ID"),
+        ("tenantId", "AZURE_TENANT_ID"),
         ("searchResourceId", "AZURE_SEARCH_RESOURCE_ID"),
         ("storageEndpoint", "AZURE_STORAGE_BLOB_ENDPOINT"),
         ("storageResourceId", "AZURE_STORAGE_RESOURCE_ID"),

@@ -1,0 +1,50 @@
+{
+  "clear": {
+    "vendor": "Synthetic Workshop Supplies", "invoice_id": "LAB-3401",
+    "total": 125.5, "currency": "USD", "description": "Workshop materials"
+  },
+  "missing-total": {
+    "vendor": "Synthetic Workshop Supplies", "invoice_id": "LAB-3402",
+    "total": null, "currency": null, "description": "Workshop materials"
+  },
+  "office-supplies": {
+    "vendor": "Synthetic Office Supplies", "invoice_id": "LAB-3403",
+    "total": 48.75, "currency": "USD", "description": "Notebooks and pens"
+  },
+  "training-materials": {
+    "vendor": "Synthetic Training Materials", "invoice_id": "LAB-3404",
+    "total": 240, "currency": "USD", "description": "Printed workshop handbooks"
+  },
+  "catering": {
+    "vendor": "Synthetic Workshop Catering", "invoice_id": "LAB-3405",
+    "total": 89.9, "currency": "USD", "description": "Workshop refreshments"
+  },
+  "equipment": {
+    "vendor": "Synthetic Equipment Rentals", "invoice_id": "LAB-3406",
+    "total": 1250, "currency": "USD", "description": "Demonstration equipment rental"
+  },
+  "printing": {
+    "vendor": "Synthetic Print Studio", "invoice_id": "LAB-3407",
+    "total": 18.25, "currency": "USD", "description": "Workshop name badges"
+  },
+  "zero-total": {
+    "vendor": "Synthetic Demo Credits", "invoice_id": "LAB-3408",
+    "total": 0, "currency": "USD", "description": "Complimentary workshop materials"
+  },
+  "large-total": {
+    "vendor": "Synthetic Event Services", "invoice_id": "LAB-3409",
+    "total": 9876.54, "currency": "USD", "description": "Workshop venue and equipment"
+  },
+  "eur-invoice": {
+    "vendor": "Synthetic Workshop Europe", "invoice_id": "LAB-3410",
+    "total": 315.2, "currency": "EUR", "description": "European workshop materials"
+  },
+  "missing-total-office": {
+    "vendor": "Synthetic Office Supplies", "invoice_id": "LAB-3411",
+    "total": null, "currency": null, "description": "Workshop stationery"
+  },
+  "missing-total-catering": {
+    "vendor": "Synthetic Workshop Catering", "invoice_id": "LAB-3412",
+    "total": null, "currency": null, "description": "Workshop refreshments"
+  }
+}

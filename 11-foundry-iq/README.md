@@ -22,13 +22,19 @@ Requires Python 3.10+, Azure CLI with Bicep, an interactive Azure user with reso
 creation and role-assignment permissions, a region supporting agentic retrieval,
 and `gpt-4.1-mini` quota. The template deploys:
 
-- One keyless Foundry account and `gpt-4.1-mini` (`2025-04-14`, Global Standard),
-  in **East US 2** by default.
+- One keyless Foundry account with project management enabled and a
+  system-assigned managed identity, in **East US 2** by default.
+- A **`foundry-iq-demo` project** with its own system-assigned managed identity,
+  followed by `gpt-4.1-mini` (`2025-04-14`, Global Standard).
+  Account -> project -> model creation is serialized to avoid overlapping
+  account child operations. Model deployments remain account-scoped, not
+  project child resources.
 - One **Basic Azure AI Search** service with managed identity and semantic ranker,
   in **West US 2** by default.
 - Search Service Contributor, Search Index Data Contributor, and Search Index
   Data Reader for the presenter.
 - Cognitive Services User on Foundry for the search service's managed identity.
+- Azure AI User on the project for the presenter.
 
 Run from this folder in Bash/Zsh:
 
@@ -49,7 +55,33 @@ export AZURE_OPENAI_DEPLOYMENT="$(az deployment group show -g "$RESOURCE_GROUP" 
   --query properties.outputs.deployment.value -o tsv)"
 export AZURE_SEARCH_ENDPOINT="$(az deployment group show -g "$RESOURCE_GROUP" -n demo \
   --query properties.outputs.searchEndpoint.value -o tsv)"
+export FOUNDRY_PROJECT_ENDPOINT="$(az deployment group show -g "$RESOURCE_GROUP" -n demo \
+  --query properties.outputs.projectEndpoint.value -o tsv)"
 ```
+
+The template also outputs `projectResourceId`. Both deployment runners already
+map `projectEndpoint` to `FOUNDRY_PROJECT_ENDPOINT` and record all outputs, so
+no shared-runner changes are needed. The demo displays the project endpoint
+when supplied through that variable or `--project-endpoint`. It remains optional
+for older explicitly configured Search-only runs.
+
+The project is the Foundry workspace, **not** the Search retrieval endpoint.
+The index, knowledge source, and knowledge base still live in Azure AI Search;
+Search's managed identity still calls the account's model endpoint. This lab
+does not create a project-to-Search connection or a portal agent; see lab 27
+for that fuller workflow. Creating a project does not fix a downstream model 408.
+
+### Updating an existing deployment
+
+Redeploy the template to the same group/account to enable project management,
+add account identity and the project, and retain the existing model/Search names.
+Re-export the outputs afterward. No delete, restore, purge, or random rename is
+required for this update. Group cleanup also removes the new project.
+
+This account/project/model structure is supported, but deployment still depends
+on Foundry project availability, model quota, Search regional capacity, Azure
+Policy, and role-assignment permissions. Do not interpret a successful local
+build as proof that your subscription will accept the deployment.
 
 The knowledge-base APIs use **`2026-08-01-preview`**, matching the linked Learn
 quickstart's REST reference. Confirm preview/region availability before presenting.
@@ -84,7 +116,8 @@ python demo.py --question "Is the workshop free, and do I need prior AI experien
 ```
 
 1. Show the three fact sheets and the index -> knowledge source -> knowledge base
-   relationship in the script.
+   relationship in the script, and the separate Foundry account/project/model
+   hierarchy in the infrastructure.
 2. Ask when the workshop is, how long it lasts, and what to bring.
 3. Show the actual answer, retrieval activity/subqueries, and source references.
 
@@ -94,7 +127,7 @@ index/source/base; resources remain available for inspection. The API decides
 how to plan a query: multiple subqueries are not guaranteed for every question.
 Missing grounding evidence or reported retrieval errors fail explicitly.
 
-### Live verification on 2026-10-26
+### Historical live verification on 2026-10-26 (before adding the project)
 
 Deployed to `rg-foundry-foundry-iq-demo` with Foundry in East US 2 and Basic
 Search in West US 2. Both resources reached `Succeeded`; Search is running with
@@ -121,6 +154,7 @@ Evidence is retained locally in ignored `.azure/deployment.json`,
 The earlier blocker was regional Search provisioning capacity, not a broken
 knowledge-base API or missing model access. Separating regions fixed this
 deployment; it does not reserve capacity for future workshop deployments.
+This historical run does not verify the new project-enabled template.
 
 ## Validate and clean up
 
@@ -131,6 +165,10 @@ python -m unittest discover -s . -p 'test_*.py' -v
 az group delete --name "$RESOURCE_GROUP" --yes
 ```
 
+Offline tests check account/project identities, project RBAC and endpoint
+outputs, account -> project -> model dependencies, independent Search region,
+and that displaying a project does not redirect retrieval away from Search.
+
 **Basic Search has ongoing charges while provisioned**, even with no queries.
 Agentic retrieval and planning/answer synthesis can also incur usage charges;
 the semantic free allowance is limited. For 403, allow both presenter and search
@@ -140,4 +178,5 @@ and endpoint names; don't replace the managed pipeline with local search.
 - [Learn quickstart and source sample links](https://learn.microsoft.com/azure/search/search-get-started-agentic-retrieval)
 - [Foundry IQ overview](https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq)
 - [Search region and agentic-retrieval support](https://learn.microsoft.com/azure/search/search-region-support)
+- [Enable Foundry projects on an existing account](https://learn.microsoft.com/azure/foundry/how-to/upgrade-azure-openai)
 - [Feature F011](../BACKLOG.md#f011---microsoft-foundry-foundry-iq)

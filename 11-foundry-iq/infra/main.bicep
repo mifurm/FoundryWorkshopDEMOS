@@ -6,6 +6,7 @@ param searchLocation string = 'westus2'
 @description('Object ID of the presenter signed in with az login.')
 param principalId string
 param accountName string = 'foundry-iq-${uniqueString(resourceGroup().id)}'
+param projectName string = 'foundry-iq-demo'
 param searchName string = 'iq-search-${uniqueString(resourceGroup().id)}'
 param deploymentName string = 'gpt-4.1-mini'
 @minValue(1)
@@ -24,15 +25,37 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   sku: {
     name: 'S0'
   }
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     customSubDomainName: accountName
+    allowProjectManagement: true
     disableLocalAuth: true
     publicNetworkAccess: 'Enabled'
   }
 }
 
+resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  tags: securityTags
+  parent: account
+  name: projectName
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    displayName: 'Foundry IQ workshop'
+    description: 'Project for the Search-backed knowledge retrieval workshop.'
+  }
+}
+
 resource model 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   tags: securityTags
+  // Serialize account child writes to avoid project/model RequestConflict errors.
+  dependsOn: [
+    project
+  ]
   parent: account
   name: deploymentName
   sku: {
@@ -94,6 +117,19 @@ resource searchInferenceRole 'Microsoft.Authorization/roleAssignments@2022-04-01
   }
 }
 
+var foundryUserRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')
+resource presenterProjectRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(project.id, principalId, foundryUserRole)
+  scope: project
+  properties: {
+    roleDefinitionId: foundryUserRole
+    principalId: principalId
+    principalType: 'User'
+  }
+}
+
 output endpoint string = 'https://${account.name}.openai.azure.com/'
+output projectEndpoint string = 'https://${account.name}.services.ai.azure.com/api/projects/${project.name}'
+output projectResourceId string = project.id
 output deployment string = model.name
 output searchEndpoint string = 'https://${search.name}.search.windows.net'

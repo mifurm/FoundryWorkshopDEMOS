@@ -41,8 +41,32 @@ lookup. Check regional availability and current prices before deploying.
 Requires Python 3.10+, Azure CLI/Bicep, a signed-in user with resource creation
 and role-assignment permissions, APIM Consumption and Managed Redis availability,
 and quota for `gpt-4.1-mini` (`2025-04-14`, Global Standard) and
-`text-embedding-3-small` (`1`, Standard). Endpoints are public for this workshop.
+`text-embedding-3-small` (`1`, Global Standard). Endpoints are public for this workshop.
 Provisioning APIM and Redis can take several minutes.
+
+Both model deployments use `GlobalStandard`; inference may be processed outside
+the resource's region. In Sweden Central, `text-embedding-3-small` version `1`
+supports Global Standard but not regional `Standard`. If a previous deployment
+failed with `InvalidResourceProperties` for that SKU, retry using the updated
+template with the same region and Redis SKU; no cleanup is required for this
+validation error. The Bicep upgrade warning is unrelated.
+
+If deployment fails with `ValidationError`, target `resourceId`, and
+`Value should represent absolute http URL`, the APIM external-cache registration
+requires an absolute management URL, not a relative ARM resource ID. The template
+now builds that URL using the current Azure cloud's Resource Manager endpoint.
+Retry the updated template with the same region and Redis SKU; no cleanup is
+required for this validation error.
+
+The external-cache resource is named `default`, matching its
+`useFromLocation` setting. APIM's cache identifier must be `default` or a valid
+Azure region identifier; an arbitrary name such as `semantic-cache` can deploy
+but leave the gateway unable to select the cache. A trace then reports
+`No appropriate cache found for provided policy configuration` and skips
+semantic lookup and storage. Redeploy the updated template to register the
+`default` cache; incremental deployment may retain the obsolete `semantic-cache`
+registration, which can be removed from APIM after validation without deleting
+Redis.
 
 From this folder, the standalone runner provisions resources, runs offline tests,
 and runs the live demo; its recorded group can later be removed with `cleanup.py`:
@@ -51,6 +75,24 @@ and runs the live demo; its recorded group can later be removed with `cleanup.py
 az login
 python3 deploy_lab.py --location eastus2
 ```
+
+If Azure reports `CacheCapacityUnavailable` for `Balanced_B0`, you can explicitly
+try a larger Balanced SKU in the same region:
+
+```bash
+python3 deploy_lab.py --location eastus2 --redis-sku Balanced_B1
+python3 deploy_lab.py --location swedencentral --redis-sku Balanced_B1
+```
+
+Supported workshop choices are `Balanced_B0` (default), `Balanced_B1`,
+`Balanced_B3`, and `Balanced_B5`. Larger SKUs have higher standing costs;
+check pricing before choosing one. This is not a guarantee of available
+capacity. There is no automatic SKU upgrade or region fallback. Keep the same
+`--redis-sku` on retries: the selected value is recorded in
+`.azure/lab-deployment.json` for inspection, but omitting the option selects B0.
+Do not delete retained resources merely to retry a capacity error. If Redis
+already exists, changing its SKU is a resize request, subject to Azure's
+supported transitions and possible disruption, not a fresh allocation.
 
 Alternatively, deploy manually:
 
@@ -67,6 +109,11 @@ az deployment group create --resource-group "$RESOURCE_GROUP" --name demo \
   --parameters principalId="$PRINCIPAL_ID" location=eastus2 \
     scoreThreshold=0.15 cacheDuration=300
 ```
+
+For a manual SKU override, add `redisSku=Balanced_B1` to `--parameters`.
+The repository-wide runner retains the B0 default; use this lab's standalone
+runner or manual deployment for the override. High availability, RediSearch,
+TLS, authentication, and cache policy settings are unchanged by this option.
 
 For a manual deployment, export its outputs as follows. For a standalone-runner
 deployment, use its recorded resource group and deployment name

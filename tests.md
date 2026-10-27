@@ -12,6 +12,139 @@
 12 — Entra Agent ID	Blocked by missing interactive identity setup/credentials; fail-fast and mocked Graph cleanup checks passed
 13 — Orchestrations	All four live patterns passed after a startup retry
 
+## Lab 35: per-user Work IQ deployment and blocked live validation, 2026-10-27
+
+[Lab 35](./35-work-iq/README.md) is implemented and deployed to
+`rg-foundry-work-iq-demo` in East US 2. It is **not live-validated for Work IQ**.
+
+| Verification | Observed result |
+| --- | --- |
+| Bicep build/lint and ARM deployment | Passed; Foundry account, model, project and developer RBAC deployed successfully |
+| Final offline validation | 13 lab tests passed; Python compilation and Pylance syntax checks passed; Pylance reported no diagnostics for the client and connection script |
+| Persistent native agent | `work-iq-user-agent` version 1 created and read back with native `work_iq_preview` and the expected connection resource ID |
+| Authenticated caller | Real Graph `/me` returned the Azure CLI user's object ID and principal name; no profile values were supplied to the model |
+| Shared deployment workflow | Local tests passed, infrastructure deployed, then live phase exited nonzero on the missing OAuth connection |
+| Direct saved-agent diagnostic | Actual Foundry Responses request returned HTTP 400, `tool_user_error`: the connection does not have a valid target URL |
+| Work IQ tenant setup | Service-principal lookup for documented Work IQ app ID `fdcc1f02-fc51-4226-8753-f668596af7f7` returned an empty list |
+| Connected Work IQ MCP | Requires authentication; no user data was retrieved |
+| Work IQ lookup / two-user behavior | **Blocked, not passed:** administrator setup, billing confirmation and individual user sign-in were unavailable |
+
+Ignored local evidence:
+[deployment outputs](./35-work-iq/.azure/deployment.json),
+[root live transcript](./35-work-iq/.azure/demo.log) and
+[native service diagnostic](./35-work-iq/.azure/native-diagnostic.json).
+The diagnostic explicitly records `work_iq_live_pass: false`.
+Caller-specific reports are private mode-0600 files and remain `complete: false`.
+No OAuth secret, access token or mailbox/file content is saved.
+
+The lab's instructions explain administrator consent, secure OAuth connection
+creation, redirect registration, caller-bound authorization continuation, and
+two-user comparison. The script must not be presented as a completed live Work IQ
+demonstration until those steps and real retrieval succeed. Azure resources and
+the native agent remain deployed for that continuation.
+
+Targeted shared tests found the existing lab 13 model-resource tag-layout
+assertion failure, already recorded below; lab 35's template passed that check.
+Final shared-runner regression result: **34/35 passed**, with only that same
+pre-existing lab 13 assertion failing. Catalog/discovery, the new tenant-output
+mapping, documentation and cleanup regressions passed.
+
+## Lab 34: Document Intelligence agent live validation on 2026-10-27
+
+Implemented [lab 34](./34-document-intelligence/README.md) and deployed
+`rg-foundry-document-intelligence-demo`. Foundry/Document Intelligence are in
+East US 2; the Windows P0v3 Function plan and Storage are in West US 2.
+The agent, project and all resources remain deployed and billable.
+
+### Expanded twelve-PDF corpus
+
+The original two documents and ten additional synthetic invoices now live in
+[samples](./34-document-intelligence/samples/), with a deterministic generator
+and a separate ground-truth manifest. Bicep packages the exact PDF bytes rather
+than generating documents inside the Function. The submitted PDF hash is
+returned by the tool and verified against the repository on every analysis.
+
+| Verification | Observed result |
+| --- | --- |
+| Full rerun | `python3 deploy.py --demo 34` exited 0 after deployment and all quality gates |
+| Offline validation | 13 Python tests, including 7 Node subtests, passed; Bicep build/lint and final Python compilation passed |
+| File preservation | 12 distinct, reproducible one-page PDFs; compiled Bicep base64 payloads independently matched all repository files |
+| Direct extraction | 12/12 successful real Document Intelligence analyses |
+| Agent extraction | 24/24 requests passed: two independent requests for every sample |
+| Ground truth | 96/96 agent field comparisons correct; all direct values also correct |
+| Provenance | All 36 successful analyses had distinct operation IDs and matching repository PDF SHA-256 |
+| Missing values | All 6 agent cases across 3 missing-total PDFs returned null total/currency and required review |
+| Edge cases | Explicit USD zero stayed zero; EUR 315.20 retained EUR; varied vendors and amounts matched exactly |
+| Confidence | Present fields in complete invoices ranged from 0.819 to 0.988, passing the unchanged 0.8 gate |
+| Persistent agent | Version 2 read back independently; all twelve document IDs present in its OpenAPI schema |
+| Endpoint guards | Unauthenticated request rejected with 401; authenticated unknown document rejected with 400 |
+
+Two live issues were corrected before the successful full rerun:
+
+- Windows ARM file deployment added a UTF-8 BOM to the bundled JSON. The Function
+  now handles that encoding explicitly; a regression test exercises BOM input.
+- The larger corpus hit the model's HTTP 429 request limit. Requests now bound
+  output to 512 tokens and retry throttling at most five times, honoring numeric
+  service retry headers with a 120-second maximum delay. Exhaustion still fails.
+  Final execution encountered handled throttling, but no unhandled application
+  errors or failed quality gates.
+
+The current [quality report](./34-document-intelligence/.azure/quality-report.json)
+contains the twelve direct results and all twenty-four cloud responses.
+The [live transcript](./34-document-intelligence/.azure/demo.log) retains earlier
+failed attempts as well as the final successful run. No secrets are recorded.
+Pylance's syntax call timed out; executed tests and final Python compilation
+passed. Later repository-wide contract checks encountered an unrelated
+concurrently created, incomplete lab 35 (`35-work-iq` lacked its entrypoint at
+that time); that separate work was not modified.
+
+These are twelve controlled PDFs sharing a simple layout, not a representative
+production dataset. Success establishes exact sample-file processing and
+grounded responses for this corpus, not general invoice accuracy.
+
+### Initial two-document baseline
+
+| Verification | Observed result |
+| --- | --- |
+| Documented deployment workflow | `python3 deploy.py --demo 34` exited 0 after Bicep build/lint, dependency setup, local tests, deployment and live checks |
+| Offline tests | 10 Python tests, including 6 Node subtests, passed; syntax/compilation checks passed |
+| Direct Document Intelligence | Both synthetic one-page PDFs analyzed successfully; exact fields and source/page evidence verified |
+| Persistent cloud agent | `document-intelligence-agent`, version 1, in project `document-intelligence`; definition read back and saved versions independently listed |
+| Cloud tool execution | Native OpenAPI -> key-protected Function -> managed-identity Document Intelligence; no local tool execution |
+| Repeated agent quality | Final deployment: 4/4 requests; separate ask-only run: 6/6; 40/40 field comparisons across the ten requests |
+| Complete invoice | Vendor Synthetic Workshop Supplies, invoice LAB-3401, USD 125.50; confidence 0.929 / 0.988 / 0.929 |
+| Missing-total invoice | Vendor and LAB-3402 preserved; total/currency null and review required in all 5 agent cases |
+| Grounding | Every answer matched its actual tool output and unique real operation ID; completed call/output IDs correlated |
+| Endpoint guards | No key: HTTP 401; authenticated unknown document: HTTP 400, both expected |
+
+Initial live testing exposed a Function host startup response (HTTP 400 from
+the host-key ARM operation) and an incorrect assumption about the OpenAPI
+response shape. Startup retry now narrowly recognizes the host-runtime error.
+Cloud results are correlated through `openapi_call` / `openapi_call_output`;
+the latter contains a JSON `response` envelope. Raw service JSON preserves
+Foundry-specific response items without OpenAI/Pydantic union serialization
+warnings. Regression tests cover both fixes. The final live deployment reported
+no application errors.
+
+Local ignored evidence:
+[final quality report](./34-document-intelligence/.azure/quality-report.json),
+[six-request repeat report](./34-document-intelligence/.azure/repeated-quality-report.json)
+and [live transcript](./34-document-intelligence/.azure/demo.log). The transcript
+also retains the initial unsuccessful attempt for diagnosis; reports mark only
+the verified runs complete. No Function keys are saved in these files.
+
+Shared-runner regression tests: **33/34 passed**. The remaining failure is the
+pre-existing tag-layout assertion for lab 13's model resource, in an already
+modified file unrelated to this lab; it was not changed. Lab 34's template
+passed that tag check, catalog/backlog/discovery checks and its own end-to-end
+deployment. A final Pylance recheck timed out; Python compilation and executed
+tests passed, and earlier Pylance syntax checks passed.
+
+Quality assessment: exact extraction/grounding and appropriate abstention passed
+for these two controlled PDFs. This does not establish accuracy on real-world
+invoices or automate a production human-review process. The fixed Function plan
+has ongoing hourly cost; follow the lab cleanup instructions after presenting.
+
 ## Labs 29-33: offline validation on 2026-10-26
 
 All five additions have standalone Bicep, dependency manifests, runnable examples,

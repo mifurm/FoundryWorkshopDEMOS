@@ -1,8 +1,11 @@
+import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 import httpx
@@ -28,6 +31,29 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(search["sku"]["name"], "basic")
         self.assertTrue(search["properties"]["disableLocalAuth"])
         self.assertEqual(search["identity"]["type"], "SystemAssigned")
+        account = resources["Microsoft.CognitiveServices/accounts"]
+        project = resources["Microsoft.CognitiveServices/accounts/projects"]
+        model = resources["Microsoft.CognitiveServices/accounts/deployments"]
+        self.assertTrue(account["properties"]["allowProjectManagement"])
+        self.assertEqual(account["identity"]["type"], "SystemAssigned")
+        self.assertEqual(template["parameters"]["projectName"]["defaultValue"], "foundry-iq-demo")
+        self.assertEqual(project["location"], account["location"])
+        self.assertEqual(project["identity"]["type"], "SystemAssigned")
+        self.assertTrue(any("Microsoft.CognitiveServices/accounts'" in dependency
+                            for dependency in project["dependsOn"]))
+        self.assertTrue(any("Microsoft.CognitiveServices/accounts/projects" in dependency
+                            for dependency in model["dependsOn"]))
+        self.assertIn("projectEndpoint", template["outputs"])
+        self.assertIn("projectResourceId", template["outputs"])
+        self.assertIn("services.ai.azure.com/api/projects/", template["outputs"]["projectEndpoint"]["value"])
+        self.assertIn("parameters('projectName')", template["outputs"]["projectEndpoint"]["value"])
+        project_role = next(
+            item for item in template["resources"]
+            if item["type"] == "Microsoft.Authorization/roleAssignments"
+            and "Microsoft.CognitiveServices/accounts/projects" in item.get("scope", "")
+        )
+        self.assertIn("Microsoft.CognitiveServices/accounts/projects", project_role["scope"])
+        self.assertIn("53ca6127-db72-4b80-b1b0-d745d6d5456d", template["variables"]["foundryUserRole"])
 
     def client(self, handle):
         return httpx.Client(
@@ -105,6 +131,59 @@ class KnowledgeTests(unittest.TestCase):
         with self.client(lambda _: httpx.Response(403)) as client:
             with self.assertRaises(httpx.HTTPStatusError):
                 demo.retrieve(client, demo.QUESTION)
+
+    def test_main_displays_project_but_retrieves_from_search(self):
+        project = "https://model.services.ai.azure.com/api/projects/foundry-iq-demo"
+        environment = {
+            "AZURE_SEARCH_ENDPOINT": "https://search.example/",
+            "AZURE_OPENAI_ENDPOINT": "https://model.openai.azure.com/",
+            "AZURE_OPENAI_DEPLOYMENT": "chat",
+        }
+        for project_endpoint in (None, project):
+            with self.subTest(project_endpoint=project_endpoint):
+                settings = dict(environment)
+                if project_endpoint:
+                    settings["FOUNDRY_PROJECT_ENDPOINT"] = project_endpoint
+                with (
+                    patch.dict(os.environ, settings, clear=True),
+                    patch("sys.argv", ["demo.py"]),
+                    patch("demo.AzureCliCredential") as credential,
+                    patch("demo.httpx.Client") as client,
+                    patch("demo.configure") as configure,
+                    patch("demo.retrieve") as retrieve,
+                    redirect_stdout(io.StringIO()) as output,
+                ):
+                    demo.main()
+                credential.return_value.__enter__.return_value.get_token.assert_called_once_with(
+                    "https://search.azure.com/.default",
+                )
+                self.assertEqual(client.call_args.kwargs["base_url"], "https://search.example/")
+                configure.assert_called_once_with(
+                    client.return_value.__enter__.return_value, environment["AZURE_OPENAI_ENDPOINT"], "chat",
+                )
+                retrieve.assert_called_once_with(client.return_value.__enter__.return_value, demo.QUESTION)
+                if project_endpoint:
+                    self.assertIn(project_endpoint, output.getvalue())
+                else:
+                    self.assertNotIn("Foundry project:", output.getvalue())
+
+    def test_rejects_nonproject_endpoint_before_authentication(self):
+        for endpoint in ("", "http://model.services.ai.azure.com/api/projects/demo",
+                         "https://model.openai.azure.com/", "https://search.search.windows.net/"):
+            with (
+                self.subTest(endpoint=endpoint),
+                patch.dict(os.environ, {}, clear=True),
+                patch("sys.argv", [
+                    "demo.py", "--search-endpoint", "https://search.example/",
+                    "--endpoint", "https://model.openai.azure.com/",
+                    "--project-endpoint", endpoint,
+                ]),
+                patch("demo.AzureCliCredential") as credential,
+                redirect_stderr(io.StringIO()),
+                self.assertRaises(SystemExit),
+            ):
+                demo.main()
+            credential.assert_not_called()
 
 
 if __name__ == "__main__":

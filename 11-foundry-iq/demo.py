@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 from time import monotonic, sleep
 
 import httpx
@@ -106,6 +107,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--search-endpoint", default=os.getenv("AZURE_SEARCH_ENDPOINT"))
     parser.add_argument("--endpoint", default=os.getenv("AZURE_OPENAI_ENDPOINT"))
+    parser.add_argument("--project-endpoint", default=os.getenv("FOUNDRY_PROJECT_ENDPOINT"),
+                        help="Foundry project endpoint for display; retrieval still uses Azure AI Search.")
     parser.add_argument("--deployment", default=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1-mini"))
     parser.add_argument("--question", default=QUESTION)
     args = parser.parse_args()
@@ -114,6 +117,13 @@ def main() -> None:
         parser.error("Set AZURE_SEARCH_ENDPOINT and AZURE_OPENAI_ENDPOINT to the Bicep HTTPS outputs.")
     if not args.deployment.strip() or not args.question.strip():
         parser.error("Deployment and question must not be empty.")
+    if args.project_endpoint is not None and not re.fullmatch(
+        r"https://[a-zA-Z0-9-]+\.services\.ai\.azure\.com/api/projects/[a-zA-Z0-9_.-]+/?",
+        args.project_endpoint,
+    ):
+        parser.error("Use the Bicep projectEndpoint output, not the model or Search endpoint.")
+    if args.project_endpoint:
+        print(f"Foundry project: {args.project_endpoint}", flush=True)
     with AzureCliCredential() as credential:
         token = credential.get_token("https://search.azure.com/.default").token
         with httpx.Client(
