@@ -260,15 +260,33 @@ Search and monitoring resources can have ongoing charges while provisioned.
 python3 -m unittest discover -s . -p 'test_deploy.py' -v
 ```
 
-For cleanup, delete each dedicated resource group explicitly using the subscription
-and resource group recorded in its deployment state. For the default Model Router
-group:
+## Remove all lab resource groups
+
+Use [removeAll.sh](./removeAll.sh) with Bash, Azure CLI, and `jq`. Preview first:
 
 ```bash
-az group delete --subscription "<subscription-id>" \
-  --name rg-foundry-model-router-demo --yes
+./removeAll.sh --subscription "<subscription-id>"
+./removeAll.sh --subscription "<subscription-id>" --execute
 ```
+
+The script covers all 33 labs: root and standalone runner defaults, documented
+manual/historical names, and saved deployment records for the selected subscription.
+Legacy output-only `deployment.json` files have no subscription/group metadata;
+the script warns and uses known group names instead. Add `--group` if such a
+deployment used an unrecorded custom name.
+It matches exact names, not broad prefixes, and never changes the Azure CLI's
+selected subscription. Repeat for other subscriptions. Use repeated `--prefix`
+options for custom runner prefixes or `--group` for unrecorded manual group names.
+Names alone are not proof of ownership: review the preview carefully, especially
+if a group contains resources unrelated to the workshop.
+
+`--execute` requires typing `DELETE`; add `--yes` for unattended cleanup.
+Deletion waits and verifies each group is absent, continues after individual
+failures, and exits nonzero if any deletion or verification fails. Resource locks
+are not removed. Local logs/state, GitHub configuration, and soft-deleted resources
+are retained; no purge is performed. See `./removeAll.sh --help` for all options.
 
 **Entra tenant objects aren't deleted with the resource group.** Follow demo 12's
 separate cleanup instructions for its child agent, blueprint principal, blueprint,
-and development credential.
+and development credential. Also follow labs 14 and 23 for their separate
+identity/credential and GitHub configuration cleanup.
