@@ -1,4 +1,5 @@
 import base64
+from html.parser import HTMLParser
 import http.client
 import json
 import os
@@ -38,12 +39,46 @@ class UITests(unittest.TestCase):
     def test_ui_and_valid_question(self):
         status, page = self.request("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn(b"Foundry IQ support cases", page)
+        self.assertIn(b"Foundry workshop | Learn by doing", page)
         with patch("ui.ask", return_value="CASE-1001") as ask:
             status, body = self.request("POST", "/api/ask", json.dumps({"question": " question "}))
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {"answer": "CASE-1001"})
         ask.assert_called_once_with("question")
+
+    def test_ui_has_unique_ids_and_accessible_media_labels(self):
+        class Structure(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.elements = {}
+                self.duplicates = []
+                self.labels = []
+                self.audio_names = []
+
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                element_id = attrs.get("id")
+                if element_id:
+                    if element_id in self.elements:
+                        self.duplicates.append(element_id)
+                    self.elements[element_id] = tag
+                if tag == "label" and attrs.get("for"):
+                    self.labels.append(attrs["for"])
+                if tag == "audio":
+                    self.audio_names.append(attrs.get("aria-labelledby", ""))
+
+        status, page = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        structure = Structure()
+        structure.feed(page.decode("utf-8"))
+        self.assertEqual(structure.duplicates, [])
+        for target in structure.labels:
+            with self.subTest(label=target):
+                self.assertIn(structure.elements.get(target), {"button", "input", "select", "textarea"})
+        for name in structure.audio_names:
+            with self.subTest(audio_name=name):
+                self.assertTrue(name)
+                self.assertTrue(all(target in structure.elements for target in name.split()))
 
     def test_invalid_and_cross_origin_requests_are_rejected(self):
         for body in ('{"question": ""}', '{"question": 1}', '[]', 'not json'):

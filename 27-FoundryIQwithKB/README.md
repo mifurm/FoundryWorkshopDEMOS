@@ -206,6 +206,14 @@ standalone.
 Other labs have read-only guides in the UI, clearly labeled as not executable
 there. The local Polish Phi exercise in lab 10 also remains guide-only.
 
+Use the lab directory to search by number or topic and filter by availability.
+Selecting a lab shows its learning goal, exercise, and any remaining standalone
+guide. Inputs and inline results stay in the page while switching labs; reloading
+the page resets them. Lab links and browser history return to the selected
+exercise. Long-running exercises share the **Background run** monitor above the
+selected lab, which reloads saved job state. Check its status and evidence before
+retrying an interrupted run.
+
 ### Azure-hosted UI
 
 The optional UI hosting template uses App Service authentication restricted to

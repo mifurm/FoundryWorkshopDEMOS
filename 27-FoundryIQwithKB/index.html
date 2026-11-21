@@ -3,29 +3,297 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Foundry IQ support cases</title>
+  <title>Foundry workshop | Learn by doing</title>
   <style>
-    body { font: 16px system-ui, sans-serif; max-width: 760px; margin: 3rem auto; padding: 0 1rem; color: #172033; }
-    textarea { box-sizing: border-box; width: 100%; min-height: 9rem; padding: .75rem; font: inherit; }
-    input, select { font: inherit; margin: .4rem; }
-    button { padding: .7rem 1rem; margin-top: .75rem; font: inherit; cursor: pointer; }
-    pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.5; }
-    .note { color: #48566c; }
+    :root {
+      color-scheme: light;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #18243a;
+      background: #f3f6fb;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 0; }
+    a { color: #364bd1; text-underline-offset: .18em; }
+    button, input, select, textarea { font: inherit; }
+    button, summary { cursor: pointer; }
+    :focus-visible { outline: 3px solid #5574ee; outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    .skip-link {
+      position: fixed; top: .5rem; left: .5rem; z-index: 20; padding: .6rem 1rem;
+      color: #fff; background: #17254a; border-radius: .5rem; transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: none; }
+    .page-shell { width: min(100% - 2.5rem, 1320px); margin: 0 auto; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 0; }
+    .brand { display: inline-flex; align-items: center; gap: .75rem; color: #1c2943; font-weight: 750; text-decoration: none; }
+    .brand-mark {
+      display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: .8rem;
+      color: white; background: linear-gradient(135deg, #635bdb, #288ed1); box-shadow: 0 5px 14px #4c63bb30;
+    }
+    .brand-mark svg { width: 1.3rem; height: 1.3rem; }
+    .brand-label { font-size: .73rem; font-weight: 650; color: #5a6780; letter-spacing: .06em; text-transform: uppercase; }
+    .top-link { display: inline-flex; align-items: center; min-height: 2.75rem; color: #41506a; font-size: .9rem; font-weight: 700; text-decoration: none; }
+    .top-link:hover { color: #364bd1; }
+    .hero {
+      display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+      align-items: center; gap: clamp(2rem, 5vw, 5rem); padding: clamp(2rem, 5vw, 4.5rem);
+      color: #fff; border-radius: 1.7rem; overflow: hidden;
+      background: radial-gradient(circle at 8% 0%, #475c9a 0, transparent 38%),
+        radial-gradient(circle at 90% 100%, #2d5985 0, transparent 40%), #172544;
+      box-shadow: 0 18px 48px #243d701a;
+    }
+    .eyebrow { margin: 0 0 .75rem; font-size: .72rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .hero .eyebrow { color: #b6cbff; }
+    h1 { margin: 0; max-width: 12ch; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.07; letter-spacing: -.045em; }
+    .hero h1 span { color: #a9c5ff; }
+    .hero-copy { max-width: 36rem; margin: 1.2rem 0 0; color: #e0e9fa; font-size: clamp(1rem, 1.4vw, 1.12rem); }
+    .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .85rem; margin-top: 1.7rem; }
+    .hero-actions a {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 2.9rem;
+      padding: .7rem 1.1rem; border-radius: .75rem; font-weight: 750; text-decoration: none;
+    }
+    .hero-primary { color: #1a2c54; background: #fff; }
+    .hero-primary:hover { background: #e5eeff; }
+    .hero-secondary { color: #fff; border: 1px solid #93a8ce; }
+    .hero-secondary:hover { background: #ffffff12; }
+    .hero-note { margin: 1.3rem 0 0; color: #c6d4ee; font-size: .86rem; }
+    .concept-card {
+      min-width: 0; padding: 1.35rem; color: #1c2943; background: #fff;
+      border: 1px solid #ffffff80; border-radius: 1.15rem; box-shadow: 0 18px 36px #07122c35;
+    }
+    .concept-card .eyebrow { color: #5b67a5; }
+    .concept-card h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.02em; }
+    .concept-card > p:not(.eyebrow) { margin: .35rem 0 0; color: #56637a; font-size: .84rem; }
+    .flow { display: grid; gap: .45rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+    .flow li {
+      display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); align-items: center; gap: .7rem;
+      padding: .6rem .7rem; border: 1px solid #e8ecf5; border-radius: .7rem; background: #f8faff;
+    }
+    .flow-number {
+      display: grid; place-items: center; width: 2.15rem; height: 2.15rem; border-radius: .6rem;
+      color: #4655ba; background: #e8ecff; font-size: .75rem; font-weight: 800;
+    }
+    .flow strong, .flow small { display: block; }
+    .flow strong { font-size: .86rem; line-height: 1.2; }
+    .flow small { margin-top: .15rem; color: #617088; font-size: .74rem; line-height: 1.3; }
+    .safety-note {
+      display: flex; align-items: flex-start; gap: .8rem; margin: 1.2rem 0 2.75rem;
+      padding: 1rem 1.2rem; color: #3d4d69; background: #eaf0fb; border: 1px solid #dce5f6;
+      border-radius: .9rem; font-size: .9rem;
+    }
+    .safety-note svg { flex: 0 0 1.25rem; width: 1.25rem; height: 1.25rem; margin-top: .1rem; color: #4967b6; }
+    .safety-note p { margin: 0; }
+    .section-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1.2rem; }
+    .section-heading .eyebrow { color: #5263b8; }
+    .section-heading h2 { margin: 0; font-size: clamp(1.6rem, 2.5vw, 2.1rem); line-height: 1.15; letter-spacing: -.035em; }
+    .section-heading p:last-child { margin: .45rem 0 0; color: #5b6880; }
+    .coverage { color: #53617a; font-size: .86rem; font-weight: 700; }
+    .workspace-grid { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+    .lab-directory { position: sticky; top: 1rem; min-width: 0; }
+    .directory, .job-monitor, .lab-card {
+      background: #fff; border: 1px solid #e0e6f0; box-shadow: 0 7px 25px #263e6810; border-radius: 1rem;
+    }
+    .directory summary, .job-monitor summary {
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 4.2rem;
+      padding: 1rem 1.15rem; list-style: none; font-weight: 750;
+    }
+    .directory summary::-webkit-details-marker, .job-monitor summary::-webkit-details-marker { display: none; }
+    .directory summary::after, .job-monitor summary::after {
+      content: ""; flex: 0 0 .5rem; width: .5rem; height: .5rem; border-right: 2px solid #65738b;
+      border-bottom: 2px solid #65738b; transform: rotate(45deg); transition: transform .18s ease;
+    }
+    .directory[open] summary::after, .job-monitor[open] summary::after { transform: rotate(225deg); }
+    .directory-heading small, .job-heading small { display: block; margin-top: .12rem; color: #65738b; font-size: .76rem; font-weight: 500; }
+    .directory-content { padding: 0 .9rem 1rem; }
+    .directory-content label { display: block; margin: 0 0 .35rem; color: #45536b; font-size: .82rem; font-weight: 700; }
+    .directory-content input {
+      width: 100%; min-width: 0; min-height: 2.8rem; padding: .65rem .75rem; color: #18243a;
+      background: #f8faff; border: 1px solid #cbd4e4; border-radius: .65rem;
+    }
+    .filter-group { display: flex; flex-wrap: wrap; gap: .35rem; margin: .75rem 0 .4rem; }
+    .filter-group button {
+      min-height: 2.75rem; padding: .4rem .65rem; color: #4a5870; background: #f3f5fa;
+      border: 1px solid transparent; border-radius: .6rem; font-size: .76rem; font-weight: 700;
+    }
+    .filter-group button[aria-pressed="true"] { color: #3448b4; background: #e9edff; border-color: #cdd5ff; }
+    .filter-count { min-height: 1.3rem; margin: .45rem .15rem; color: #69758b; font-size: .77rem; }
+    #lab-nav { max-height: min(60vh, 38rem); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+    #lab-nav li + li { margin-top: .25rem; }
+    .lab-link {
+      display: grid; grid-template-columns: 2.1rem minmax(0, 1fr); gap: .65rem; align-items: center;
+      min-height: 3.5rem; padding: .55rem .6rem; color: #34415a; border-radius: .7rem; text-decoration: none;
+    }
+    .lab-link:hover { background: #f3f6fc; }
+    .lab-link[aria-current="page"] { color: #293da7; background: #edf0ff; }
+    .lab-link-number {
+      display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: .6rem;
+      color: #53627a; background: #edf1f8; font-size: .76rem; font-weight: 800;
+    }
+    .lab-link[aria-current="page"] .lab-link-number { color: #fff; background: #5666ce; }
+    .lab-link-title { display: block; overflow-wrap: anywhere; font-size: .84rem; font-weight: 700; line-height: 1.3; }
+    .lab-link-status { display: block; margin-top: .15rem; color: #52617a; font-size: .76rem; }
+    .no-results { padding: .5rem; color: #65738b; font-size: .84rem; }
+    .workspace-content, #lab-content { min-width: 0; }
+    .job-monitor { margin-bottom: 1rem; }
+    .job-monitor summary { justify-content: flex-start; }
+    .job-heading { flex: 1; }
+    .job-state { padding: .25rem .55rem; color: #425570; background: #edf1f7; border-radius: 2rem; font-size: .73rem; font-weight: 800; }
+    .job-state[data-state="starting"], .job-state[data-state="running"] { color: #3753b8; background: #e9edff; }
+    .job-state[data-state="completed"] { color: #17684d; background: #e3f6ed; }
+    .job-state[data-state="failed"], .job-state[data-state="interrupted"], .job-state[data-state="unavailable"] { color: #973b31; background: #fff0ed; }
+    .job-details { padding: 0 1.15rem 1.15rem; color: #58667c; font-size: .9rem; }
+    .job-details p { margin: 0 0 .75rem; }
+    .lab-card { padding: clamp(1.25rem, 3vw, 2.25rem); scroll-margin-top: 1rem; }
+    .lab-meta { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .85rem; }
+    .lab-badge { padding: .3rem .6rem; border-radius: 2rem; color: #3d52b9; background: #edf0ff; font-size: .72rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+    .lab-badge[data-status="partial"] { color: #875400; background: #fff3d8; }
+    .lab-badge[data-status="guide"] { color: #526175; background: #edf1f6; }
+    .lab-card h2 { margin: 0; color: #1c2943; font-size: clamp(1.45rem, 2.3vw, 1.85rem); line-height: 1.2; letter-spacing: -.035em; }
+    .learning-box { margin: 1.2rem 0; padding: 1rem 1.1rem; border-left: 3px solid #6c7ee7; border-radius: .4rem .75rem .75rem .4rem; background: #f3f5ff; }
+    .learning-box p { margin: 0; color: #35435e; }
+    .learning-box p + p { margin-top: .45rem; }
+    .learning-box strong { color: #25365e; }
+    .note { color: #56647a; }
+    .lab-card > .note { margin: 1rem 0; font-size: .91rem; }
+    .lab-card form { margin: 1.2rem 0; }
+    .lab-card label, .media-label { display: block; margin: .85rem 0 .3rem; color: #34425a; font-size: .88rem; font-weight: 700; }
+    .lab-card input:not([type="checkbox"]), .lab-card select, .lab-card textarea {
+      display: block; width: min(100%, 38rem); min-width: 0; min-height: 2.9rem; padding: .65rem .75rem;
+      color: #1e2b43; background: #fff; border: 1px solid #bcc8da; border-radius: .65rem;
+    }
+    .lab-card input[type="checkbox"] { width: 1.15rem; height: 1.15rem; margin: 0 .4rem 0 0; vertical-align: middle; accent-color: #4a5dca; }
+    .lab-card textarea { min-height: 7rem; resize: vertical; }
+    .lab-card button, .guide-link {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 2.85rem; max-width: 100%;
+      margin: .6rem .4rem 0 0; padding: .68rem 1rem; color: #fff; background: #4b5fc6;
+      border: 1px solid #4b5fc6; border-radius: .7rem; font-size: .9rem; font-weight: 750; line-height: 1.25; text-align: center; text-decoration: none;
+    }
+    .lab-card button:hover:not(:disabled), .guide-link:hover { background: #384ba9; }
+    .lab-card button:disabled { color: #738099; background: #e5e9f1; border-color: #e5e9f1; cursor: not-allowed; }
+    .concept-visual { margin-top: 1.25rem; padding: 1rem; border: 1px solid #dfe6f2; border-radius: .8rem; background: #f8faff; }
+    .concept-visual h3 { margin: 0; font-size: 1rem; }
+    .concept-visual > p { margin: .4rem 0 1rem; color: #58667c; font-size: .84rem; }
+    .concept-row + .concept-row { margin-top: .8rem; }
+    .concept-row-label { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem .75rem; font-size: .82rem; }
+    .concept-row-label span { color: #52617b; }
+    .concept-bar { height: .55rem; margin-top: .35rem; overflow: hidden; border-radius: 1rem; background: #e1e7f2; }
+    .concept-bar span { display: block; height: 100%; border-radius: inherit; background: #697be0; }
+    .concept-selection { margin-top: .2rem; color: #4a5eaa; font-size: .75rem; font-weight: 700; }
+    .result-details { margin-top: 1rem; }
+    .result-details summary { color: #4658ad; font-size: .86rem; font-weight: 700; }
+    pre {
+      max-width: 100%; margin: 1rem 0 0; padding: 1rem; color: #31405b; background: #f7f9fd;
+      border: 1px solid #e1e7f1; border-radius: .75rem; white-space: pre-wrap; overflow-wrap: anywhere;
+      font: .84rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    .guide-handoff { margin-top: 1.5rem; padding: 1rem; border: 1px solid #dfe6f2; border-radius: .8rem; background: #f8faff; }
+    .guide-handoff summary { color: #344aa9; font-weight: 750; }
+    .guide-handoff p { color: #58667c; font-size: .9rem; }
+    .footer { padding: 2.5rem 0 3rem; color: #68768b; font-size: .84rem; text-align: center; }
     .receipts { display: flex; flex-wrap: wrap; gap: 1rem; }
-    .receipts figure { flex: 1 1 250px; margin: 0; }
-    .receipts img { max-width: 100%; }
-    #analyst-chart { max-width: 100%; }
+    .receipts figure { flex: 1 1 220px; min-width: 0; margin: 0; }
+    .receipts img, #analyst-chart, audio { max-width: 100%; }
+    .receipts figcaption { color: #65738b; font-size: .82rem; }
+    @media (max-width: 800px) {
+      .hero { grid-template-columns: 1fr; gap: 1.5rem; }
+      .workspace-grid { grid-template-columns: minmax(0, 1fr); }
+      .lab-directory { position: static; }
+      #lab-nav { max-height: 16rem; }
+    }
+    @media (max-width: 520px) {
+      .page-shell { width: min(100% - 1.5rem, 1320px); }
+      .topbar { padding: 1rem 0; }
+      .brand-label { display: none; }
+      .top-link { font-size: .82rem; }
+      .hero { padding: 1.4rem; border-radius: 1.2rem; }
+      .hero-actions a { flex: 1 1 100%; }
+      .concept-card { padding: 1rem; }
+      .safety-note { margin-bottom: 2rem; }
+      .lab-card button, .guide-link { display: flex; width: 100%; margin-right: 0; }
+      .lab-card h2 { overflow-wrap: anywhere; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
   </style>
 </head>
-<body>
-  <h1>Foundry workshop demos</h1>
-  <nav aria-label="Workshop lab navigation">
-    <details>
-      <summary id="lab-nav-summary">Browse labs</summary>
-      <ul id="lab-nav"></ul>
-      <p id="missing-labs" class="note"></p>
-    </details>
-  </nav>
+<body id="top">
+  <a class="skip-link" href="#lab-content">Skip to the labs</a>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.8 20 7v9.8L12 21l-8-4.2V7L12 2.8Z" stroke="currentColor" stroke-width="1.8"/><path d="m4.5 7.3 7.5 4 7.5-4M12 11.3v8.9" stroke="currentColor" stroke-width="1.8"/></svg>
+        </span>
+        <span>Foundry workshop <span class="brand-label">/ Learning studio</span></span>
+      </a>
+      <a class="top-link" href="#lab-directory">Explore labs &darr;</a>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <p class="eyebrow">A hands-on learning space</p>
+          <h1 id="hero-title">Get curious.<br><span>Build with AI.</span></h1>
+          <p class="hero-copy">Explore models, agents and the tools around them through small, real examples. Pick a lab, try an exercise and learn from what comes back.</p>
+          <div class="hero-actions">
+            <a class="hero-primary" href="#lab-0">Start with model basics &rarr;</a>
+            <a class="hero-secondary" href="#lab-directory">Find a topic</a>
+          </div>
+          <p class="hero-note">New to Foundry? Start with lab 0 and follow your curiosity.</p>
+        </div>
+        <div class="concept-card">
+          <p class="eyebrow">The big picture</p>
+          <h2>From question to answer</h2>
+          <p>Many AI apps follow a pattern like this:</p>
+          <ol class="flow">
+            <li><span class="flow-number" aria-hidden="true">01</span><span><strong>Ask</strong><small>Give the app a question or task.</small></span></li>
+            <li><span class="flow-number" aria-hidden="true">02</span><span><strong>Think</strong><small>A model or agent interprets the request.</small></span></li>
+            <li><span class="flow-number" aria-hidden="true">03</span><span><strong>Connect</strong><small>It may use tools or retrieve knowledge.</small></span></li>
+            <li><span class="flow-number" aria-hidden="true">04</span><span><strong>Learn</strong><small>Inspect the answer and its evidence.</small></span></li>
+          </ol>
+          <p>Not every lab uses every step.</p>
+        </div>
+      </section>
+      <div class="safety-note">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.5 3.1 7.5 7.5 9.5 4.4-2 7.5-5 7.5-9.5V6L12 3Z" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v4m0-7h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <p><strong>A quick heads-up:</strong> use synthetic data only. Many exercises call live Azure services and can incur charges; each lab explains its own limits.</p>
+      </div>
+      <section class="workspace" aria-labelledby="workspace-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Your workshop</p><h2 id="workspace-title">Pick a lab and dive in.</h2><p>Search by number or topic, then try the example at your own pace.</p></div>
+          <div id="coverage" class="coverage"></div>
+        </div>
+        <div class="workspace-grid">
+          <nav class="lab-directory" aria-label="Workshop lab navigation">
+            <details class="directory" id="lab-directory" open>
+              <summary><span class="directory-heading"><span id="lab-nav-summary">Explore labs</span><small>Search the workshop library</small></span></summary>
+              <div class="directory-content">
+                <label for="lab-search">Find a lab</label>
+                <input id="lab-search" type="search" placeholder="Try &quot;agents&quot; or &quot;17&quot;" autocomplete="off">
+                <div class="filter-group" role="group" aria-label="Filter labs by availability">
+                  <button type="button" data-filter="all" aria-pressed="true">All</button>
+                  <button type="button" data-filter="interactive" aria-pressed="false">Interactive</button>
+                  <button type="button" data-filter="partial" aria-pressed="false">Partial</button>
+                  <button type="button" data-filter="guide" aria-pressed="false">Guides</button>
+                </div>
+                <p id="lab-filter-count" class="filter-count" aria-live="polite"></p>
+                <ul id="lab-nav"></ul>
+                <p id="lab-no-results" class="no-results" hidden>No labs match. Try another search or filter.</p>
+                <p id="missing-labs" class="note"></p>
+              </div>
+            </details>
+          </nav>
+          <div class="workspace-content">
+            <details class="job-monitor" id="job-monitor">
+              <summary><span class="job-heading">Background run<small>For exercises that take longer</small></span><span class="job-state" id="job-state" data-state="idle" role="status">Ready</span></summary>
+              <div class="job-details">
+                <p>Long-running exercises share this monitor. If a run is interrupted, inspect its Azure resources before retrying.</p>
+                <pre id="job-result" aria-live="polite">No background job yet.</pre>
+              </div>
+            </details>
+            <div id="lab-content" tabindex="-1">
   <h2>Lab 0: model basics</h2>
   <p class="note">Concepts use synthetic probabilities. Sampling and comparison call live models. Batch submits a paid asynchronous job once and subsequent clicks resume it; pending is not completion.</p>
   <form id="basics-form">
@@ -41,7 +309,11 @@
     <button type="submit" value="compare">Compare chat and reasoning</button>
     <button type="submit" value="batch">Submit or check batch</button>
   </form>
-  <pre id="basics-result" aria-live="polite">Choose a model-basics exercise.</pre>
+  <div id="concept-visual" class="concept-visual" aria-live="polite" hidden></div>
+  <details id="basics-raw" class="result-details" open>
+    <summary>Raw result</summary>
+    <pre id="basics-result" aria-live="polite">Choose a model-basics exercise.</pre>
+  </details>
   <hr>
   <h2>Lab 1: Model Router</h2>
   <p class="note">Each request uses the same router deployment and shows the service-reported serving model, timing, and usage. Different prompts may select the same model. Use synthetic prompts; each request incurs charges.</p>
@@ -102,13 +374,12 @@
   <h2>Lab 7: semantic caching at the gateway</h2>
   <p class="note">Requires the configured lab 7 gateway. Send three real requests through API Management and compare response IDs, including a paraphrase. Reuse is evidence of a repeated response, not a substitute for inspecting the gateway trace. A fresh cache partition is used per run. Managed Redis has standing charges; gateway and model usage can incur charges.</p>
   <form id="cache-form"><button type="submit">Run semantic-cache comparison</button></form>
-  <p>See the <a href="#job-result">latest background job</a> below.</p>
+  <p>See the <a href="#job-result">latest background job</a> in the shared monitor.</p>
   <hr>
   <h2>Lab 8: cloud agent evaluation</h2>
   <p class="note">Generate two real agent answers and evaluate their coherence in Foundry. A low score is a valid result, not a service error. The cloud run can take ten minutes and continue after interruption; model and evaluation charges apply.</p>
   <form id="evaluation-form"><button type="submit">Run cloud evaluation</button></form>
-  <p>Latest background job (shared across the page):</p>
-  <pre id="job-result" aria-live="polite">No background job yet.</pre>
+  <p>See the <a href="#job-result">latest background job</a> in the shared monitor.</p>
   <hr>
   <h2>Lab 10: managed fine-tuning</h2>
   <p class="note">Upload the lab's 12 synthetic support tickets and submit one real supervised training epoch. Training is paid and can continue for over an hour after the UI closes. Submission is not completion; inspect the saved job instead of submitting another. If submission is uncertain, inspect the Azure account for jobs before acknowledging it. The separate <a href="/guides/10" target="_blank" rel="noopener">local Polish Phi exercise</a> is not hosted here.</p>
@@ -116,7 +387,7 @@
     <label><input id="tuning-confirm" type="checkbox" required> I understand this creates a new paid training job.</label>
     <button type="submit">Submit one training job</button>
   </form>
-  <p>Submission progress appears in the <a href="#job-result">latest background job</a> above.</p>
+  <p>Submission progress appears in the <a href="#job-result">latest background job</a>.</p>
   <form id="tuning-inspect-form">
     <label for="tuning-job-id">Job ID (leave blank for the last saved job)</label>
     <input id="tuning-job-id" type="text" maxlength="134" placeholder="ftjob-...">
@@ -184,7 +455,7 @@
     </select>
     <button type="submit">Run retrieval</button>
   </form>
-  <p>See the <a href="#job-result">latest background job</a> above; its index name is available while it runs.</p>
+  <p>See the <a href="#job-result">latest background job</a>; its index name is available while it runs.</p>
   <hr>
   <h2>Lab 18: trace a pricing agent</h2>
   <p class="note">Run a synthetic normal, slow, or failed pricing tool followed by a live model request. The failed tool is intentionally recovered. Open Application Insights and query the returned trace ID; flushing alone does not prove ingestion. Model and telemetry charges apply.</p>
@@ -235,12 +506,12 @@
     <button type="submit" value="baseline">Evaluate baseline</button>
     <button type="submit" value="regression">Evaluate regression</button>
   </form>
-  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
   <h2>Lab 24: publish and roll back an agent application</h2>
   <p class="note">Creates a real, uniquely named managed Agent Application, verifies a version change, and restores the original version. Each run leaves its published application and agent for inspection. This uses a legacy supported publishing API, makes paid model requests, and may take several minutes. If interrupted, inspect the application and deployment identified by the job before retrying.</p>
   <form id="lifecycle-form"><button type="submit">Publish, update, and roll back</button></form>
-  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
   <h2>Lab 25: resilience and costs</h2>
   <p class="note">Two real model requests recover from locally injected faults; the booking and outages are synthetic. Attempt budgets and the cost estimate are illustrative, not Azure spending caps or an invoice. Model requests incur charges.</p>
@@ -291,7 +562,7 @@
   <h2>Lab 30: skill-powered CSV analyst</h2>
   <p class="note">Upload a pinned skill and synthetic CSV, run native Code Interpreter in a cloud sandbox, and verify its report and chart. This paid background run can take several minutes. Interrupted runs require inspection for leftover cloud objects before retrying.</p>
   <form id="analyst-form"><button type="submit">Analyze the synthetic CSV</button></form>
-  <p>See the <a href="#job-result">latest background job</a> above. The chart below is the verified download, not a local replacement.</p>
+  <p>See the <a href="#job-result">latest background job</a>. The chart below is the verified download, not a local replacement.</p>
   <img id="analyst-chart" alt="Generated attendance and cost chart" hidden>
   <hr>
   <h2>Lab 31: native memory for the presenter (partial)</h2>
@@ -305,7 +576,7 @@
     <button type="submit" value="normal">Run release and rollback</button>
     <button type="submit" value="regression">Test rejected regression</button>
   </form>
-  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
   <h2>Lab 34: Document Intelligence invoice agent</h2>
   <p class="note">Select one approved synthetic invoice. The saved Foundry agent calls its cloud OpenAPI tool and real Document Intelligence; the UI validates the returned extraction, evidence, document hash and grounded answer. Missing values require review. Analysis and model requests incur charges.</p>
@@ -322,7 +593,7 @@
     <a id="document-preview" href="/invoices/clear.pdf" target="_blank" rel="noopener">View synthetic PDF</a>
     <button type="submit">Analyze selected invoice</button>
   </form>
-  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
   <h2>Lab 36: custom code on the Foundry hosted runtime</h2>
   <p class="note">Invoke the deployed hosted container, which calls a live model and a read-only synthetic pricing tool. Repeat a session to observe its cloud state; a new session is not a second-user test. A cold start may take several minutes. Runtime, registry and model charges apply.</p>
@@ -333,7 +604,7 @@
     <button id="hosted-fresh" type="button">New isolated session</button>
   </form>
   <p id="hosted-session" class="note"></p>
-  <p>See the <a href="#job-result">latest background job</a> above for the actual quote, sandbox state, and execution IDs.</p>
+  <p>See the <a href="#job-result">latest background job</a> for the actual quote, sandbox state, and execution IDs.</p>
   <hr>
   <h2>Lab 37: live agent monitoring and recovery</h2>
   <p class="note">Two real deployed agents answer a synthetic pricing question. The regression route is restored immediately after the test; if the app stops unexpectedly, inspect the agent routes in Azure. Native continuous evaluation has previously failed to trigger, so missing response-linked verdicts remain PENDING, not PASS. Model, evaluation and telemetry charges apply.</p>
@@ -353,25 +624,25 @@
   <h2>Lab 38: native model and agent guardrails</h2>
   <p class="note">Send only benign synthetic inputs to a real model policy and a temporary agent with a native guardrail. Both interventions must match the configured blocklist; the unguarded model is also tested. Policy propagation may take several minutes. If interrupted, inspect the named temporary agent before retrying. Model requests incur charges.</p>
   <form id="guardrails-form"><button type="submit">Run native guardrail checks</button></form>
-  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
   <h2>Lab 40: native managed voice agent</h2>
   <p class="note">Play the synthetic spoken prompt, then stream it to a real native voice agent. The job checks both transcripts, response audio and the recording retrieved from the stored Foundry conversation. A saved agent and conversation remain in Azure for inspection; inference, speech and storage may incur charges.</p>
-  <label for="voice-input">Synthetic spoken prompt</label>
-  <audio id="voice-input" controls preload="none" src="/voice/turn.wav"></audio>
+  <p class="media-label" id="voice-input-label">Synthetic spoken prompt</p>
+  <audio id="voice-input" aria-labelledby="voice-input-label" controls preload="none" src="/voice/turn.wav"></audio>
   <form id="voice-form"><button type="submit">Run the spoken conversation</button></form>
   <p>Transcripts and service evidence appear in the <a href="#job-result">latest background job</a>. Audio is available here while that voice job is the latest completed job.</p>
   <div id="voice-audio" hidden>
-    <label for="voice-reply">Agent reply</label>
-    <audio id="voice-reply" controls preload="none"></audio>
-    <label for="voice-conversation">Stored conversation recording</label>
-    <audio id="voice-conversation" controls preload="none"></audio>
+    <p class="media-label" id="voice-reply-label">Agent reply</p>
+    <audio id="voice-reply" aria-labelledby="voice-reply-label" controls preload="none"></audio>
+    <p class="media-label" id="voice-conversation-label">Stored conversation recording</p>
+    <audio id="voice-conversation" aria-labelledby="voice-conversation-label" controls preload="none"></audio>
   </div>
   <hr>
   <h2>Lab 41: Content Understanding for document and audio</h2>
   <p class="note">Analyze the bundled synthetic PDF and WAV with native GA Content Understanding. Document fields require real confidence and page grounding; audio facts require timestamped transcript evidence, not invented confidence. Operations can take several minutes and incur model and service charges. Interrupted operations may continue in Azure.</p>
   <form id="cu-form"><button type="submit">Analyze document and audio</button></form>
-  <p>See the <a href="#job-result">latest background job</a> above for both service results.</p>
+  <p>See the <a href="#job-result">latest background job</a> for both service results.</p>
   <hr>
   <h2>Lab 42: native tool search (partial)</h2>
   <p class="note">Create a temporary Foundry Toolbox, discover the hidden Microsoft Learn search tool with native tool search, and call it using a fixed public query. The separate managed Copilot harness and skill exercise is not run here; see its guide below. The Toolbox is deleted after the run; if interrupted, inspect Azure for leftovers. Preview and service charges may apply.</p>
@@ -386,27 +657,69 @@
   <h2>Lab 46: two-project fleet governance</h2>
   <p class="note">Inventory two isolated Foundry projects, invoke their synthetic agents, correlate real ingested telemetry and inspect the resource group's Audit policy. The external runtime is a local Python function, not a hosted agent. Portal views and optional Defender/Purview integrations remain unverified. Agents and telemetry stay in Azure; model and monitoring usage may incur charges.</p>
   <form id="fleet-form"><button type="submit">Run fleet governance checks</button></form>
-  <p>See the separate stage statuses in the <a href="#job-result">latest background job</a> above. Missing cloud evidence is BLOCKED, not PASS.</p>
+  <p>See the separate stage statuses in the <a href="#job-result">latest background job</a>. Missing cloud evidence is BLOCKED, not PASS.</p>
   <hr>
-  <h2>Other lab guides</h2>
-  <p class="note">These guides cover labs or exercises not yet fully integrated here. Open a guide for the real setup and execution instructions.</p>
-  <div id="lab-guides"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="footer">Explore thoughtfully. Inspect the evidence. Keep learning.</footer>
+  </div>
   <script>
-    const labHeadings = [...document.querySelectorAll('h2')].filter((heading) => /^Lab \d+:/.test(heading.textContent));
-    const availableLabs = new Set();
+    const labContent = document.getElementById('lab-content');
+    const labHeadings = [...labContent.querySelectorAll(':scope > h2')]
+      .filter((heading) => /^Lab \d+:/.test(heading.textContent));
     const partialLabs = new Set([10, 31, 42, 44]);
-    const labNav = document.getElementById('lab-nav');
-    for (const heading of labHeadings) {
-      const number = Number(heading.textContent.match(/^Lab (\d+):/)[1]);
-      availableLabs.add(number);
-      heading.id = `lab-${number}`;
-      const link = document.createElement('a');
-      link.href = `#lab-${number}`;
-      link.textContent = heading.textContent;
-      const item = document.createElement('li');
-      item.appendChild(link);
-      labNav.appendChild(item);
-    }
+    const lessons = {
+      0: ['Explore model settings such as temperature, top-p and reasoning effort.', 'Start with Calculate concepts and compare the synthetic probabilities.'],
+      1: ['See how a router chooses a model for a request.', 'Try different prompts and compare the reported model and usage.'],
+      2: ['Follow a two-step workflow in which one agent writes and another edits.', 'Change the synthetic invitation and inspect both stages.'],
+      3: ['Compare an answer with and without web-search grounding.', 'Look for differences in the answers and their citations.'],
+      4: ['See an agent use a tool to calculate a synthetic workshop price.', 'Change the attendee count and inspect the tool result.'],
+      5: ['Turn an unstructured support ticket into a typed classification.', 'Try different synthetic tickets and compare their categories.'],
+      6: ['Explore how a safety service reports categories and severity.', 'Change the application threshold and compare the decision with the scores.'],
+      7: ['See how a gateway can reuse responses for similar requests.', 'Compare the response IDs and inspect the gateway trace for evidence.'],
+      8: ['Use a cloud evaluator to assess agent answer coherence.', 'Inspect the individual answers and scores, including any low score.'],
+      9: ['Learn how managed red teaming probes an agent for safety risks.', 'Read the prerequisites and report-handling guidance before running the standalone lab.'],
+      10: ['Explore how supervised fine-tuning adapts a model to examples.', 'Submit only if you intend to start paid training; inspect its saved job afterward.'],
+      11: ['Follow a question through a managed knowledge base and retrieval.', 'Inspect the grounded answer, references and retrieval activity.'],
+      12: ['Learn how agent identity relates to tenant identity and credentials.', 'Review the required tenant approvals and identity setup in the guide.'],
+      13: ['Compare ways to coordinate multiple agents in a workflow.', 'Choose a pattern and follow the handoffs in the result.'],
+      14: ['Explore ordinary responses, streaming and service errors.', 'Compare the responses and inspect the actual error checks.'],
+      15: ['Compare model predictions, usage and illustrative costs on a labeled case.', 'Choose a synthetic ticket and compare the three results.'],
+      16: ['See how structured output constrains the shape of a model response.', 'Compare schema validity with the labeled ticket and its actual accuracy.'],
+      17: ['Explore retrieval-augmented generation: find evidence before answering.', 'Change the chunk size or retrieval mode and compare the retrieval metrics.'],
+      18: ['Trace how an agent responds when a tool is normal, slow or fails.', 'Choose a scenario and use its trace ID to investigate in Application Insights.'],
+      19: ['See how conversation history is stored and separated into teaching scopes.', 'Send synthetic messages and compare the histories for Alice and Bob.'],
+      20: ['Put a person between an agent proposal and a decision.', 'Review the exact synthetic proposal before approving or rejecting it.'],
+      21: ['Understand why retrieval must respect each user\'s permissions.', 'Read the guide for the two-user setup and access checks.'],
+      22: ['Explore the boundary between trusted instructions and untrusted content.', 'Compare the baseline, Prompt Shields result and validated factual projection.'],
+      23: ['Use evaluation evidence to decide whether a change should pass a release gate.', 'Compare the baseline with the deliberate regression and inspect the gate result.'],
+      24: ['Follow an agent application through publication, update and rollback.', 'Inspect the actual versions and the restored deployment after the run.'],
+      25: ['Explore retries, recovery and the cost of handling failures.', 'Compare the simulated faults, real requests and illustrative cost estimate.'],
+      26: ['Extract structured information from a synthetic receipt image.', 'Compare the live prediction with the visible receipt and labeled values.'],
+      27: ['Ask an agent to answer using a workshop support knowledge base.', 'Use a synthetic question and inspect the agent\'s answer.'],
+      28: ['See how a reusable skill can change an agent\'s behavior.', 'Enter a synthetic title and compare the two agent responses.'],
+      29: ['Discover how an agent finds and loads skills from a Toolbox.', 'Choose a task and inspect the discovered and loaded skill information.'],
+      30: ['Combine a skill and cloud code execution to analyze tabular data.', 'Inspect the returned report and verified chart from the synthetic CSV.'],
+      31: ['Explore how an agent remembers and forgets a synthetic preference.', 'Inspect extraction, recall in a fresh conversation and verified cleanup.'],
+      32: ['Learn how a browser-based runbook uses a remote browser and human approval.', 'Read the preview, connection and approval requirements in the guide.'],
+      33: ['Explore a skill release gate, promotion and rollback.', 'Compare the candidate and the deliberate regression in the run evidence.'],
+      34: ['Combine document extraction and an agent\'s tool call.', 'Choose a synthetic invoice and compare extracted fields with the evidence.'],
+      35: ['Learn how an agent can use authorized Microsoft 365 context.', 'Review administrator consent and caller authorization before using the standalone lab.'],
+      36: ['Run custom agent code on a hosted cloud runtime.', 'Repeat a session and compare its returned state, tool result and execution IDs.'],
+      37: ['Connect agent behavior to monitoring, evaluation and recovery.', 'Run a scenario and look for real response-linked evidence, not assumed verdicts.'],
+      38: ['Compare an unguarded model with configured native guardrails.', 'Inspect whether the model and agent policies intervene on the benign test inputs.'],
+      39: ['Learn how gateway policies can enforce token limits.', 'Review gateway cost and policy-write permissions before using the guide.'],
+      40: ['Follow a spoken prompt through a managed voice agent.', 'Play the prompt and compare the returned transcript, audio and recording.'],
+      41: ['Extract grounded information from a document and an audio recording.', 'Look for document page evidence and timestamps in the transcript.'],
+      42: ['See an agent discover and call a tool it did not initially know about.', 'Inspect the search and tool-call results; the separate harness exercise is in the guide.'],
+      43: ['Learn how agent routines can run on a schedule.', 'Review the preview and tenant-token requirements in the standalone guide.'],
+      44: ['Evaluate real agent tool traces across several quality measures.', 'Compare groundedness, relevance and tool-call accuracy; optimization remains in the guide.'],
+      45: ['Explore governed retrieval across Foundry IQ and Fabric IQ.', 'Read the two-user, licensing and synthetic-environment prerequisites in the guide.'],
+      46: ['Explore governance and telemetry across two Foundry projects.', 'Inspect each stage\'s evidence and distinguish blocked checks from passing checks.']
+    };
     const guides = [
       [9, 'Agent red teaming', 'A managed safety scan; generated reports may contain disturbing text.'],
       [10, 'Local Polish Phi adaptation', 'The separate local exercise requires Apple silicon and is not hosted here.'],
@@ -421,42 +734,224 @@
       [44, 'Evaluation and optimizer', 'Requires a compatible SDK, native optimizer access, and paid model quota.'],
       [45, 'Governed Foundry IQ and Fabric IQ', 'Requires two real users and an approved, licensed synthetic Fabric environment.']
     ];
-    const guideContainer = document.getElementById('lab-guides');
+    const labs = new Map();
+    function addLabIntroduction(card, heading, number, status) {
+      const meta = document.createElement('div');
+      meta.className = 'lab-meta';
+      const badge = document.createElement('span');
+      badge.className = 'lab-badge';
+      badge.dataset.status = status;
+      badge.textContent = status === 'partial' ? 'Partly interactive' : status === 'guide' ? 'Guide only' : 'Interactive';
+      meta.appendChild(badge);
+      heading.before(meta);
+      heading.id = `lab-heading-${number}`;
+      card.setAttribute('aria-labelledby', heading.id);
+      const intro = document.createElement('div');
+      intro.className = 'learning-box';
+      const learn = document.createElement('p');
+      const learnLabel = document.createElement('strong');
+      learnLabel.textContent = 'The idea: ';
+      learn.append(learnLabel, lessons[number][0]);
+      const tryIt = document.createElement('p');
+      const tryLabel = document.createElement('strong');
+      tryLabel.textContent = status === 'guide' ? 'Next step: ' : 'Try this: ';
+      tryIt.append(tryLabel, lessons[number][1]);
+      intro.append(learn, tryIt);
+      heading.after(intro);
+    }
+    for (const heading of labHeadings) {
+      const number = Number(heading.textContent.match(/^Lab (\d+):/)[1]);
+      const status = partialLabs.has(number) ? 'partial' : 'interactive';
+      const card = document.createElement('article');
+      card.className = 'lab-card';
+      card.id = `lab-${number}`;
+      card.tabIndex = -1;
+      heading.before(card);
+      let node = heading;
+      while (node && !(node.nodeType === Node.ELEMENT_NODE && node.tagName === 'HR')) {
+        const next = node.nextSibling;
+        card.appendChild(node);
+        node = next;
+      }
+      if (node) node.remove();
+      addLabIntroduction(card, heading, number, status);
+      labs.set(number, {number, title: heading.textContent, status, card});
+    }
     for (const [number, title, prerequisite] of guides) {
-      if (availableLabs.has(number) && !partialLabs.has(number)) continue;
+      let lab = labs.get(number);
+      if (!lab) {
+        const card = document.createElement('article');
+        card.className = 'lab-card';
+        card.id = `lab-${number}`;
+        card.tabIndex = -1;
+        const heading = document.createElement('h2');
+        heading.textContent = `Lab ${number}: ${title}`;
+        card.appendChild(heading);
+        labContent.appendChild(card);
+        addLabIntroduction(card, heading, number, 'guide');
+        lab = {number, title: heading.textContent, status: 'guide', card};
+        labs.set(number, lab);
+      }
       const details = document.createElement('details');
+      details.className = 'guide-handoff';
       details.id = `guide-${number}`;
       const summary = document.createElement('summary');
-      summary.textContent = `Lab ${number}: ${title} (${partialLabs.has(number) ? 'remaining guide' : 'guide only'})`;
+      summary.textContent = lab.status === 'partial' ? `Explore the rest of lab ${number}` : 'Before you begin';
       const description = document.createElement('p');
       description.textContent = prerequisite;
       const link = document.createElement('a');
+      link.className = 'guide-link';
       link.href = `/guides/${number}`;
       link.target = '_blank';
       link.rel = 'noopener';
-      link.textContent = 'Open full lab instructions';
+      link.textContent = 'Open lab instructions (new tab)';
       details.append(summary, description, link);
-      guideContainer.appendChild(details);
-      const item = document.createElement('li');
-      const navLink = document.createElement('a');
-      navLink.href = `#guide-${number}`;
-      navLink.textContent = summary.textContent;
-      item.appendChild(navLink);
-      labNav.appendChild(item);
+      if (lab.status === 'guide') details.open = true;
+      lab.card.appendChild(details);
+      lab.guideText = `${title} ${prerequisite}`;
     }
-    const missingLabs = Array.from({length: 47}, (_, number) => number)
-      .filter((number) => !availableLabs.has(number) || partialLabs.has(number));
-    const guideOnlyLabs = missingLabs.filter((number) => !availableLabs.has(number));
-    document.getElementById('lab-nav-summary').textContent =
-      `Browse ${availableLabs.size - partialLabs.size} interactive labs, ${partialLabs.size} partial labs and ${guideOnlyLabs.length} guide-only labs`;
+    const labNav = document.getElementById('lab-nav');
+    const directory = document.getElementById('lab-directory');
+    const search = document.getElementById('lab-search');
+    const filterButtons = [...document.querySelectorAll('[data-filter]')];
+    let activeFilter = 'all';
+    for (const lab of [...labs.values()].sort((first, second) => first.number - second.number)) {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.className = 'lab-link';
+      link.href = `#${lab.card.id}`;
+      const number = document.createElement('span');
+      number.className = 'lab-link-number';
+      number.setAttribute('aria-hidden', 'true');
+      number.textContent = lab.number;
+      const text = document.createElement('span');
+      const title = document.createElement('span');
+      title.className = 'lab-link-title';
+      title.textContent = lab.title;
+      const status = document.createElement('span');
+      status.className = 'lab-link-status';
+      status.textContent = lab.status === 'partial' ? 'Partly interactive' : lab.status === 'guide' ? 'Guide only' : 'Interactive';
+      text.append(title, status);
+      link.append(number, text);
+      item.appendChild(link);
+      labNav.appendChild(item);
+      lab.item = item;
+      lab.link = link;
+      lab.searchText = `${lab.title} ${status.textContent} ${lab.guideText || ''} ${lessons[lab.number].join(' ')}`.toLowerCase();
+      link.addEventListener('click', () => {
+        selectLab(lab.number);
+        if (window.matchMedia('(max-width: 800px)').matches) {
+          directory.open = false;
+          lab.card.focus({preventScroll: true});
+        }
+      });
+    }
+    function filterLabs() {
+      const query = search.value.trim().toLowerCase();
+      let count = 0;
+      for (const lab of labs.values()) {
+        const matches = (activeFilter === 'all' || lab.status === activeFilter) && lab.searchText.includes(query);
+        lab.item.hidden = !matches;
+        if (matches) count += 1;
+      }
+      document.getElementById('lab-filter-count').textContent = `${count} ${count === 1 ? 'lab' : 'labs'} shown`;
+      document.getElementById('lab-no-results').hidden = count !== 0;
+    }
+    search.addEventListener('input', filterLabs);
+    for (const button of filterButtons) {
+      button.addEventListener('click', () => {
+        activeFilter = button.dataset.filter;
+        filterButtons.forEach((filter) => filter.setAttribute('aria-pressed', String(filter === button)));
+        filterLabs();
+      });
+    }
+    function selectLab(number) {
+      if (!labs.has(number)) return;
+      for (const lab of labs.values()) {
+        lab.card.hidden = lab.number !== number;
+        if (lab.number === number) lab.link.setAttribute('aria-current', 'page');
+        else lab.link.removeAttribute('aria-current');
+      }
+      document.getElementById('lab-nav-summary').textContent = `Explore labs (lab ${number} selected)`;
+    }
+    function followHash() {
+      const match = location.hash.match(/^#(lab|guide)-(\d+)$/);
+      if (match && labs.has(Number(match[2]))) {
+        selectLab(Number(match[2]));
+        if (match[1] === 'guide') {
+          const guide = document.getElementById(`guide-${match[2]}`);
+          if (guide && guide.tagName === 'DETAILS') guide.open = true;
+        }
+      } else if (location.hash === '#job-result') {
+        document.getElementById('job-monitor').open = true;
+      } else if (location.hash === '#lab-directory') {
+        directory.open = true;
+      }
+    }
+    const counts = [...labs.values()].reduce((totals, lab) => {
+      totals[lab.status] += 1;
+      return totals;
+    }, {interactive: 0, partial: 0, guide: 0});
+    document.getElementById('coverage').textContent =
+      `${counts.interactive} interactive / ${counts.partial} partial / ${counts.guide} guides`;
     document.getElementById('missing-labs').textContent =
-      `Not fully interactive here: ${missingLabs.join(', ')}.`;
+      'Partial labs offer a live exercise and a guide for the remaining steps. Guide-only labs run outside this UI.';
+    if (window.matchMedia('(max-width: 800px)').matches) directory.open = false;
+    selectLab(0);
+    followHash();
+    filterLabs();
+    window.addEventListener('hashchange', followHash);
+    document.addEventListener('click', (event) => {
+      if (event.target.closest('a[href="#job-result"]')) document.getElementById('job-monitor').open = true;
+      if (event.target.closest('a[href="#lab-directory"]')) directory.open = true;
+    });
     const basicsForm = document.getElementById('basics-form');
     const basicsResult = document.getElementById('basics-result');
+    const basicsRaw = document.getElementById('basics-raw');
+    const conceptVisual = document.getElementById('concept-visual');
+    function renderConcepts(data) {
+      const {probabilities, temperature_distribution: adjusted, nucleus_indexes: selected} = data;
+      if (!Array.isArray(probabilities) || !probabilities.length || !Array.isArray(adjusted)
+          || adjusted.length !== probabilities.length || !Array.isArray(selected)
+          || ![...probabilities, ...adjusted].every((value) => Number.isFinite(value) && value >= 0 && value <= 1)
+          || !selected.every((index) => Number.isInteger(index) && index >= 0 && index < probabilities.length)) {
+        throw new Error('Concept probabilities have an unexpected format.');
+      }
+      const heading = document.createElement('h3');
+      heading.textContent = 'See the probabilities change';
+      const explanation = document.createElement('p');
+      explanation.textContent = 'The bars show temperature-adjusted probabilities. Top-p selections are calculated separately from the original probabilities, not from these bars.';
+      conceptVisual.replaceChildren(heading, explanation);
+      adjusted.forEach((value, index) => {
+        const row = document.createElement('div');
+        row.className = 'concept-row';
+        const label = document.createElement('div');
+        label.className = 'concept-row-label';
+        const option = document.createElement('strong');
+        option.textContent = `Option ${index + 1}`;
+        const values = document.createElement('span');
+        values.textContent = `${(probabilities[index] * 100).toFixed(1)}% original / ${(value * 100).toFixed(1)}% adjusted`;
+        label.append(option, values);
+        const bar = document.createElement('div');
+        bar.className = 'concept-bar';
+        bar.setAttribute('aria-hidden', 'true');
+        const fill = document.createElement('span');
+        fill.style.width = `${value * 100}%`;
+        bar.appendChild(fill);
+        const selection = document.createElement('div');
+        selection.className = 'concept-selection';
+        selection.textContent = selected.includes(index) ? 'Included in top-p' : 'Outside top-p';
+        row.append(label, bar, selection);
+        conceptVisual.appendChild(row);
+      });
+      conceptVisual.hidden = false;
+    }
     basicsForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const buttons = basicsForm.querySelectorAll('button');
       buttons.forEach((button) => { button.disabled = true; });
+      conceptVisual.hidden = true;
+      basicsRaw.open = true;
       basicsResult.textContent = 'Running the selected exercise...';
       try {
         const response = await fetch('/api/basics', {
@@ -471,6 +966,10 @@
         });
         const data = await response.json();
         basicsResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+        if (response.ok && event.submitter.value === 'concepts') {
+          renderConcepts(data);
+          basicsRaw.open = false;
+        }
       } catch (error) {
         basicsResult.textContent = `Request failed: ${error.message}`;
       } finally {
@@ -700,6 +1199,14 @@
       });
       monitoringResult.textContent = rows.length ? JSON.stringify(rows, null, 2) : 'No live monitoring responses yet.';
     }
+    const jobMonitor = document.getElementById('job-monitor');
+    const jobState = document.getElementById('job-state');
+    function showJobState(status) {
+      const labels = {idle: 'Ready', starting: 'Starting', running: 'Running', completed: 'Finished',
+                      failed: 'Failed', interrupted: 'Interrupted', unavailable: 'Unavailable'};
+      jobState.dataset.state = status;
+      jobState.textContent = labels[status] || `Status: ${status}`;
+    }
     let releaseStatus = 'idle';
     async function refreshRelease() {
       try {
@@ -707,6 +1214,8 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         releaseStatus = data.status;
+        showJobState(data.status);
+        if (['running', 'failed', 'interrupted'].includes(data.status)) jobMonitor.open = true;
         releaseButtons.forEach((button) => { button.disabled = data.status === 'running'; });
         let visible = data;
         if (data.status === 'completed' && data.kind === 'csv-analyst' && data.result?.chart_base64) {
@@ -734,6 +1243,8 @@
         if (data.status === 'running') setTimeout(refreshRelease, 3000);
       } catch (error) {
         releaseButtons.forEach((button) => { button.disabled = true; });
+        showJobState('unavailable');
+        jobMonitor.open = true;
         releaseResult.textContent = `Unable to check run: ${error.message}. Reload to retry.`;
       }
     }
@@ -743,6 +1254,10 @@
       const interrupted = releaseStatus === 'interrupted';
       if (interrupted && !confirm('Inspect the interrupted run in Azure for leftover resources before retrying. Have you done so?')) return;
       releaseButtons.forEach((button) => { button.disabled = true; });
+      jobMonitor.open = true;
+      showJobState('starting');
+      releaseResult.textContent = 'Starting the background run...';
+      jobMonitor.scrollIntoView({block: 'start'});
       try {
         const response = await fetch(endpoint, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -764,6 +1279,8 @@
         releaseResult.textContent = JSON.stringify(data, null, 2);
         await refreshRelease();
       } catch (error) {
+        showJobState('failed');
+        jobState.textContent = 'Start error';
         releaseResult.textContent = `Could not start run: ${error.message}`;
         releaseButtons.forEach((button) => { button.disabled = false; });
       }
