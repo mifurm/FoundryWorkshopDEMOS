@@ -53,11 +53,13 @@ def cloud_evaluate(client, items, deployment, report, timeout=600):
         )],
     )
     report["evaluation_id"] = evaluation.id
+    print(f"Evaluation: {evaluation.id}", flush=True)
     run = client.evals.runs.create(
         eval_id=evaluation.id, name="support-regression-gate",
         data_source=report["evaluation_source"],
     )
     report["run_id"] = run.id
+    print(f"Evaluation run: {evaluation.id}/{run.id}", flush=True)
     deadline = monotonic() + timeout
     while run.status in ("queued", "in_progress"):
         if monotonic() >= deadline:
@@ -96,7 +98,7 @@ def cloud_evaluate(client, items, deployment, report, timeout=600):
     return counts.passed / counts.total
 
 
-def release_gate(report, correctness_threshold, coherence_threshold):
+def release_gate(report, correctness_threshold, coherence_threshold, *, raise_on_failure=True):
     items = report["items"]
     if not items:
         raise RuntimeError("Empty dataset cannot pass")
@@ -105,11 +107,11 @@ def release_gate(report, correctness_threshold, coherence_threshold):
     report["passed"] = accuracy >= correctness_threshold and report["coherence_rate"] >= coherence_threshold
     for item in items:
         print(json.dumps(item))
-    if not report["passed"]:
+    if not report["passed"] and raise_on_failure:
         raise RuntimeError(f"Release blocked: correctness={accuracy:.3f}, coherence={report['coherence_rate']:.3f}")
 
 
-def execute(project, args, dataset, prompt, report):
+def execute(project, args, dataset, prompt, report, *, raise_on_failure=True):
     # Query real deployment metadata, not a model version supplied by the caller.
     report["model"] = project.deployments.get(args.deployment).as_dict()
     report["judge_model"] = project.deployments.get(args.judge_deployment).as_dict()
@@ -118,6 +120,7 @@ def execute(project, args, dataset, prompt, report):
         definition=PromptAgentDefinition(model=args.deployment, instructions=prompt),
     )
     report["agent"] = {"name": agent.name, "version": agent.version}
+    print(f"Temporary agent: {agent.name}/{agent.version}", flush=True)
     try:
         report["items"] = []
         with project.get_openai_client(agent_name=agent.name) as client:
@@ -134,9 +137,11 @@ def execute(project, args, dataset, prompt, report):
                 client, report["items"],
                 args.judge_deployment, report, args.timeout,
             )
-        release_gate(report, args.correctness_threshold, args.coherence_threshold)
+        release_gate(report, args.correctness_threshold, args.coherence_threshold,
+                     raise_on_failure=raise_on_failure)
     finally:
         project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
+        print(f"Temporary agent version deleted: {agent.name}/{agent.version}", flush=True)
 
 
 def main():

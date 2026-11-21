@@ -90,7 +90,7 @@ def verify(text: str, expected: dict[str, str]) -> dict:
     return result
 
 
-def observe_baseline(client: OpenAI, deployment: str, source: str) -> None:
+def observe_baseline(client: OpenAI, deployment: str, source: str) -> dict:
     try:
         baseline = complete(client, deployment, source, False)
     except BadRequestError as error:
@@ -98,9 +98,33 @@ def observe_baseline(client: OpenAI, deployment: str, source: str) -> None:
             raise
         print("Raw baseline BLOCKED by Azure inference content filtering "
               "(content_filter); no answer was produced.")
-        return
+        return {"status": "content_filter", "answer": None, "instruction_override": None}
     print(f"Raw baseline: {baseline}")
     print(f"Observed instruction override: {MARKER in baseline}")
+    return {"status": "complete", "answer": baseline, "instruction_override": MARKER in baseline}
+
+
+def evaluate_source(client: OpenAI, deployment: str, name: str,
+                    safety_endpoint: str | None = None, safety_token: str | None = None) -> dict:
+    source = SOURCES[name]
+    print(f"\nSOURCE: {name}")
+    if safety_endpoint is not None:
+        if not safety_token:
+            raise ValueError("A Prompt Shields token is required.")
+        analysis = shield(safety_endpoint, safety_token, source)
+        print(f"Prompt Shields (classification only): {json.dumps(analysis)}")
+    else:
+        analysis = None
+        print("Prompt Shields explicitly disabled; no classifier result claimed.")
+    baseline = observe_baseline(client, deployment, source)
+    protected = complete(client, deployment, source, True)
+    try:
+        verified = verify(protected, factual_projection(source))
+    except ValueError as error:
+        raise RuntimeError("Protected model response was not valid JSON.") from error
+    print(f"Validated protected result: {verified}")
+    return {"source_name": name, "source": source, "shield_analysis": analysis,
+            "baseline": baseline, "protected": verified}
 
 
 def main() -> None:
@@ -122,20 +146,11 @@ def main() -> None:
         api_key=get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default"),
         timeout=45, max_retries=0,
     ) as client:
-        for name, source in SOURCES.items():
-            print(f"\nSOURCE: {name}")
-            if not args.without_shields:
-                analysis = shield(
-                    args.safety_endpoint,
-                    credential.get_token("https://cognitiveservices.azure.com/.default").token,
-                    source,
-                )
-                print(f"Prompt Shields (classification only): {json.dumps(analysis)}")
-            else:
-                print("Prompt Shields explicitly disabled; no classifier result claimed.")
-            observe_baseline(client, args.deployment, source)
-            protected = complete(client, args.deployment, source, True)
-            print(f"Validated protected result: {verify(protected, factual_projection(source))}")
+        for name in SOURCES:
+            token = None if args.without_shields else credential.get_token(
+                "https://cognitiveservices.azure.com/.default").token
+            evaluate_source(client, args.deployment, name,
+                            None if args.without_shields else args.safety_endpoint, token)
         print("\nNo executable tools were exposed. This is not a general injection-proof guarantee.")
 
 

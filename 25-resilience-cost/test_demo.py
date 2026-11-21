@@ -88,6 +88,23 @@ class ResilienceTests(unittest.TestCase):
         self.assertIn("model=5/6; tool=4/4", output.getvalue())
         self.assertIn("input=24; output=10", output.getvalue())
 
+    def test_structured_demonstration_reports_real_usage_and_bounded_failures(self):
+        client = MagicMock()
+        client.chat.completions.create.return_value = SimpleNamespace(
+            choices=[SimpleNamespace(finish_reason="stop",
+                                     message=SimpleNamespace(content="Actual model answer."))],
+            usage=SimpleNamespace(prompt_tokens=12, completion_tokens=5),
+        )
+        with redirect_stdout(io.StringIO()):
+            result = demo.demonstrate(client, "test-model")
+        self.assertEqual(len(result["answers"]), 2)
+        self.assertTrue(all(item["answer"] == "Actual model answer." for item in result["answers"]))
+        self.assertEqual(result["booking_count"], 1)
+        self.assertEqual(result["model_attempts"], 5)
+        self.assertEqual(result["tool_attempts"], 4)
+        self.assertEqual(result["usage"], {"prompt_tokens": 24, "completion_tokens": 10})
+        self.assertEqual(result["permanent_status"], 403)
+
 
 if __name__ == "__main__":
     unittest.main()

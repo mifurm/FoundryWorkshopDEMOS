@@ -75,10 +75,14 @@ class ReleaseTests(TestCase):
 
     def run_demo(self, **kwargs):
         with redirect_stdout(StringIO()):
-            demo.demonstrate(self.project, "test-deployment", **kwargs)
+            return demo.demonstrate(self.project, "test-deployment", **kwargs)
 
     def test_gate_promotion_pinned_isolation_and_verified_rollback(self):
-        self.run_demo()
+        result = self.run_demo()
+        self.assertTrue(result["rollback_verified"])
+        self.assertEqual(len(result["responses"]), 8)
+        self.assertEqual(result["responses"][4]["version"], result["candidate_version"])
+        self.assertEqual(result["responses"][-1]["version"], result["original_version"])
         self.assertEqual(self.events, [
             ("create", "7", True), ("default", "7"), ("create", "8", False),
             ("default", "8"), ("default", "7"),

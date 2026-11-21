@@ -201,7 +201,8 @@ def extract(store, name, identity, text, expected):
         raise RuntimeError(f"Native extraction did not complete: {poller.status()}")
     operations = result.memory_operations
     if not any(
-        operation.kind in ("create", "update")
+        # The service has also returned "created" despite the SDK's "create" enum.
+        operation.kind in ("create", "update", "created")
         and operation.memory_item.scope == identity.scope
         and expected in operation.memory_item.content
         for operation in operations
@@ -215,14 +216,10 @@ def check_answer(text, expected):
         raise RuntimeError("Fresh conversation did not satisfy the exact recalled preference contract.")
 
 
-def demonstrate(project, deployment, embedding, first, second):
-    if first.tenant != second.tenant or first.user == second.user:
-        raise ValueError("Two distinct authenticated end users are required.")
+@contextmanager
+def temporary_store(project, deployment, embedding, name):
     store = project.beta.memory_stores
-    name = "coffee-memory-" + uuid4().hex
-    codes = ("ORCHID" + uuid4().hex[:10].upper(), "CEDAR" + uuid4().hex[:10].upper())
     print(f"Temporary native memory store: {name}", flush=True)
-    print("Backend authorization: presenter RBAC. End-user partitioning: Graph identity -> explicit scope.", flush=True)
     with cleanup_resources() as cleanup:
         # Register before creation to handle a successful server write followed by a lost response.
         cleanup.append((name, lambda: require_deleted(store.delete(name=name), name)))
@@ -236,8 +233,41 @@ def demonstrate(project, deployment, embedding, first, second):
                     default_ttl_seconds=timedelta(days=1),
                 ),
             ),
-            description="Synthetic coffee preferences; authenticated backend-scoped two-user lab.",
+            description="Synthetic coffee preferences; authenticated backend-scoped memory lab.",
         )
+        yield store
+
+
+def demonstrate_presenter(project, deployment, embedding, identity, name):
+    code = "ORCHID" + uuid4().hex[:10].upper()
+    with temporary_store(project, deployment, embedding, name) as store:
+        if search(store, name, identity):
+            raise RuntimeError("New dedicated memory store unexpectedly contains memories.")
+        seed = f"My preferred coffee blend is {code}. Please keep that preference."
+        fresh_conversation(project, deployment, seed, [])
+        extract(store, name, identity, seed, code)
+        memories = wait_for_search(store, name, identity, code)
+        recalled = fresh_conversation(project, deployment, QUESTION, memories)
+        check_answer(recalled, code)
+        require_deleted(store.delete_scope(name=name, scope=identity.scope), "Presenter's scope")
+        for _ in range(2):
+            wait_for_search(store, name, identity, None)
+        if list(store.list_memories(name=name, scope=identity.scope, limit=1)):
+            raise RuntimeError("Deleted scope still contains memory items.")
+        forgotten = fresh_conversation(project, deployment, QUESTION, [])
+        check_answer(forgotten, None)
+    return {"store": name, "synthetic_preference": code, "recalled": json.loads(recalled),
+            "after_forgetting": json.loads(forgotten), "store_deleted": True,
+            "two_user_isolation": "NOT_RUN"}
+
+
+def demonstrate(project, deployment, embedding, first, second):
+    if first.tenant != second.tenant or first.user == second.user:
+        raise ValueError("Two distinct authenticated end users are required.")
+    name = "coffee-memory-" + uuid4().hex
+    codes = ("ORCHID" + uuid4().hex[:10].upper(), "CEDAR" + uuid4().hex[:10].upper())
+    print("Backend authorization: presenter RBAC. End-user partitioning: Graph identity -> explicit scope.", flush=True)
+    with temporary_store(project, deployment, embedding, name) as store:
         for identity in (first, second):
             if search(store, name, identity):
                 raise RuntimeError("New dedicated memory store unexpectedly contains memories.")

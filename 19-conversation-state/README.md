@@ -5,6 +5,32 @@ durable application-state mechanism: Chat Completions itself is stateless, so th
 must explicitly send history on each request. This is a local single-process teaching
 application, not an authenticated web service.
 
+## Browser UI
+
+The [shared single-presenter UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+offers turns, history, reset, and deletion for the two logical scopes. The
+presenter can access both scopes: they are not authenticated users. Use synthetic
+data only. SQLite stores plaintext history, including on App Service's persistent
+`/home/data` volume; deletion is not secure erasure. Local state is stored in
+`.state/ui.sqlite3`. Set `UI_CONVERSATION_ENDPOINT` to this lab's endpoint before
+starting the UI; `UI_CONVERSATION_DEPLOYMENT` defaults to `gpt-4.1-mini`.
+
+For Azure hosting, pass `conversationEndpoint` and optionally
+`conversationDeployment` to the shared UI template, retaining the other existing
+deployment parameters. Grant its system-assigned identity the same Foundry User
+role at this lab's account scope, with `RG` set to the lab 19 resource group:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-19-account-name>" principalId="<ui-system-identity-object-id>" \
+    roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference must
+be verified separately from deployment.
+
 ## Prerequisites and standalone deployment
 
 Python 3.10+, Azure CLI/Bicep and `az login` as a user. The deployer needs permission

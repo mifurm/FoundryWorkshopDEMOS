@@ -3,6 +3,8 @@ targetScope = 'resourceGroup'
 param location string = 'eastus2'
 @description('Object ID of the presenter signed in with az login.')
 param principalId string
+@description('Optional object ID of the single-presenter UI managed identity allowed to call the gateway.')
+param uiPrincipalId string = principalId
 param accountName string = 'foundry-cache-${uniqueString(resourceGroup().id)}'
 param deploymentName string = 'gpt-4.1-mini'
 param embeddingDeploymentName string = 'text-embedding-3-small'
@@ -201,7 +203,7 @@ resource chat 'Microsoft.ApiManagement/service/apis/operations@2024-05-01' = {
   }
 }
 
-var identityPolicy = replace(replace(loadTextContent('policy.xml'), '__TENANT_ID__', tenant().tenantId), '__PRINCIPAL_ID__', principalId)
+var identityPolicy = replace(replace(replace(loadTextContent('policy.xml'), '__TENANT_ID__', tenant().tenantId), '__PRINCIPAL_ID__', principalId), '__UI_PRINCIPAL_ID__', uiPrincipalId)
 var lookupPolicy = replace(identityPolicy, '__SCORE_THRESHOLD__', scoreThreshold)
 
 resource policy 'Microsoft.ApiManagement/service/apis/operations/policies@2024-05-01' = {

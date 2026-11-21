@@ -12,6 +12,7 @@ import sys
 import time
 from urllib.parse import urlsplit
 
+from azure.core.credentials import TokenCredential
 from azure.identity import AzureCliCredential
 import httpx
 
@@ -172,7 +173,7 @@ def preflight(location: str, completion: str, embedding: str, capacity: int = 10
 
 
 class ContentUnderstanding:
-    def __init__(self, endpoint: str, credential: AzureCliCredential, client: httpx.Client):
+    def __init__(self, endpoint: str, credential: TokenCredential, client: httpx.Client):
         self.endpoint = endpoint.rstrip("/")
         self.credential = credential
         self.client = client
@@ -257,6 +258,58 @@ class ContentUnderstanding:
         raise TimeoutError(f"Content Understanding operation exceeded bounded {timeout}-second deadline.")
 
 
+def demonstrate(endpoint: str, deployment: str, embedding_deployment: str, credential: TokenCredential,
+                state: Path, *, completion: str = "gpt-5.2", embedding: str = "text-embedding-3-large") -> dict:
+    if not endpoint.startswith("https://") or not deployment or not embedding_deployment:
+        raise ValueError("Content Understanding requires an HTTPS endpoint and both deployments.")
+    state.mkdir(parents=True, exist_ok=True)
+    report = {"status": "RUNNING", "stage": "GA-native-CU", "apiVersion": API_VERSION, "modalities": {}}
+    (state / "live-report.json").write_text(json.dumps(report, indent=2))
+    try:
+        with httpx.Client(timeout=60) as http:
+            cu = ContentUnderstanding(endpoint, credential, http)
+            print("Configuring native CU model deployment defaults.", flush=True)
+            defaults = cu.configure_defaults({
+                completion: deployment, embedding: embedding_deployment,
+                "prebuilt-analyzer-completion": deployment, "prebuilt-analyzer-completion-mini": deployment,
+                "prebuilt-analyzer-embedding": embedding_deployment,
+            })
+            (state / "defaults.json").write_text(json.dumps(defaults, indent=2))
+            for modality, asset, content_type in (
+                ("document", "notice.pdf", "application/pdf"), ("audio", "notice.wav", "audio/wav"),
+            ):
+                model_slug = completion.replace("-", "_").replace(".", "_")
+                analyzer_id = f"workshop_{modality}_{model_slug}"
+                analyzer = schema(modality, completion, embedding)
+                print(f"Checking native {modality} analyzer {analyzer_id}.", flush=True)
+                stored = cu.ensure_analyzer(analyzer_id, analyzer)
+                (state / f"{modality}-analyzer.json").write_text(json.dumps(stored, indent=2))
+                data = (ROOT / "assets" / asset).read_bytes()
+                print(f"Submitting real {modality} bytes to GA analyzeBinary.", flush=True)
+                response = cu.request("POST", f"analyzers/{analyzer_id}:analyzeBinary", content=data, content_type=content_type)
+                (state / f"{modality}-operation.json").write_text(json.dumps({
+                    "statusCode": response.status_code, "operationLocation": response.headers.get("Operation-Location"),
+                    "analyzerId": analyzer_id, "assetSha256": hashlib.sha256(data).hexdigest(),
+                }, indent=2))
+                print(f"Submitted real {modality} CU operation for {analyzer_id}.", flush=True)
+                result = cu.poll(response, evidence_path=state / f"{modality}-poll.json")
+                (state / f"{modality}-response.json").write_text(json.dumps(result, indent=2))
+                facts = validate_result(result, modality)
+                report["modalities"][modality] = {
+                    "status": "PASS", "analyzerId": analyzer_id, "operationId": result.get("id"),
+                    "operationLocation": response.headers.get("Operation-Location"),
+                    "assetSha256": hashlib.sha256(data).hexdigest(), "fields": facts,
+                }
+                (state / "live-report.json").write_text(json.dumps(report, indent=2))
+        report["status"] = "PASS"
+    except Exception as error:
+        report.update(status="BLOCKED", errorType=type(error).__name__, error=str(error))
+        raise
+    finally:
+        (state / "live-report.json").write_text(json.dumps(report, indent=2))
+    return report
+
+
 def live() -> dict:
     endpoint = setting("CONTENT_UNDERSTANDING_ENDPOINT", "endpoint") or os.getenv("AZURE_OPENAI_ENDPOINT", "")
     if not endpoint:
@@ -265,45 +318,9 @@ def live() -> dict:
     embedding = setting("CU_EMBEDDING_MODEL", "embeddingModelName", "text-embedding-3-large")
     deployment = setting("AZURE_OPENAI_DEPLOYMENT", "deployment", "cu-ga-completion")
     embedding_deployment = setting("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "embeddingDeployment", "cu-embedding")
-    report = {"status": "RUNNING", "stage": "GA-native-CU", "apiVersion": API_VERSION, "modalities": {}}
-    (STATE / "live-report.json").write_text(json.dumps(report, indent=2))
-    with AzureCliCredential() as credential, httpx.Client(timeout=60) as http:
-        cu = ContentUnderstanding(endpoint, credential, http)
-        print("Configuring native CU model deployment defaults.", flush=True)
-        defaults = cu.configure_defaults({
-            completion: deployment, embedding: embedding_deployment,
-            "prebuilt-analyzer-completion": deployment, "prebuilt-analyzer-completion-mini": deployment,
-            "prebuilt-analyzer-embedding": embedding_deployment,
-        })
-        (STATE / "defaults.json").write_text(json.dumps(defaults, indent=2))
-        for modality, asset, content_type in (
-            ("document", "notice.pdf", "application/pdf"), ("audio", "notice.wav", "audio/wav"),
-        ):
-            model_slug = completion.replace("-", "_").replace(".", "_")
-            analyzer_id = f"workshop_{modality}_{model_slug}"
-            analyzer = schema(modality, completion, embedding)
-            print(f"Checking native {modality} analyzer {analyzer_id}.", flush=True)
-            stored = cu.ensure_analyzer(analyzer_id, analyzer)
-            (STATE / f"{modality}-analyzer.json").write_text(json.dumps(stored, indent=2))
-            data = (ROOT / "assets" / asset).read_bytes()
-            print(f"Submitting real {modality} bytes to GA analyzeBinary.", flush=True)
-            response = cu.request("POST", f"analyzers/{analyzer_id}:analyzeBinary", content=data, content_type=content_type)
-            (STATE / f"{modality}-operation.json").write_text(json.dumps({
-                "statusCode": response.status_code, "operationLocation": response.headers.get("Operation-Location"),
-                "analyzerId": analyzer_id, "assetSha256": hashlib.sha256(data).hexdigest(),
-            }, indent=2))
-            print(f"Submitted real {modality} CU operation for {analyzer_id}.", flush=True)
-            result = cu.poll(response, evidence_path=STATE / f"{modality}-poll.json")
-            (STATE / f"{modality}-response.json").write_text(json.dumps(result, indent=2))
-            facts = validate_result(result, modality)
-            report["modalities"][modality] = {
-                "status": "PASS", "analyzerId": analyzer_id, "operationId": result.get("id"),
-                "operationLocation": response.headers.get("Operation-Location"),
-                "assetSha256": hashlib.sha256(data).hexdigest(), "fields": facts,
-            }
-            (STATE / "live-report.json").write_text(json.dumps(report, indent=2))
-    report["status"] = "PASS"
-    return report
+    with AzureCliCredential() as credential:
+        return demonstrate(endpoint, deployment, embedding_deployment, credential, STATE,
+                           completion=completion, embedding=embedding)
 
 
 def main() -> int:

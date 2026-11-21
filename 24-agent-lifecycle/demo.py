@@ -113,14 +113,22 @@ def publish_application(session, credential, application_id, name, timeout=300):
         sleep(5)
 
 
-def lifecycle(project, session, credential, args, report):
-    suffix = uuid4().hex[:8]
+def lifecycle(project, session, credential, args, report, *, suffix=None, on_update=None):
+    suffix = uuid4().hex[:8] if suffix is None else suffix
+    if not re.fullmatch(r"[a-f0-9]{8}", suffix):
+        raise ValueError("Lifecycle suffix must contain eight lowercase hexadecimal characters.")
+
+    def checkpoint():
+        if on_update is not None:
+            on_update(report)
+
     name = f"workshop-{suffix}"
     app_name = f"workshop-app-{suffix}"
     application_id = f"{args.project_resource_id}/applications/{app_name}"
     deployment_id = f"{application_id}/agentDeployments/active"
     endpoint = f"{args.project_endpoint.rstrip('/')}/applications/{app_name}/protocols/openai/responses"
     report.update(application_id=application_id, deployment_id=deployment_id, endpoint=endpoint, requests=[])
+    checkpoint()
     good = project.agents.create_version(
         agent_name=name, definition=PromptAgentDefinition(
             model=args.deployment, instructions="For every input reply with exactly: USD 25",
@@ -128,8 +136,11 @@ def lifecycle(project, session, credential, args, report):
     )
     report["agent_name"] = name
     report["good_version"] = good.version
+    checkpoint()
     report["application"] = publish_application(session, credential, application_id, name)
+    checkpoint()
     report["initial_deployment"] = select_version(session, credential, deployment_id, name, good.version)
+    checkpoint()
     try:
         invoke(session, credential, endpoint, good.version, "USD 25", report)
         changed = project.agents.create_version(
@@ -138,13 +149,17 @@ def lifecycle(project, session, credential, args, report):
             ),
         )
         report["changed_version"] = changed.version
+        checkpoint()
         report["changed_deployment"] = select_version(session, credential, deployment_id, name, changed.version)
+        checkpoint()
         invoke(session, credential, endpoint, changed.version, "USD 40", report)
     finally:
         # Always restore the known-good route, including when rollout verification fails.
         report["rollback_deployment"] = select_version(session, credential, deployment_id, name, good.version)
+        checkpoint()
         invoke(session, credential, endpoint, good.version, "USD 25", report)
         report["rollback_verified"] = True
+        checkpoint()
     subscription = args.project_resource_id.split("/")[2]
     report["activity_log"] = arm(
         session, credential, "GET",
@@ -158,6 +173,16 @@ def lifecycle(project, session, credential, args, report):
     print("Rollback verified against the same questions. Published application remains available.")
 
 
+def validate_project(endpoint: str | None, resource_id: str | None) -> None:
+    pattern = r"/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\.CognitiveServices/accounts/([^/]+)/projects/([^/]+)"
+    match = re.fullmatch(pattern, resource_id or "")
+    if not match:
+        raise ValueError("Set FOUNDRY_PROJECT_RESOURCE_ID to the Bicep projectResourceId")
+    expected_endpoint = f"https://{match[1]}.services.ai.azure.com/api/projects/{match[2]}"
+    if endpoint != expected_endpoint:
+        raise ValueError("FOUNDRY_PROJECT_ENDPOINT must match the ARM projectResourceId (public Azure only)")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-endpoint", default=os.getenv("FOUNDRY_PROJECT_ENDPOINT"))
@@ -167,13 +192,10 @@ def main():
     state = HERE / ".azure" / "deployment.json"
     if not args.project_resource_id and state.exists():
         args.project_resource_id = json.loads(state.read_text())["outputs"]["projectResourceId"]["value"]
-    pattern = r"/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\.CognitiveServices/accounts/([^/]+)/projects/([^/]+)"
-    match = re.fullmatch(pattern, args.project_resource_id or "")
-    if not match:
-        parser.error("Set FOUNDRY_PROJECT_RESOURCE_ID to the Bicep projectResourceId")
-    expected_endpoint = f"https://{match[1]}.services.ai.azure.com/api/projects/{match[2]}"
-    if args.project_endpoint != expected_endpoint:
-        parser.error("FOUNDRY_PROJECT_ENDPOINT must match the ARM projectResourceId (public Azure only)")
+    try:
+        validate_project(args.project_endpoint, args.project_resource_id)
+    except ValueError as error:
+        parser.error(str(error))
     report = {"started_at": datetime.now(timezone.utc).isoformat(), "rollback_verified": False}
     try:
         with DefaultAzureCredential() as credential, requests.Session() as session, AIProjectClient(

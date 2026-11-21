@@ -77,6 +77,30 @@ only its own tool-result continuation uses server response state.
 The first request omits `previous_response_id` entirely: sending JSON `null`
 causes Foundry to reject it with HTTP 400, `Expected string, got Null`.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) uploads the
+same three skills and runs one selected fixed request. It displays the real
+discovered metadata, MCP reads, response IDs, and validated answer. The UI
+limits a run to 180 seconds and deletes the temporary Toolbox and skills on
+completion or failure; interrupted processes may leave resources.
+Set `UI_DISCOVERY_PROJECT_ENDPOINT` for local use;
+`UI_DISCOVERY_DEPLOYMENT` defaults to `gpt-4.1-mini`. For Azure hosting,
+pass `discoveryProjectEndpoint` to the shared template while preserving all
+other parameters. Grant the UI's system-assigned identity Foundry User scoped
+to this lab's account:
+
+```bash
+az deployment group create -g "$RESOURCE_GROUP" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<discovery-account-name>" principalId="<ui-system-identity-object-id>" \
+     roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this assignment when removing the UI, or delete the dedicated lab
+group when finished. Browser sign-in and managed-identity calls require
+separate verification.
+
 ## Validation and cleanup
 
 ```bash

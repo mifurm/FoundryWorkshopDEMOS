@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -44,6 +44,23 @@ class HostedAgentTests(unittest.TestCase):
         for attendees, session in ((True, "valid"), (0, "valid"), (3, "../x"), (3, None)):
             with self.subTest(attendees=attendees, session=session), self.assertRaises(ValueError):
                 demo.invoke(attendees, session)
+
+    def test_invoke_uses_supplied_identity_and_validates_actual_quote(self):
+        credential = Mock()
+        credential.get_token.return_value.token = "test-token"
+        response = Mock()
+        response.json.return_value = {"quote": quote(3), "response_id": "response", "tool_call_id": "tool"}
+        with patch.object(demo.httpx, "post", return_value=response) as post, \
+                patch.object(demo, "read_outputs") as read_outputs:
+            result = demo.invoke(3, "session", project_endpoint="https://project", credential=credential)
+        self.assertEqual(result["quote"]["total"], 75)
+        read_outputs.assert_not_called()
+        self.assertTrue(post.call_args.args[0].startswith("https://project/agents/"))
+        self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer test-token")
+        credential.get_token.assert_called_once_with("https://ai.azure.com/.default")
+        response.json.return_value["quote"]["total"] = 100
+        with patch.object(demo.httpx, "post", return_value=response), self.assertRaises(RuntimeError):
+            demo.invoke(3, "session", project_endpoint="https://project", credential=credential)
 
     def test_root_runner_entrypoint_publishes_before_first_live_test(self):
         with (

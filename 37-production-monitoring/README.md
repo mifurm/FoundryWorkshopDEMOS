@@ -122,6 +122,25 @@ The UI is a local presenter controller, not an internet-facing app. It binds to
 loopback, checks host/origin, keeps Azure credentials server-side, and serializes
 scenario changes.
 
+## Shared Azure-hosted UI
+
+The authenticated [shared workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+can run the same baseline, regression, and recovery responses and display actual
+evaluation and trace evidence. Unlike the local controller, it restores the
+good routes immediately after the regression requests, including on a handled
+failure. A forced stop can still interrupt recovery: inspect the deployed routes
+before retrying. Missing native verdicts remain PENDING.
+
+After `demo.py --setup`, configure `UI_MONITORING_PROJECT_ENDPOINT`,
+`UI_MONITORING_WORKSPACE_ID`, and `UI_MONITORING_CONFIGURATION` (the JSON
+contents of `.azure/agents.json`) locally. For App Service, pass these values
+as `monitoringProjectEndpoint`, `monitoringWorkspaceId`, and
+`monitoringConfiguration` to the shared UI template. The web app identity
+needs Foundry User on this account and Log Analytics Reader on this workspace.
+The JSON contains agent versions and evaluation IDs, not credentials. The
+page keeps displayed response rows only for the current browser session; the
+latest background job persists on the host.
+
 ## Foundry portal walkthrough
 
 In [Foundry](https://ai.azure.com), select project `production-monitoring`:

@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from demo import (native_intervention, agent_intervention, request_restricted_with_propagation,
-                  request_with_filter_readiness, settings, usable_unfiltered_response)
+                  request_with_filter_readiness, run, settings, usable_unfiltered_response)
 
 
 class NativeGuardrailTests(unittest.TestCase):
@@ -162,6 +162,25 @@ class NativeGuardrailTests(unittest.TestCase):
         policy = "/subscriptions/test/providers/Microsoft.CognitiveServices/accounts/account/raiPolicies/policy"
         value = PromptAgentDefinition(model="agent-baseline", rai_config=RaiConfig(rai_policy_name=policy)).as_dict()
         self.assertEqual(value["rai_config"]["rai_policy_name"], policy)
+
+    def test_model_gate_uses_injected_config_and_credential(self):
+        config = {"endpoint": "https://guardrails.invalid", "deployment": "model", "account": "/account"}
+        credential = Mock()
+        credential.get_token.return_value.token = "test-token"
+        resource = Mock()
+        resource.json.return_value = {"properties": {"raiPolicyName": "workshop-native-guardrail"}}
+        allowed = Mock(status_code=200)
+        allowed_body = {"choices": [{"finish_reason": "stop", "message": {"content": "hello"}}]}
+        blocked = Mock(status_code=400)
+        with patch("demo.settings", side_effect=AssertionError("unexpected local settings")), \
+                patch("demo.AzureCliCredential", side_effect=AssertionError("unexpected credential")), \
+                patch("demo.requests.get", return_value=resource), patch("demo.requests.Session"), \
+                patch("demo.request_with_filter_readiness", return_value=(allowed, allowed_body)), \
+                patch("demo.request_restricted_with_propagation", return_value=(blocked, self.body, [])), \
+                patch("demo.time.sleep"):
+            result = run(config=config, credential=credential)
+        self.assertEqual(result["status"], "PASS")
+        credential.get_token.assert_any_call("https://management.azure.com/.default")
 
     @patch("demo.Path.exists", return_value=True)
     @patch("demo.Path.read_text", return_value=json.dumps({

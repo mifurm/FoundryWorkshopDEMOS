@@ -62,6 +62,23 @@ class EvaluationTests(unittest.TestCase):
         with patch("demo.monotonic", side_effect=[0, 601]), self.assertRaises(TimeoutError):
             demo.cloud_evaluate(self.client("queued"), self.responses(), "judge", {})
 
+    def test_created_evaluation_is_logged_before_run_creation_failure(self):
+        client = self.client()
+        client.evals.runs.create.side_effect = RuntimeError("run creation failed")
+        with patch("builtins.print") as output, self.assertRaisesRegex(RuntimeError, "run creation failed"):
+            demo.cloud_evaluate(client, self.responses(), "judge", {})
+        output.assert_any_call("Evaluation: eval-1", flush=True)
+
+    def test_temporary_agent_is_logged_and_cleaned_up_after_failure(self):
+        project = Mock()
+        project.agents.create_version.return_value = SimpleNamespace(name="agent-1", version="1")
+        project.get_openai_client.side_effect = RuntimeError("client unavailable")
+        args = SimpleNamespace(deployment="model", judge_deployment="judge")
+        with patch("builtins.print") as output, self.assertRaisesRegex(RuntimeError, "client unavailable"):
+            demo.execute(project, args, [], "prompt", {})
+        output.assert_any_call("Temporary agent: agent-1/1", flush=True)
+        project.agents.delete_version.assert_called_once_with(agent_name="agent-1", agent_version="1")
+
     def test_missing_real_response_evidence_is_rejected(self):
         for items in ([], [{"query": "q", "response": "", "response_id": "r"}],
                       [{"query": "q", "response": "a", "response_id": ""}]):
@@ -114,6 +131,10 @@ class EvaluationTests(unittest.TestCase):
             demo.release_gate({"items": [], "coherence_rate": 1}, 1, 1)
         with self.assertRaises(RuntimeError):
             demo.release_gate({"items": [{"correct": True}], "coherence_rate": 0.5}, 1, 0.9)
+        report = {"items": [{"correct": False}], "coherence_rate": 1.0}
+        demo.release_gate(report, 1, 1, raise_on_failure=False)
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["correctness_rate"], 0)
 
     def test_infrastructure_exception_writes_failed_report_and_nonzero_exit(self):
         with patch("sys.argv", ["demo.py", "--project-endpoint", "https://project"]), \

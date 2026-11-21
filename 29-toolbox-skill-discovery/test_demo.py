@@ -96,7 +96,12 @@ class DiscoveryTests(IsolatedAsyncioTestCase):
                 await demo.discover(self.session)
 
     async def test_model_selects_and_reads_skill_then_follows_exact_contract(self):
-        await self.run_case()
+        with redirect_stdout(StringIO()):
+            result = await demo.run_case(self.session, self.client, "test", self.resources,
+                                         "Prepare a briefing.", self.expected)
+        self.assertEqual(result["answer"], self.expected)
+        self.assertEqual([read["uri"] for read in result["reads"]], [URI, REFERENCE_URI])
+        self.assertEqual(result["response_ids"], ["resp-1"] * 3)
         self.assertEqual(self.session.read_resource.await_count, 2)
         calls = self.client.responses.create.call_args_list
         self.assertIs(calls[0].kwargs["previous_response_id"], NOT_GIVEN)

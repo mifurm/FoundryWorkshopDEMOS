@@ -7,6 +7,35 @@ allowed factual field, constrains JSON output, validates the result, and exposes
 no executable tools. The baseline may already resist the override; results are
 observations, not a guaranteed attack success or safety certification.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs one of
+the lab's two fixed synthetic sources per request and displays the actual
+Prompt Shields classification, baseline observation, and validated protected
+result. It always calls Prompt Shields; it does not offer the CLI's explicit
+`--without-shields` option.
+
+For local use, set `UI_INJECTION_ENDPOINT` and `UI_INJECTION_SAFETY_ENDPOINT`
+before starting the UI; `UI_INJECTION_DEPLOYMENT` defaults to `gpt-4.1-mini`.
+For Azure hosting, pass `injectionEndpoint` and `injectionSafetyEndpoint` to
+the shared UI template, retaining the other existing parameters. Grant its
+system-assigned identity the same scoped inference and safety roles as the lab,
+with `RG` set to the lab 22 resource group:
+
+```bash
+az deployment group create -g "$RG" -n ui-model-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-22-model-account>" principalId="<ui-system-identity-object-id>"
+az deployment group create -g "$RG" -n ui-safety-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-22-safety-account>" principalId="<ui-system-identity-object-id>" \
+    roleDefinitionGuid=a97b65f3-24c7-4388-baec-2e87135dc908
+```
+
+Remove these role assignments when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity calls must be
+verified separately from deployment.
+
 ## Deploy and run
 
 Requires Python 3.10+, Azure CLI/Bicep, resource/role-assignment permissions,

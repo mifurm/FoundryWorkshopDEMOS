@@ -118,6 +118,22 @@ submitted file SHA-256 hashes and service evidence. Missing fields,
 confidence, page grounding, transcript timing or expected values never pass.
 An HTTP/service/model authorization failure is `BLOCKED`, not a local fallback.
 
+## Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+analyzes the same PDF and audio in one background job, returning the real
+operation IDs and verified grounding. Configure `UI_CU_ENDPOINT`,
+`UI_CU_DEPLOYMENT`, and `UI_CU_EMBEDDING_DEPLOYMENT` locally, or pass
+`cuEndpoint`, `cuDeployment`, and `cuEmbeddingDeployment` to its hosting
+template. The web app identity requires Foundry User on this lab's account.
+The UI uses the template's default model names; model overrides require a
+corresponding UI change.
+
+The shared host retains each run's synthetic evidence under its job-state
+directory. A restart can interrupt local polling while an Azure operation
+continues; inspect the saved operation and Azure before retrying. Native
+analyzers remain in the dedicated lab account.
+
 [notice.pdf](assets/notice.pdf) is a deterministic, single-page synthetic PDF;
 [notice.wav](assets/notice.wav) is locally synthesized benign speech, not a
 microphone capture. `python3 generate_assets.py` regenerates PDF and macOS

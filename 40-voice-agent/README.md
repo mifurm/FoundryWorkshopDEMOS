@@ -14,6 +14,20 @@ No microphone, speaker, audio device or local server is required.
 Missing response, code mismatch, preview denial or missing persistence fails
 with exit status 1; text-only or simulated execution never passes this smoke.
 
+## Browser UI
+
+The authenticated [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+plays the synthetic input and runs this native conversation as a background job.
+It shows the actual transcripts and makes the reply and downloaded conversation
+recording playable while the voice job is the latest completed job. Each run
+creates a saved agent and retains its conversation in Foundry. Inference, speech
+and storage may incur charges.
+
+Configure the UI template's `voiceProjectEndpoint` and `voiceModel`, and grant
+its managed identity Foundry User on the voice account. The shared UI's
+`azure-ai-projects[voice]==2.7.0` was separately live-tested for this workflow;
+the standalone lab retains its own 2.10.0 dependency.
+
 ## Prerequisites and preview
 
 - Python 3.10+, Azure CLI/Bicep and `az login` as a user with resource creation

@@ -39,6 +39,23 @@ Redis still has standing charges while deployed. APIM operations, embeddings,
 and uncached generation can also incur charges; a hit still needs an embedding
 lookup. Check regional availability and current prices before deploying.
 
+## Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+sends the same three fixed prompts through APIM in a background job and
+displays the actual response IDs and observed reuse. Each run uses a fresh
+random cache partition. A reused ID is not a substitute for inspecting APIM
+trace evidence, and a run with no reuse reports an error.
+
+Set `UI_CACHE_ENDPOINT` and `UI_CACHE_DEPLOYMENT` locally, or pass
+`cacheEndpoint` and `cacheDeployment` to the UI template. When deploying this
+lab for App Service, pass its system-assigned identity's object ID as
+`uiPrincipalId`; the gateway permits that identity in addition to the presenter.
+By default this parameter equals the presenter, preserving the original
+single-caller policy. Both permitted identities represent the same workshop
+presenter and share its logical cache namespace, partitioned by session.
+The gateway never accepts arbitrary callers, and its own identity calls Foundry.
+
 ## Deploy
 
 Requires Python 3.10+, Azure CLI/Bicep, a signed-in user with resource creation

@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Foundry IQ support cases</title>
+  <style>
+    body { font: 16px system-ui, sans-serif; max-width: 760px; margin: 3rem auto; padding: 0 1rem; color: #172033; }
+    textarea { box-sizing: border-box; width: 100%; min-height: 9rem; padding: .75rem; font: inherit; }
+    input, select { font: inherit; margin: .4rem; }
+    button { padding: .7rem 1rem; margin-top: .75rem; font: inherit; cursor: pointer; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.5; }
+    .note { color: #48566c; }
+    .receipts { display: flex; flex-wrap: wrap; gap: 1rem; }
+    .receipts figure { flex: 1 1 250px; margin: 0; }
+    .receipts img { max-width: 100%; }
+    #analyst-chart { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Foundry workshop demos</h1>
+  <nav aria-label="Workshop lab navigation">
+    <details>
+      <summary id="lab-nav-summary">Browse labs</summary>
+      <ul id="lab-nav"></ul>
+      <p id="missing-labs" class="note"></p>
+    </details>
+  </nav>
+  <h2>Lab 0: model basics</h2>
+  <p class="note">Concepts use synthetic probabilities. Sampling and comparison call live models. Batch submits a paid asynchronous job once and subsequent clicks resume it; pending is not completion.</p>
+  <form id="basics-form">
+    <label for="temperature">Temperature</label>
+    <input id="temperature" type="number" min="0" max="2" step="0.1" value="1" required>
+    <label for="top-p">Top-p</label>
+    <input id="top-p" type="number" min="0.01" max="1" step="0.01" value="1" required>
+    <label for="effort">Reasoning effort</label>
+    <select id="effort"><option>low</option><option selected>medium</option><option>high</option></select>
+    <p>For live sampling, change only one of temperature and top-p at a time.</p>
+    <button type="submit" value="concepts">Calculate concepts</button>
+    <button type="submit" value="sampling">Sample chat</button>
+    <button type="submit" value="compare">Compare chat and reasoning</button>
+    <button type="submit" value="batch">Submit or check batch</button>
+  </form>
+  <pre id="basics-result" aria-live="polite">Choose a model-basics exercise.</pre>
+  <hr>
+  <h2>Lab 1: Model Router</h2>
+  <p class="note">Each request uses the same router deployment and shows the service-reported serving model, timing, and usage. Different prompts may select the same model. Use synthetic prompts; each request incurs charges.</p>
+  <form id="router-form">
+    <label for="router-preset">Prompt</label>
+    <select id="router-preset"><option>Simple</option><option>Writing</option><option>Reasoning</option><option>Custom</option></select>
+    <label for="router-custom">Custom prompt (used only when Custom is selected)</label>
+    <textarea id="router-custom" maxlength="4000"></textarea>
+    <button id="router-submit" type="submit">Ask the router</button>
+  </form>
+  <pre id="router-result" aria-live="polite">Choose a prompt to begin.</pre>
+  <hr>
+  <h2>Lab 2: writer and editor workflow</h2>
+  <p class="note">Agent Framework runs a sequential writer-to-editor handoff locally in the UI process; Foundry supplies two live model responses. Nothing is sent or published. Use synthetic input; requests incur charges.</p>
+  <form id="workflow-form">
+    <label for="workflow-prompt">Invitation request</label>
+    <textarea id="workflow-prompt" maxlength="4000" required>Invite Python developers to a free, 45-minute introductory Microsoft Foundry workshop on Friday. No prior AI experience is needed.</textarea>
+    <button type="submit">Run writer and editor</button>
+  </form>
+  <pre id="workflow-result" aria-live="polite">Submit an invitation request.</pre>
+  <hr>
+  <h2>Lab 3: compare web search</h2>
+  <p class="note">Two independent agents answer the same fixed public question about Foundry Model Router, with and without Web Search. Grounding with Bing uses its own terms and may process data outside Azure compliance boundaries. The UI sends only this fixed public question. Model and search charges apply.</p>
+  <form id="web-search-form"><button type="submit">Compare with and without Web Search</button></form>
+  <pre id="web-search-result" aria-live="polite">Run the comparison to see actual answers and structured citations.</pre>
+  <hr>
+  <h2>Lab 4: Foundry Toolbox pricing</h2>
+  <p class="note">A temporary Foundry Toolbox exposes a read-only synthetic Azure Function; the agent calls it and shows its actual result. No purchase or booking is made. Model and hosting charges apply; the Function plan has standing charges.</p>
+  <form id="tools-form">
+    <label for="tools-attendees">Attendees</label>
+    <input id="tools-attendees" type="number" min="1" max="999" step="1" value="12" required>
+    <button type="submit">Ask the pricing tool</button>
+  </form>
+  <pre id="tools-result" aria-live="polite">Choose an attendee count.</pre>
+  <hr>
+  <h2>Lab 5: typed Decision Model</h2>
+  <p class="note">Classifies a synthetic ticket into billing, technical, or account using the Decision API. It does not route or change a ticket. Each request incurs charges and may be throttled.</p>
+  <form id="decision-form">
+    <label for="decision-selection">Ticket</label>
+    <select id="decision-selection"><option value="billing">Duplicate charge</option><option value="technical">API error</option><option value="account">Sign-in issue</option><option value="custom">Custom</option></select>
+    <label for="decision-ticket">Custom synthetic ticket (used only when Custom is selected)</label>
+    <textarea id="decision-ticket" maxlength="4000"></textarea>
+    <button id="decision-submit" type="submit">Classify ticket</button>
+  </form>
+  <pre id="decision-result" aria-live="polite">Choose a ticket to begin.</pre>
+  <hr>
+  <h2>Lab 6: Content Safety</h2>
+  <p class="note">Analyze approved, non-sensitive text and apply an application threshold. ALLOW is not a guarantee of safety. Requests incur charges.</p>
+  <form id="safety-form">
+    <label for="safety-text">Text</label>
+    <textarea id="safety-text" maxlength="4000" required>Welcome to our friendly beginner AI workshop!</textarea>
+    <label for="safety-threshold">Block at or above severity</label>
+    <select id="safety-threshold"><option>2</option><option>4</option><option>6</option></select>
+    <button id="safety-submit" type="submit">Analyze text</button>
+  </form>
+  <pre id="safety-result" aria-live="polite">Submit text to begin.</pre>
+  <hr>
+  <h2>Lab 7: semantic caching at the gateway</h2>
+  <p class="note">Requires the configured lab 7 gateway. Send three real requests through API Management and compare response IDs, including a paraphrase. Reuse is evidence of a repeated response, not a substitute for inspecting the gateway trace. A fresh cache partition is used per run. Managed Redis has standing charges; gateway and model usage can incur charges.</p>
+  <form id="cache-form"><button type="submit">Run semantic-cache comparison</button></form>
+  <p>See the <a href="#job-result">latest background job</a> below.</p>
+  <hr>
+  <h2>Lab 8: cloud agent evaluation</h2>
+  <p class="note">Generate two real agent answers and evaluate their coherence in Foundry. A low score is a valid result, not a service error. The cloud run can take ten minutes and continue after interruption; model and evaluation charges apply.</p>
+  <form id="evaluation-form"><button type="submit">Run cloud evaluation</button></form>
+  <p>Latest background job (shared across the page):</p>
+  <pre id="job-result" aria-live="polite">No background job yet.</pre>
+  <hr>
+  <h2>Lab 10: managed fine-tuning</h2>
+  <p class="note">Upload the lab's 12 synthetic support tickets and submit one real supervised training epoch. Training is paid and can continue for over an hour after the UI closes. Submission is not completion; inspect the saved job instead of submitting another. If submission is uncertain, inspect the Azure account for jobs before acknowledging it. The separate <a href="/guides/10" target="_blank" rel="noopener">local Polish Phi exercise</a> is not hosted here.</p>
+  <form id="tuning-submit-form">
+    <label><input id="tuning-confirm" type="checkbox" required> I understand this creates a new paid training job.</label>
+    <button type="submit">Submit one training job</button>
+  </form>
+  <p>Submission progress appears in the <a href="#job-result">latest background job</a> above.</p>
+  <form id="tuning-inspect-form">
+    <label for="tuning-job-id">Job ID (leave blank for the last saved job)</label>
+    <input id="tuning-job-id" type="text" maxlength="134" placeholder="ftjob-...">
+    <button type="submit" value="inspect">Inspect job</button>
+    <button type="submit" value="acknowledge">Acknowledge an uncertain submission</button>
+  </form>
+  <pre id="tuning-result" aria-live="polite">Inspect a job or submit a new one.</pre>
+  <hr>
+  <h2>Lab 11: Foundry IQ retrieval fundamentals</h2>
+  <p class="note">Indexes three synthetic fact sheets and asks Azure AI Search's managed knowledge base for a grounded answer, references, and retrieval activity. Do not enter private data. Basic Search incurs standing charges; model and retrieval usage can also incur charges.</p>
+  <form id="iq-form">
+    <label for="iq-question">Question</label>
+    <textarea id="iq-question" maxlength="2000" required>When is the workshop, how long does it last, and what should I bring?</textarea>
+    <button type="submit">Retrieve workshop facts</button>
+  </form>
+  <pre id="iq-result" aria-live="polite">Ask a question about the synthetic documents.</pre>
+  <hr>
+  <h2>Lab 13: orchestration patterns</h2>
+  <p class="note">Run one real Agent Framework pattern with the lab's fixed synthetic prompt. The workflows run locally in the UI process and use live Foundry models; each run can make multiple billable requests. Magentic's manager choices can vary.</p>
+  <form id="orchestration-form">
+    <label for="orchestration-pattern">Pattern</label>
+    <select id="orchestration-pattern"><option value="sequential">Sequential</option><option value="concurrent">Concurrent</option><option value="group-chat">Group chat</option><option value="magentic">Magentic</option></select>
+    <button type="submit">Run pattern</button>
+  </form>
+  <pre id="orchestration-result" aria-live="polite">Choose a pattern.</pre>
+  <hr>
+  <h2>Lab 14: Foundry fundamentals</h2>
+  <p class="note">Compare a normal response with a streamed response, then check real missing-deployment and permission errors. The stream is displayed after it completes. Inherited access can prevent the denial; a missing denial is reported, not invented. Requests incur charges.</p>
+  <form id="fundamentals-form"><button type="submit">Run fundamentals</button></form>
+  <pre id="fundamentals-result" aria-live="polite">Run the model and negative probes.</pre>
+  <hr>
+  <h2>Lab 15: compare models on a labeled case</h2>
+  <p class="note">Each selection sends one synthetic ticket to mini, full, and Model Router. Scoring and usage are real; rates are illustrative and router cost is unknown. This single-case comparison is not the repeated 54-request benchmark or a production ranking. Each request incurs charges.</p>
+  <form id="benchmark-form">
+    <label for="benchmark-case">Labeled ticket</label>
+    <select id="benchmark-case"><option value="easy-billing">Easy: billing</option><option value="easy-access">Easy: access</option><option value="easy-outage">Easy: outage</option><option value="hard-resolved">Hard: resolved incident</option><option value="hard-missing">Hard: missing impact</option><option value="hard-injection">Hard: embedded instruction</option></select>
+    <button type="submit">Compare models</button>
+  </form>
+  <pre id="benchmark-result" aria-live="polite">Choose a ticket.</pre>
+  <hr>
+  <h2>Lab 16: structured outputs</h2>
+  <p class="note">Compare prompting methods against independently labeled synthetic tickets. Schema validity does not guarantee accuracy. Each request incurs charges.</p>
+  <form id="structured-form">
+    <label for="structured-case">Ticket</label>
+    <select id="structured-case"><option value="clear">Clear</option><option value="missing-impact">Missing impact</option><option value="missing-everything">Missing details</option><option value="historical-distractor">Historical distractor</option></select>
+    <label for="structured-mode">Method</label>
+    <select id="structured-mode"><option value="instructions">Instructions</option><option value="few-shot">Few-shot</option><option value="structured">Strict schema</option></select>
+    <button type="submit">Extract ticket fields</button>
+  </form>
+  <pre id="structured-result" aria-live="polite">Select a ticket and method.</pre>
+  <hr>
+  <h2>Lab 17: retrieval-augmented generation</h2>
+  <p class="note">Select one synthetic labeled question, chunk size, and retrieval mode. The lab builds a temporary Azure AI Search index, embeds the corpus, retrieves real evidence, validates citations, and deletes the index. Compare runs using recall and reciprocal rank; these do not measure answer correctness. If interrupted, inspect Azure for the printed index name. Search and model charges apply.</p>
+  <form id="rag-form">
+    <label for="rag-size">Chunk size</label>
+    <select id="rag-size"><option value="12">12 words</option><option value="48">48 words</option></select>
+    <label for="rag-mode">Retrieval mode</label>
+    <select id="rag-mode"><option value="keyword">Keyword</option><option value="vector">Vector</option><option value="hybrid">Hybrid</option></select>
+    <label for="rag-question">Labeled question</label>
+    <select id="rag-question">
+      <option value="0">When and where does the workshop begin?</option>
+      <option value="1">How do I stop the search service bill?</option>
+      <option value="2">What should I check for an inference 403?</option>
+      <option value="3">What is the instructor's home telephone number? (unanswerable)</option>
+    </select>
+    <button type="submit">Run retrieval</button>
+  </form>
+  <p>See the <a href="#job-result">latest background job</a> above; its index name is available while it runs.</p>
+  <hr>
+  <h2>Lab 18: trace a pricing agent</h2>
+  <p class="note">Run a synthetic normal, slow, or failed pricing tool followed by a live model request. The failed tool is intentionally recovered. Open Application Insights and query the returned trace ID; flushing alone does not prove ingestion. Model and telemetry charges apply.</p>
+  <form id="tracing-form">
+    <label for="tracing-scenario">Scenario</label>
+    <select id="tracing-scenario"><option value="normal">Normal</option><option value="slow">Slow</option><option value="failed">Failed tool</option></select>
+    <button type="submit">Run and export trace</button>
+  </form>
+  <pre id="tracing-result" aria-live="polite">Choose a scenario.</pre>
+  <hr>
+  <h2>Lab 19: conversation state</h2>
+  <p class="note">Alice and Bob are logical teaching scopes, not authenticated users. The single presenter can access both. Use synthetic data only: prompts and answers are stored as plaintext in SQLite and turns incur charges. Oldest pairs can be discarded to fit the context budget; delete is not secure erasure.</p>
+  <form id="conversation-form">
+    <label for="conversation-user">Logical user</label>
+    <select id="conversation-user"><option value="alice">Alice</option><option value="bob">Bob</option></select>
+    <label for="conversation-prompt">Prompt (used only for a turn)</label>
+    <textarea id="conversation-prompt" maxlength="2000">My notebook label is MAPLE-742. Acknowledge it.</textarea>
+    <button type="submit" value="turn">Send turn</button>
+    <button type="submit" value="show">Show history</button>
+    <button type="submit" value="reset">Reset history</button>
+    <button type="submit" value="delete">Delete conversation</button>
+  </form>
+  <pre id="conversation-result" aria-live="polite">Choose a logical user and action.</pre>
+  <hr>
+  <h2>Lab 20: human approval</h2>
+  <p class="note">The model can propose a synthetic booking but cannot execute one. Review the exact proposal before approving or rejecting it. Proposals expire after 15 minutes; reloading discards this page's selection. The single authorized presenter owns the proposal. SQLite stores synthetic actions; no real reservation is made.</p>
+  <form id="approval-form">
+    <label for="approval-attendees">Attendees</label>
+    <input id="approval-attendees" type="number" min="1" max="20" step="1" value="4" required>
+    <button type="submit" value="propose">Propose booking</button>
+    <button type="submit" value="approve" disabled>Approve exact proposal</button>
+    <button type="submit" value="reject" disabled>Reject exact proposal</button>
+  </form>
+  <pre id="approval-result" aria-live="polite">Create a proposal to review.</pre>
+  <hr>
+  <h2>Lab 22: prompt-injection boundaries</h2>
+  <p class="note">Compare a synthetic untrusted source, actual Prompt Shields classification, raw baseline and validated factual projection. The benign marker illustrates an instruction override. A classifier is not a safety guarantee; requests incur charges.</p>
+  <form id="injection-form">
+    <label for="injection-source">Synthetic source</label>
+    <select id="injection-source"><option value="retrieved-document">Retrieved document</option><option value="tool-output">Tool output</option></select>
+    <button type="submit">Compare trust boundaries</button>
+  </form>
+  <pre id="injection-result" aria-live="polite">Choose a source.</pre>
+  <hr>
+  <h2>Lab 23: evaluation-driven release gate</h2>
+  <p class="note">Compare a baseline or deliberately regressed synthetic prompt against exact answers and a real cloud coherence evaluation. A completed run can correctly block a release. This does not deploy software. Model and evaluation charges apply.</p>
+  <form id="cicd-form">
+    <button type="submit" value="baseline">Evaluate baseline</button>
+    <button type="submit" value="regression">Evaluate regression</button>
+  </form>
+  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <hr>
+  <h2>Lab 24: publish and roll back an agent application</h2>
+  <p class="note">Creates a real, uniquely named managed Agent Application, verifies a version change, and restores the original version. Each run leaves its published application and agent for inspection. This uses a legacy supported publishing API, makes paid model requests, and may take several minutes. If interrupted, inspect the application and deployment identified by the job before retrying.</p>
+  <form id="lifecycle-form"><button type="submit">Publish, update, and roll back</button></form>
+  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <hr>
+  <h2>Lab 25: resilience and costs</h2>
+  <p class="note">Two real model requests recover from locally injected faults; the booking and outages are synthetic. Attempt budgets and the cost estimate are illustrative, not Azure spending caps or an invoice. Model requests incur charges.</p>
+  <form id="resilience-form"><button type="submit">Run resilience demo</button></form>
+  <pre id="resilience-result" aria-live="polite">Run the bounded-failure demonstration.</pre>
+  <hr>
+  <h2>Lab 26: multimodal receipt extraction</h2>
+  <p class="note">These are synthetic receipts, not real financial documents. Compare the live prediction with visual truth; a valid schema is not proof of accuracy. Estimated cost uses illustrative rates, not an invoice. Each request incurs charges.</p>
+  <div class="receipts">
+    <figure><img src="/images/clear.png" alt="Synthetic receipt with currency USD and total 12.50"><figcaption>Clear</figcaption></figure>
+    <figure><img src="/images/ambiguous.png" alt="Synthetic receipt with missing currency and an obscured total"><figcaption>Ambiguous</figcaption></figure>
+  </div>
+  <form id="receipt-form">
+    <label for="receipt-image">Receipt</label>
+    <select id="receipt-image"><option value="clear.png">Clear</option><option value="ambiguous.png">Ambiguous</option></select>
+    <button type="submit">Extract visible fields</button>
+  </form>
+  <pre id="receipt-result" aria-live="polite">Select a synthetic receipt.</pre>
+  <hr>
+  <h2>Lab 27: Foundry IQ support cases</h2>
+  <p class="note">Synthetic workshop data. Answers use the existing agent and its knowledge base; each request incurs Azure usage charges.</p>
+  <form id="form">
+    <label for="question">Question</label>
+    <textarea id="question" maxlength="4000" required>A Surface Laptop 5 external monitor is blank after sleep, and a Surface Laptop 6 for Business loses battery in a bag. Compare the previous case outcomes and recommend the runbook steps and escalation criteria for both. Cite the CASE and KB document IDs.</textarea>
+    <button id="submit" type="submit">Ask the agent</button>
+  </form>
+  <h2>Answer</h2>
+  <pre id="result" aria-live="polite">Submit a question to begin.</pre>
+  <hr>
+  <h2>Lab 28: compare a Foundry skill</h2>
+  <p class="note">Uses a real temporary Foundry skill and two agents, then deletes them. Two model requests incur charges. Use a synthetic title.</p>
+  <form id="skills-form">
+    <label for="title">Workshop title</label>
+    <textarea id="title" maxlength="200" required>Introduction to Microsoft Foundry</textarea>
+    <button id="skills-submit" type="submit">Compare without and with the skill</button>
+  </form>
+  <pre id="skills-result" aria-live="polite">Submit a title to begin.</pre>
+  <hr>
+  <h2>Lab 29: Toolbox skill discovery</h2>
+  <p class="note">Upload three temporary skills, discover metadata over MCP, and run one fixed synthetic request. The model loads the selected skill and, for the briefing, its checklist. The Toolbox and skills are deleted after the run. Preview services and model requests incur charges.</p>
+  <form id="discovery-form">
+    <label for="discovery-case">Request</label>
+    <select id="discovery-case"><option value="workshop-brief">Workshop briefing</option><option value="support-triage">Support triage</option><option value="incident-summary">Incident summary</option></select>
+    <button type="submit">Discover and run skill</button>
+  </form>
+  <pre id="discovery-result" aria-live="polite">Choose a request.</pre>
+  <hr>
+  <h2>Lab 30: skill-powered CSV analyst</h2>
+  <p class="note">Upload a pinned skill and synthetic CSV, run native Code Interpreter in a cloud sandbox, and verify its report and chart. This paid background run can take several minutes. Interrupted runs require inspection for leftover cloud objects before retrying.</p>
+  <form id="analyst-form"><button type="submit">Analyze the synthetic CSV</button></form>
+  <p>See the <a href="#job-result">latest background job</a> above. The chart below is the verified download, not a local replacement.</p>
+  <img id="analyst-chart" alt="Generated attendance and cost chart" hidden>
+  <hr>
+  <h2>Lab 31: native memory for the presenter (partial)</h2>
+  <p class="note">For the authenticated presenter only, extract a synthetic preference into a temporary native memory store, recall it in a fresh conversation, then delete and verify the scope. The separate two-user isolation exercise is not run here. If interrupted, inspect the named store for cleanup before retrying. Memory and model requests incur charges.</p>
+  <form id="memory-form"><button type="submit">Remember, recall and forget</button></form>
+  <p>See the actual recalled and forgotten values in the <a href="#job-result">latest background job</a>.</p>
+  <hr>
+  <h2>Lab 33: skill release governance</h2>
+  <p class="note">Run the full skill candidate gate, promotion, pinned-consumer comparison and rollback in the background. The intentional regression must fail its gate. Runs create temporary cloud objects, make multiple paid requests, and may take several minutes. If interrupted, inspect Azure for leftover resources before retrying.</p>
+  <form id="release-form">
+    <button type="submit" value="normal">Run release and rollback</button>
+    <button type="submit" value="regression">Test rejected regression</button>
+  </form>
+  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <hr>
+  <h2>Lab 34: Document Intelligence invoice agent</h2>
+  <p class="note">Select one approved synthetic invoice. The saved Foundry agent calls its cloud OpenAPI tool and real Document Intelligence; the UI validates the returned extraction, evidence, document hash and grounded answer. Missing values require review. Analysis and model requests incur charges.</p>
+  <form id="document-form">
+    <label for="document-id">Invoice</label>
+    <select id="document-id">
+      <option value="clear">Clear</option><option value="missing-total">Missing total</option>
+      <option value="office-supplies">Office supplies</option><option value="training-materials">Training materials</option>
+      <option value="catering">Catering</option><option value="equipment">Equipment</option>
+      <option value="printing">Printing</option><option value="zero-total">Zero total</option>
+      <option value="large-total">Large total</option><option value="eur-invoice">EUR invoice</option>
+      <option value="missing-total-office">Missing total: office</option><option value="missing-total-catering">Missing total: catering</option>
+    </select>
+    <a id="document-preview" href="/invoices/clear.pdf" target="_blank" rel="noopener">View synthetic PDF</a>
+    <button type="submit">Analyze selected invoice</button>
+  </form>
+  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <hr>
+  <h2>Lab 36: custom code on the Foundry hosted runtime</h2>
+  <p class="note">Invoke the deployed hosted container, which calls a live model and a read-only synthetic pricing tool. Repeat a session to observe its cloud state; a new session is not a second-user test. A cold start may take several minutes. Runtime, registry and model charges apply.</p>
+  <form id="hosted-form">
+    <label for="hosted-attendees">Attendees</label>
+    <input id="hosted-attendees" type="number" min="1" max="20" step="1" value="3" required>
+    <button type="submit">Run hosted agent</button>
+    <button id="hosted-fresh" type="button">New isolated session</button>
+  </form>
+  <p id="hosted-session" class="note"></p>
+  <p>See the <a href="#job-result">latest background job</a> above for the actual quote, sandbox state, and execution IDs.</p>
+  <hr>
+  <h2>Lab 37: live agent monitoring and recovery</h2>
+  <p class="note">Two real deployed agents answer a synthetic pricing question. The regression route is restored immediately after the test; if the app stops unexpectedly, inspect the agent routes in Azure. Native continuous evaluation has previously failed to trigger, so missing response-linked verdicts remain PENDING, not PASS. Model, evaluation and telemetry charges apply.</p>
+  <form id="monitoring-form">
+    <button type="submit" value="baseline">Healthy baseline</button>
+    <button type="submit" value="regression">Test and restore regression</button>
+    <button type="submit" value="recovery">Verify recovery</button>
+  </form>
+  <form id="monitoring-info-form">
+    <button type="submit" value="evaluations">Refresh cloud evaluations</button>
+    <button type="submit" value="traces">Query server traces</button>
+  </form>
+  <p>Scenario runs appear in the <a href="#job-result">latest background job</a>; response-linked verdicts are shown below.</p>
+  <pre id="monitoring-result" aria-live="polite">No live monitoring responses yet.</pre>
+  <pre id="monitoring-evidence" aria-live="polite">No cloud evidence read yet.</pre>
+  <hr>
+  <h2>Lab 38: native model and agent guardrails</h2>
+  <p class="note">Send only benign synthetic inputs to a real model policy and a temporary agent with a native guardrail. Both interventions must match the configured blocklist; the unguarded model is also tested. Policy propagation may take several minutes. If interrupted, inspect the named temporary agent before retrying. Model requests incur charges.</p>
+  <form id="guardrails-form"><button type="submit">Run native guardrail checks</button></form>
+  <p>See the <a href="#job-result">latest background job</a> above.</p>
+  <hr>
+  <h2>Lab 40: native managed voice agent</h2>
+  <p class="note">Play the synthetic spoken prompt, then stream it to a real native voice agent. The job checks both transcripts, response audio and the recording retrieved from the stored Foundry conversation. A saved agent and conversation remain in Azure for inspection; inference, speech and storage may incur charges.</p>
+  <label for="voice-input">Synthetic spoken prompt</label>
+  <audio id="voice-input" controls preload="none" src="/voice/turn.wav"></audio>
+  <form id="voice-form"><button type="submit">Run the spoken conversation</button></form>
+  <p>Transcripts and service evidence appear in the <a href="#job-result">latest background job</a>. Audio is available here while that voice job is the latest completed job.</p>
+  <div id="voice-audio" hidden>
+    <label for="voice-reply">Agent reply</label>
+    <audio id="voice-reply" controls preload="none"></audio>
+    <label for="voice-conversation">Stored conversation recording</label>
+    <audio id="voice-conversation" controls preload="none"></audio>
+  </div>
+  <hr>
+  <h2>Lab 41: Content Understanding for document and audio</h2>
+  <p class="note">Analyze the bundled synthetic PDF and WAV with native GA Content Understanding. Document fields require real confidence and page grounding; audio facts require timestamped transcript evidence, not invented confidence. Operations can take several minutes and incur model and service charges. Interrupted operations may continue in Azure.</p>
+  <form id="cu-form"><button type="submit">Analyze document and audio</button></form>
+  <p>See the <a href="#job-result">latest background job</a> above for both service results.</p>
+  <hr>
+  <h2>Lab 42: native tool search (partial)</h2>
+  <p class="note">Create a temporary Foundry Toolbox, discover the hidden Microsoft Learn search tool with native tool search, and call it using a fixed public query. The separate managed Copilot harness and skill exercise is not run here; see its guide below. The Toolbox is deleted after the run; if interrupted, inspect Azure for leftovers. Preview and service charges may apply.</p>
+  <form id="tool-search-form"><button type="submit">Discover and call the native tool</button></form>
+  <p>See real search and call results in the <a href="#job-result">latest background job</a>.</p>
+  <hr>
+  <h2>Lab 44: cloud evaluator breadth (partial)</h2>
+  <p class="note">Generate two actual synthetic pricing tool traces and evaluate each with Foundry groundedness, relevance, and tool-call accuracy. This does not run dataset generation or agent optimization; use the guide for the full lab. Evaluation and model calls are paid and may continue after interruption.</p>
+  <form id="evaluator-breadth-form"><button type="submit">Evaluate real tool traces</button></form>
+  <p>See actual evaluator scores and separate stage statuses in the <a href="#job-result">latest background job</a>.</p>
+  <hr>
+  <h2>Lab 46: two-project fleet governance</h2>
+  <p class="note">Inventory two isolated Foundry projects, invoke their synthetic agents, correlate real ingested telemetry and inspect the resource group's Audit policy. The external runtime is a local Python function, not a hosted agent. Portal views and optional Defender/Purview integrations remain unverified. Agents and telemetry stay in Azure; model and monitoring usage may incur charges.</p>
+  <form id="fleet-form"><button type="submit">Run fleet governance checks</button></form>
+  <p>See the separate stage statuses in the <a href="#job-result">latest background job</a> above. Missing cloud evidence is BLOCKED, not PASS.</p>
+  <hr>
+  <h2>Other lab guides</h2>
+  <p class="note">These guides cover labs or exercises not yet fully integrated here. Open a guide for the real setup and execution instructions.</p>
+  <div id="lab-guides"></div>
+  <script>
+    const labHeadings = [...document.querySelectorAll('h2')].filter((heading) => /^Lab \d+:/.test(heading.textContent));
+    const availableLabs = new Set();
+    const partialLabs = new Set([10, 31, 42, 44]);
+    const labNav = document.getElementById('lab-nav');
+    for (const heading of labHeadings) {
+      const number = Number(heading.textContent.match(/^Lab (\d+):/)[1]);
+      availableLabs.add(number);
+      heading.id = `lab-${number}`;
+      const link = document.createElement('a');
+      link.href = `#lab-${number}`;
+      link.textContent = heading.textContent;
+      const item = document.createElement('li');
+      item.appendChild(link);
+      labNav.appendChild(item);
+    }
+    const guides = [
+      [9, 'Agent red teaming', 'A managed safety scan; generated reports may contain disturbing text.'],
+      [10, 'Local Polish Phi adaptation', 'The separate local exercise requires Apple silicon and is not hosted here.'],
+      [12, 'Entra Agent ID', 'Requires approved interactive tenant identity and credential setup.'],
+      [21, 'Permission-aware retrieval', 'Requires two distinct authenticated users in the same tenant.'],
+      [31, 'Native agent memory', 'Requires two distinct authenticated users and the memory preview.'],
+      [32, 'Browser runbook', 'Requires a remote browser connection, preview access, and explicit human approval.'],
+      [35, 'Work IQ', "Requires administrator-approved Microsoft 365 consent and each caller's authorization."],
+      [39, 'Gateway token limits', 'Requires a paid Developer-tier gateway and scoped policy-write permissions.'],
+      [42, 'Managed harness and tool search', 'Requires the harness preview, a compatible SDK, and project role assignment.'],
+      [43, 'Agent routines', 'Requires routine preview and functioning tenant agentic-token issuance.'],
+      [44, 'Evaluation and optimizer', 'Requires a compatible SDK, native optimizer access, and paid model quota.'],
+      [45, 'Governed Foundry IQ and Fabric IQ', 'Requires two real users and an approved, licensed synthetic Fabric environment.']
+    ];
+    const guideContainer = document.getElementById('lab-guides');
+    for (const [number, title, prerequisite] of guides) {
+      if (availableLabs.has(number) && !partialLabs.has(number)) continue;
+      const details = document.createElement('details');
+      details.id = `guide-${number}`;
+      const summary = document.createElement('summary');
+      summary.textContent = `Lab ${number}: ${title} (${partialLabs.has(number) ? 'remaining guide' : 'guide only'})`;
+      const description = document.createElement('p');
+      description.textContent = prerequisite;
+      const link = document.createElement('a');
+      link.href = `/guides/${number}`;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Open full lab instructions';
+      details.append(summary, description, link);
+      guideContainer.appendChild(details);
+      const item = document.createElement('li');
+      const navLink = document.createElement('a');
+      navLink.href = `#guide-${number}`;
+      navLink.textContent = summary.textContent;
+      item.appendChild(navLink);
+      labNav.appendChild(item);
+    }
+    const missingLabs = Array.from({length: 47}, (_, number) => number)
+      .filter((number) => !availableLabs.has(number) || partialLabs.has(number));
+    const guideOnlyLabs = missingLabs.filter((number) => !availableLabs.has(number));
+    document.getElementById('lab-nav-summary').textContent =
+      `Browse ${availableLabs.size - partialLabs.size} interactive labs, ${partialLabs.size} partial labs and ${guideOnlyLabs.length} guide-only labs`;
+    document.getElementById('missing-labs').textContent =
+      `Not fully interactive here: ${missingLabs.join(', ')}.`;
+    const basicsForm = document.getElementById('basics-form');
+    const basicsResult = document.getElementById('basics-result');
+    basicsForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const buttons = basicsForm.querySelectorAll('button');
+      buttons.forEach((button) => { button.disabled = true; });
+      basicsResult.textContent = 'Running the selected exercise...';
+      try {
+        const response = await fetch('/api/basics', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            mode: event.submitter.value,
+            temperature: Number(document.getElementById('temperature').value),
+            top_p: Number(document.getElementById('top-p').value),
+            effort: document.getElementById('effort').value
+          })
+        });
+        const data = await response.json();
+        basicsResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+      } catch (error) {
+        basicsResult.textContent = `Request failed: ${error.message}`;
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+      }
+    });
+    const routerForm = document.getElementById('router-form');
+    const routerButton = document.getElementById('router-submit');
+    const routerResult = document.getElementById('router-result');
+    routerForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      routerButton.disabled = true;
+      routerResult.textContent = 'Waiting for Model Router...';
+      try {
+        const response = await fetch('/api/router', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            preset: document.getElementById('router-preset').value,
+            prompt: document.getElementById('router-custom').value
+          })
+        });
+        const data = await response.json();
+        routerResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+      } catch (error) {
+        routerResult.textContent = `Request failed: ${error.message}`;
+      } finally {
+        routerButton.disabled = false;
+      }
+    });
+    const decisionForm = document.getElementById('decision-form');
+    const decisionButton = document.getElementById('decision-submit');
+    const decisionResult = document.getElementById('decision-result');
+    decisionForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      decisionButton.disabled = true;
+      decisionResult.textContent = 'Waiting for the Decision API...';
+      try {
+        const response = await fetch('/api/decision', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            selection: document.getElementById('decision-selection').value,
+            ticket: document.getElementById('decision-ticket').value
+          })
+        });
+        const data = await response.json();
+        decisionResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+      } catch (error) {
+        decisionResult.textContent = `Request failed: ${error.message}`;
+      } finally {
+        decisionButton.disabled = false;
+      }
+    });
+    const safetyForm = document.getElementById('safety-form');
+    const safetyButton = document.getElementById('safety-submit');
+    const safetyResult = document.getElementById('safety-result');
+    safetyForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      safetyButton.disabled = true;
+      safetyResult.textContent = 'Waiting for Content Safety...';
+      try {
+        const response = await fetch('/api/safety', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            text: document.getElementById('safety-text').value,
+            threshold: Number(document.getElementById('safety-threshold').value)
+          })
+        });
+        const data = await response.json();
+        safetyResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+      } catch (error) {
+        safetyResult.textContent = `Request failed: ${error.message}`;
+      } finally {
+        safetyButton.disabled = false;
+      }
+    });
+    for (const [formId, resultId, endpoint, payload] of [
+      ['workflow-form', 'workflow-result', '/api/workflow', () => ({
+        prompt: document.getElementById('workflow-prompt').value
+      })],
+      ['web-search-form', 'web-search-result', '/api/web-search', () => ({})],
+      ['tools-form', 'tools-result', '/api/tools', () => ({
+        attendees: Number(document.getElementById('tools-attendees').value)
+      })],
+      ['iq-form', 'iq-result', '/api/iq', () => ({
+        question: document.getElementById('iq-question').value
+      })],
+      ['orchestration-form', 'orchestration-result', '/api/orchestration', () => ({
+        pattern: document.getElementById('orchestration-pattern').value
+      })],
+      ['fundamentals-form', 'fundamentals-result', '/api/fundamentals', () => ({})],
+      ['injection-form', 'injection-result', '/api/injection', () => ({
+        source: document.getElementById('injection-source').value
+      })],
+      ['resilience-form', 'resilience-result', '/api/resilience', () => ({})],
+      ['benchmark-form', 'benchmark-result', '/api/benchmark', () => ({
+        case: document.getElementById('benchmark-case').value
+      })],
+      ['structured-form', 'structured-result', '/api/structured', () => ({
+        case: document.getElementById('structured-case').value,
+        mode: document.getElementById('structured-mode').value
+      })],
+      ['tracing-form', 'tracing-result', '/api/tracing', () => ({
+        scenario: document.getElementById('tracing-scenario').value
+      })],
+      ['discovery-form', 'discovery-result', '/api/discovery', () => ({
+        case: document.getElementById('discovery-case').value
+      })],
+      ['receipt-form', 'receipt-result', '/api/receipt', () => ({
+        image: document.getElementById('receipt-image').value
+      })]
+    ]) {
+      const demoForm = document.getElementById(formId);
+      const demoResult = document.getElementById(resultId);
+      demoForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const demoButton = demoForm.querySelector('button');
+        demoButton.disabled = true;
+        demoResult.textContent = 'Waiting for the model...';
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload())
+          });
+          const data = await response.json();
+          demoResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+        } catch (error) {
+          demoResult.textContent = `Request failed: ${error.message}`;
+        } finally {
+          demoButton.disabled = false;
+        }
+      });
+    }
+    const conversationForm = document.getElementById('conversation-form');
+    const conversationResult = document.getElementById('conversation-result');
+    conversationForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const buttons = conversationForm.querySelectorAll('button');
+      buttons.forEach((button) => { button.disabled = true; });
+      conversationResult.textContent = 'Running conversation action...';
+      try {
+        const response = await fetch('/api/conversation', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({action: event.submitter.value,
+            user: document.getElementById('conversation-user').value,
+            prompt: document.getElementById('conversation-prompt').value})
+        });
+        const data = await response.json();
+        conversationResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+      } catch (error) {
+        conversationResult.textContent = `Request failed: ${error.message}`;
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+      }
+    });
+    const approvalForm = document.getElementById('approval-form');
+    const approvalResult = document.getElementById('approval-result');
+    let currentProposal = null;
+    approvalForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const action = event.submitter.value;
+      if (action !== 'propose' && (!currentProposal || !confirm(
+        `${action === 'approve' ? 'Approve' : 'Reject'} ${JSON.stringify(currentProposal.proposal)}?`
+      ))) return;
+      if (action === 'propose') currentProposal = null;
+      const buttons = approvalForm.querySelectorAll('button');
+      buttons.forEach((button) => { button.disabled = true; });
+      approvalResult.textContent = 'Running approval action...';
+      try {
+        const response = await fetch('/api/approval', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({action, attendees: Number(document.getElementById('approval-attendees').value),
+            proposal_id: currentProposal?.proposal_id, digest: currentProposal?.digest})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        if (action === 'propose') currentProposal = data;
+        approvalResult.textContent = JSON.stringify(action === 'propose' ? data : {proposal: currentProposal, decision: data}, null, 2);
+      } catch (error) {
+        approvalResult.textContent = `Approval action failed: ${error.message}`;
+      } finally {
+        buttons.forEach((button) => { button.disabled = button.value !== 'propose' && !currentProposal; });
+      }
+    });
+    const releaseForm = document.getElementById('release-form');
+    const evaluationForm = document.getElementById('evaluation-form');
+    const cicdForm = document.getElementById('cicd-form');
+    const analystForm = document.getElementById('analyst-form');
+    const hostedForm = document.getElementById('hosted-form');
+    const hostedFresh = document.getElementById('hosted-fresh');
+    const hostedSession = document.getElementById('hosted-session');
+    let hostedSessionId = sessionStorage.getItem('workshop-hosted-session');
+    if (!hostedSessionId || !/^[a-zA-Z0-9_-]{1,80}$/.test(hostedSessionId)) {
+      hostedSessionId = `ui-${crypto.randomUUID()}`;
+      sessionStorage.setItem('workshop-hosted-session', hostedSessionId);
+    }
+    function showHostedSession() { hostedSession.textContent = `Session: ${hostedSessionId}`; }
+    showHostedSession();
+    hostedFresh.addEventListener('click', () => {
+      hostedSessionId = `ui-${crypto.randomUUID()}`;
+      sessionStorage.setItem('workshop-hosted-session', hostedSessionId);
+      showHostedSession();
+    });
+    const analystChart = document.getElementById('analyst-chart');
+    const releaseResult = document.getElementById('job-result');
+    const releaseButtons = document.querySelectorAll('#release-form button, #evaluation-form button, #cicd-form button, #analyst-form button, #memory-form button, #hosted-form button, #rag-form button, #cu-form button, #monitoring-form button, #monitoring-info-form button, #cache-form button, #lifecycle-form button, #tuning-submit-form button, #tuning-inspect-form button, #guardrails-form button, #document-form button, #voice-form button, #fleet-form button, #tool-search-form button, #evaluator-breadth-form button');
+    const monitoringResult = document.getElementById('monitoring-result');
+    const monitoringEvidence = document.getElementById('monitoring-evidence');
+    const monitoringRecords = [];
+    let monitoringEvaluations = [];
+    const seenMonitoringJobs = new Set();
+    function renderMonitoring() {
+      const rows = monitoringRecords.map((record) => {
+        const match = monitoringEvaluations.find((item) => item.agent === record.agent
+          && item.item.datasource_item?.response_id === record.response_id);
+        const source = match?.item.datasource_item;
+        const checks = match?.item.results?.filter((item) => item.name === 'price_correct') ?? [];
+        let verdict = 'PENDING';
+        if (match) {
+          const valid = source.agent_name === record.agent
+            && String(source.agent_version) === String(record.configured_version)
+            && checks.length === 1 && typeof checks[0].passed === 'boolean' && checks[0].status === 'completed';
+          verdict = valid ? (checks[0].passed ? 'PASS' : 'FAIL') : 'INVALID CLOUD RESULT';
+        }
+        return {...record, native_verdict: verdict};
+      });
+      monitoringResult.textContent = rows.length ? JSON.stringify(rows, null, 2) : 'No live monitoring responses yet.';
+    }
+    let releaseStatus = 'idle';
+    async function refreshRelease() {
+      try {
+        const response = await fetch('/api/job');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        releaseStatus = data.status;
+        releaseButtons.forEach((button) => { button.disabled = data.status === 'running'; });
+        let visible = data;
+        if (data.status === 'completed' && data.kind === 'csv-analyst' && data.result?.chart_base64) {
+          const {chart_base64, ...result} = data.result;
+          analystChart.src = `data:image/png;base64,${chart_base64}`;
+          analystChart.hidden = false;
+          visible = {...data, result};
+        } else {
+          analystChart.hidden = true;
+          analystChart.removeAttribute('src');
+        }
+        const voiceAudio = document.getElementById('voice-audio');
+        voiceAudio.hidden = data.status !== 'completed' || data.kind !== 'voice-agent';
+        for (const [element, file] of [['voice-reply', 'reply'], ['voice-conversation', 'conversation']]) {
+          const audio = document.getElementById(element);
+          if (voiceAudio.hidden) audio.removeAttribute('src');
+          else audio.src = `/voice/${encodeURIComponent(data.id)}/${file}.wav`;
+        }
+        if (data.status === 'completed' && data.kind === 'monitoring' && !seenMonitoringJobs.has(data.id)) {
+          seenMonitoringJobs.add(data.id);
+          monitoringRecords.push(...data.result.requests);
+          renderMonitoring();
+        }
+        if (data.status !== 'idle') releaseResult.textContent = JSON.stringify(visible, null, 2);
+        if (data.status === 'running') setTimeout(refreshRelease, 3000);
+      } catch (error) {
+        releaseButtons.forEach((button) => { button.disabled = true; });
+        releaseResult.textContent = `Unable to check run: ${error.message}. Reload to retry.`;
+      }
+    }
+    async function startBackgroundJob(event, endpoint) {
+      event.preventDefault();
+      if (endpoint === '/api/fine-tuning' && !confirm('Submit a new paid fine-tuning job? This may run for over an hour.')) return;
+      const interrupted = releaseStatus === 'interrupted';
+      if (interrupted && !confirm('Inspect the interrupted run in Azure for leftover resources before retrying. Have you done so?')) return;
+      releaseButtons.forEach((button) => { button.disabled = true; });
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({regression: endpoint === '/api/release' && event.submitter.value === 'regression',
+                                variant: endpoint === '/api/cicd' ? event.submitter.value : undefined,
+                                attendees: endpoint === '/api/hosted-agent' ? Number(document.getElementById('hosted-attendees').value) : undefined,
+                                session_id: endpoint === '/api/hosted-agent' ? hostedSessionId : undefined,
+                                chunk_words: endpoint === '/api/rag' ? Number(document.getElementById('rag-size').value) : undefined,
+                                mode: endpoint === '/api/rag' ? document.getElementById('rag-mode').value
+                                  : endpoint === '/api/monitoring' ? event.submitter.value : undefined,
+                                question_index: endpoint === '/api/rag' ? Number(document.getElementById('rag-question').value) : undefined,
+                                action: endpoint === '/api/fine-tuning' ? 'submit' : undefined,
+                                confirm_cost: endpoint === '/api/fine-tuning' ? document.getElementById('tuning-confirm').checked : undefined,
+                                document_id: endpoint === '/api/document-intelligence' ? document.getElementById('document-id').value : undefined,
+                                acknowledge_interrupted: interrupted})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        releaseResult.textContent = JSON.stringify(data, null, 2);
+        await refreshRelease();
+      } catch (error) {
+        releaseResult.textContent = `Could not start run: ${error.message}`;
+        releaseButtons.forEach((button) => { button.disabled = false; });
+      }
+    }
+    releaseForm.addEventListener('submit', (event) => startBackgroundJob(event, '/api/release'));
+    evaluationForm.addEventListener('submit', (event) => startBackgroundJob(event, '/api/evaluation'));
+    cicdForm.addEventListener('submit', (event) => startBackgroundJob(event, '/api/cicd'));
+    analystForm.addEventListener('submit', (event) => startBackgroundJob(event, '/api/analyst'));
+    hostedForm.addEventListener('submit', (event) => startBackgroundJob(event, '/api/hosted-agent'));
+    document.getElementById('rag-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/rag'));
+    document.getElementById('cu-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/content-understanding'));
+    document.getElementById('cache-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/semantic-cache'));
+    document.getElementById('lifecycle-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/agent-lifecycle'));
+    document.getElementById('guardrails-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/native-guardrails'));
+    document.getElementById('document-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/document-intelligence'));
+    document.getElementById('voice-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/voice-agent'));
+    document.getElementById('fleet-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/fleet-governance'));
+    document.getElementById('tool-search-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/native-tool-search'));
+    document.getElementById('evaluator-breadth-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/evaluator-breadth'));
+    document.getElementById('memory-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/native-memory'));
+    document.getElementById('document-id').addEventListener('change', (event) => {
+      document.getElementById('document-preview').href = `/invoices/${encodeURIComponent(event.target.value)}.pdf`;
+    });
+    document.getElementById('tuning-submit-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/fine-tuning'));
+    document.getElementById('tuning-inspect-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const action = event.submitter.value;
+      if (action === 'acknowledge' && !confirm('Have you inspected the Azure account for a training job that may have been submitted? Another submission can incur charges.')) return;
+      releaseButtons.forEach((button) => { button.disabled = true; });
+      try {
+        const response = await fetch('/api/fine-tuning', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({action, job_id: document.getElementById('tuning-job-id').value,
+                                inspected_azure: action === 'acknowledge'})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        document.getElementById('tuning-result').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('tuning-result').textContent = `Unable to inspect or acknowledge: ${error.message}`;
+      } finally {
+        await refreshRelease();
+      }
+    });
+    document.getElementById('monitoring-form').addEventListener('submit', (event) => startBackgroundJob(event, '/api/monitoring'));
+    document.getElementById('monitoring-info-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      releaseButtons.forEach((button) => { button.disabled = true; });
+      try {
+        const action = event.submitter.value;
+        const response = await fetch('/api/monitoring-info', {
+          method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        if (action === 'evaluations') {
+          monitoringEvaluations = data.evaluations;
+          renderMonitoring();
+        }
+        monitoringEvidence.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        monitoringEvidence.textContent = `Unable to read cloud evidence: ${error.message}`;
+      } finally {
+        await refreshRelease();
+      }
+    });
+    refreshRelease();
+    const form = document.getElementById('form');
+    const button = document.getElementById('submit');
+    const result = document.getElementById('result');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      result.textContent = 'Waiting for the agent...';
+      try {
+        const response = await fetch('/api/ask', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({question: document.getElementById('question').value})
+        });
+        const data = await response.json();
+        result.textContent = response.ok ? data.answer : `Error: ${data.error}`;
+      } catch (error) {
+        result.textContent = `Request failed: ${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+    const skillsForm = document.getElementById('skills-form');
+    const skillsButton = document.getElementById('skills-submit');
+    const skillsResult = document.getElementById('skills-result');
+    skillsForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      skillsButton.disabled = true;
+      skillsResult.textContent = 'Creating and testing the temporary skill...';
+      try {
+        const response = await fetch('/api/skills', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({title: document.getElementById('title').value})
+        });
+        const data = await response.json();
+        skillsResult.textContent = response.ok ? JSON.stringify(data, null, 2) : `Error: ${data.error}`;
+      } catch (error) {
+        skillsResult.textContent = `Request failed: ${error.message}`;
+      } finally {
+        skillsButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

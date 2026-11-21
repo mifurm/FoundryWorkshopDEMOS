@@ -69,7 +69,7 @@ class SkillsTests(unittest.TestCase):
 
     def run_demo(self, **kwargs):
         with redirect_stdout(self.output):
-            demo.demonstrate(self.project, "test-deployment", TITLE, **kwargs)
+            return demo.demonstrate(self.project, "test-deployment", TITLE, **kwargs)
 
     def assert_skill_deleted(self):
         created_name = self.project.beta.skills.create_from_files.call_args.kwargs["name"]
@@ -118,7 +118,7 @@ class SkillsTests(unittest.TestCase):
                 self.assertFalse(demo.matches_contract(text, TITLE))
 
     def test_downloads_pinned_version_injects_only_second_request_and_cleans_up(self):
-        self.run_demo(debug_response=True)
+        result = self.run_demo(debug_response=True)
         skill_name = self.project.beta.skills.create_from_files.call_args.kwargs["name"]
         self.project.beta.skills.download_version.assert_called_once_with(skill_name, "7")
         definitions = [call.kwargs["definition"]
@@ -141,6 +141,9 @@ class SkillsTests(unittest.TestCase):
         self.assertIn("Exact skill contract match: True", self.output.getvalue())
         self.assertIn("Token usage:", self.output.getvalue())
         self.assertIn('"id": "resp-test"', self.output.getvalue())
+        self.assertEqual(result["skill_version"], "7")
+        self.assertEqual([item["with_skill"] for item in result["comparisons"]], [False, True])
+        self.assertEqual([item["contract_match"] for item in result["comparisons"]], [False, True])
 
     def test_skill_contract_failure_is_not_replaced_and_all_objects_are_deleted(self):
         self.client.responses.create.side_effect = [

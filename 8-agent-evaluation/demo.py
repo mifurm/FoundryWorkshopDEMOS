@@ -17,7 +17,8 @@ QUESTIONS = [
 ]
 
 
-def evaluate(client, responses: list[dict[str, str]], deployment: str, timeout: float = 600):
+def evaluate(client, responses: list[dict[str, str]], deployment: str, timeout: float = 600,
+             report: dict | None = None):
     fields = ("query", "response", "response_id")
     if not responses or any(
         not all(isinstance(item.get(key), str) and item[key].strip() for key in fields)
@@ -71,6 +72,7 @@ def evaluate(client, responses: list[dict[str, str]], deployment: str, timeout: 
         raise RuntimeError("Evaluation returned missing or errored output items.")
     seen = set()
     passed = 0
+    output_items = []
     for item in items:
         payload = item.model_dump(mode="json")
         source = payload.get("datasource_item", {})
@@ -83,10 +85,50 @@ def evaluate(client, responses: list[dict[str, str]], deployment: str, timeout: 
             raise RuntimeError("Missing, mismatched, or errored coherence result.")
         seen.add(response_id)
         passed += results[0]["passed"]
+        output_items.append({
+            "datasource_item": source,
+            "results": [{key: value for key, value in results[0].items()
+                         if key in ("name", "status", "passed", "score", "reason", "threshold")}],
+        })
         print(item.model_dump_json(indent=2))
     if passed != counts.passed:
         raise RuntimeError("Per-item coherence results disagree with aggregate counts.")
+    if report is not None:
+        run_data = run.model_dump(mode="json")
+        report.update(evaluation_id=evaluation.id, run={
+            key: value for key, value in run_data.items()
+            if key in ("id", "status", "eval_id", "report_url", "result_counts",
+                       "per_testing_criteria_results", "per_model_usage")
+        }, items=output_items)
     return run
+
+
+def demonstrate(project, deployment: str) -> dict:
+    agent = project.agents.create_version(
+        agent_name=f"eval-demo-{uuid4().hex[:8]}",
+        definition=PromptAgentDefinition(
+            model=deployment, instructions="You are a concise AI workshop tutor.",
+        ),
+    )
+    print(f"Temporary agent: {agent.name}/{agent.version}", flush=True)
+    try:
+        with project.get_openai_client(agent_name=agent.name) as agent_client:
+            responses = []
+            for question in QUESTIONS:
+                response = agent_client.responses.create(input=question, store=True, timeout=120)
+                if response.status != "completed" or not response.output_text.strip():
+                    raise RuntimeError(f"Agent response failed: {response.status}; {response.error}")
+                print(f"{question}\n{response.output_text}\nStored response: {response.id}")
+                responses.append({
+                    "query": question, "response": response.output_text, "response_id": response.id,
+                })
+        report = {}
+        with project.get_openai_client() as evaluator_client:
+            evaluate(evaluator_client, responses, deployment, report=report)
+        return {"responses": responses, **report}
+    finally:
+        project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
+        print(f"Temporary agent version deleted: {agent.name}/{agent.version}")
 
 
 def main() -> None:
@@ -102,28 +144,7 @@ def main() -> None:
         AzureCliCredential() as credential,
         AIProjectClient(endpoint=args.project_endpoint, credential=credential) as project,
     ):
-        agent = project.agents.create_version(
-            agent_name=f"eval-demo-{uuid4().hex[:8]}",
-            definition=PromptAgentDefinition(
-                model=args.deployment, instructions="You are a concise AI workshop tutor.",
-            ),
-        )
-        try:
-            with project.get_openai_client(agent_name=agent.name) as agent_client:
-                responses = []
-                for question in QUESTIONS:
-                    response = agent_client.responses.create(input=question, store=True, timeout=120)
-                    if response.status != "completed" or not response.output_text.strip():
-                        raise RuntimeError(f"Agent response failed: {response.status}; {response.error}")
-                    print(f"{question}\n{response.output_text}\nStored response: {response.id}")
-                    responses.append({
-                        "query": question, "response": response.output_text, "response_id": response.id,
-                    })
-            with project.get_openai_client() as evaluator_client:
-                evaluate(evaluator_client, responses, args.deployment)
-        finally:
-            project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
-            print(f"Temporary agent version deleted: {agent.name}/{agent.version}")
+        demonstrate(project, args.deployment)
 
 
 if __name__ == "__main__":

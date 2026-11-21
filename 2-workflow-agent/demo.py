@@ -9,7 +9,7 @@ from agent_framework import AgentResponse
 from agent_framework.foundry import FoundryChatClient
 from agent_framework.orchestrations import SequentialBuilder
 from azure.ai.projects.aio import AIProjectClient
-from azure.identity.aio import AzureCliCredential
+from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
 
 
 DEFAULT_PROMPT = (
@@ -18,10 +18,13 @@ DEFAULT_PROMPT = (
 )
 
 
-async def run_workflow(endpoint: str, deployment: str, prompt: str) -> None:
+async def run_workflow(
+    endpoint: str, deployment: str, prompt: str,
+    credential: AzureCliCredential | ManagedIdentityCredential | None = None,
+) -> dict[str, str]:
     async with (
-        AzureCliCredential() as credential,
-        AIProjectClient(endpoint=endpoint, credential=credential) as project,
+        (credential if credential is not None else AzureCliCredential()) as active_credential,
+        AIProjectClient(endpoint=endpoint, credential=active_credential) as project,
     ):
         client = FoundryChatClient(project_client=project, model=deployment)
         writer = client.as_agent(
@@ -43,10 +46,13 @@ async def run_workflow(endpoint: str, deployment: str, prompt: str) -> None:
         outputs = events.get_outputs()
         if len(outputs) != 2:
             raise RuntimeError(f"Expected both workflow stages; received {len(outputs)}.")
-        for label, output in zip(("Writer draft", "Editor final"), outputs):
+        result = {}
+        for key, label, output in zip(("writer", "editor"), ("Writer draft", "Editor final"), outputs):
             if not isinstance(output, AgentResponse) or not output.text.strip():
                 raise RuntimeError(f"{label} returned no agent text.")
             print(f"\n=== {label} ===\n{output.text}")
+            result[key] = output.text
+        return result
 
 
 def main(argv: Sequence[str] | None = None) -> None:

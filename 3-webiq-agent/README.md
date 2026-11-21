@@ -8,6 +8,33 @@ Here, the historical workshop label "WebIQ" means Foundry's built-in **Web Searc
 tool, not the separate [Microsoft Web IQ APIs](https://learn.microsoft.com/web-iq/resources/faq)
 or a private enterprise search integration.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) compares the
+same two temporary agent versions and shows actual search calls and structured
+citations. It sends only the lab's fixed, public default question; custom
+questions are available only in the CLI. Grounding with Bing uses its own terms
+and may process the question outside Azure compliance boundaries. Both requests
+incur model charges, and the grounded request also incurs search charges.
+
+For local use, set `UI_WEB_SEARCH_PROJECT_ENDPOINT` before starting the UI;
+`UI_WEB_SEARCH_DEPLOYMENT` defaults to `gpt-5-mini`. For Azure hosting, pass
+`webSearchProjectEndpoint` and optionally `webSearchDeployment` to the shared
+UI template, retaining the other existing parameters. Grant its system-assigned
+identity Foundry User at this lab's account scope, with `RESOURCE_GROUP` set to
+the lab 3 resource group:
+
+```bash
+az deployment group create -g "$RESOURCE_GROUP" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-3-account-name>" principalId="<ui-system-identity-object-id>" \
+    roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference
+must be verified separately from deployment.
+
 ## Infrastructure and prerequisites
 
 Bicep creates a Foundry account, project, `gpt-5-mini` Global Standard deployment

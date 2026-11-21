@@ -100,20 +100,28 @@ def write_wav(path: Path, pcm: bytes) -> None:
         audio.writeframes(pcm)
 
 
-def live() -> dict:
-    endpoint = setting("FOUNDRY_PROJECT_ENDPOINT", "projectEndpoint")
-    model = setting("FOUNDRY_VOICE_AGENT_MODEL", "deployment", "gpt-realtime")
+def live(
+    *, endpoint: str | None = None, model: str | None = None,
+    agent_name: str | None = None, credential=None, state_dir: Path | None = None,
+) -> dict:
+    if endpoint is None:
+        endpoint = setting("FOUNDRY_PROJECT_ENDPOINT", "projectEndpoint")
+    if model is None:
+        model = setting("FOUNDRY_VOICE_AGENT_MODEL", "deployment", "gpt-realtime")
     if not endpoint:
         raise RuntimeError("Deploy infra/main.bicep first; FOUNDRY_PROJECT_ENDPOINT or .azure/deployment.json is required.")
-    agent_name = os.getenv("FOUNDRY_VOICE_AGENT_NAME", "workshop-managed-voice")
+    if agent_name is None:
+        agent_name = os.getenv("FOUNDRY_VOICE_AGENT_NAME", "workshop-managed-voice")
+    state_dir = state_dir if state_dir is not None else STATE
+    state_dir.mkdir(parents=True, exist_ok=True)
     pcm = read_pcm(ROOT / "assets/turn.wav")
     evidence = {"stage": "native-voice", "model": model, "agentName": agent_name, "inputSha256": hashlib.sha256(pcm).hexdigest()}
-    with AzureCliCredential() as credential, AIProjectClient(
-        endpoint=endpoint, credential=credential, allow_preview=True,
+    with (credential if credential is not None else AzureCliCredential()) as active_credential, AIProjectClient(
+        endpoint=endpoint, credential=active_credential, allow_preview=True,
     ) as client:
         created = client.agents.create_version(agent_name=agent_name, definition=definition(model))
         evidence.update(agentVersion=created.version, agentKind=str(created.definition.kind))
-        (STATE / "agent.json").write_text(json.dumps(evidence, indent=2))
+        (state_dir / "agent.json").write_text(json.dumps(evidence, indent=2))
         events, chunks = [], []
         input_transcript = output_transcript = conversation_id = session_id = ""
         with client.beta.voice_agents.realtime.connect(agent_name=agent_name, open_timeout=30) as conn:
@@ -155,11 +163,11 @@ def live() -> dict:
                 inputTranscript=input_transcript, outputTranscript=output_transcript,
                 outputBytes=sum(map(len, chunks)), responseCompleted=completed,
             )
-            (STATE / "session.json").write_text(json.dumps(evidence, indent=2))
+            (state_dir / "session.json").write_text(json.dumps(evidence, indent=2))
         output_pcm = b"".join(chunks)
         if not all((completed, conversation_id, session_id, any(output_pcm), contains_code(input_transcript), contains_code(output_transcript))):
-            raise RuntimeError("Missing real session/conversation/audio evidence or spoken code mismatch; see .azure/session.json.")
-        write_wav(STATE / "reply.wav", output_pcm)
+            raise RuntimeError(f"Missing real session/conversation/audio evidence or spoken code mismatch; see {state_dir / 'session.json'}.")
+        write_wav(state_dir / "reply.wav", output_pcm)
         deadline = time.monotonic() + 120
         while True:
             try:
@@ -188,8 +196,8 @@ def live() -> dict:
                 if time.monotonic() >= deadline:
                     raise
                 time.sleep(5)
-        (STATE / "conversation.json").write_text(json.dumps({"conversation": conversation.as_dict(), "items": items, "recording": recording.as_dict()}, indent=2))
-        (STATE / "conversation.wav").write_bytes(recorded_audio)
+        (state_dir / "conversation.json").write_text(json.dumps({"conversation": conversation.as_dict(), "items": items, "recording": recording.as_dict()}, indent=2))
+        (state_dir / "conversation.wav").write_bytes(recorded_audio)
         evidence.update(status="PASS", persistedTranscript=transcripts, persistedRecordingBytes=len(recorded_audio))
         return evidence
 

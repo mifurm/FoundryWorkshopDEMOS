@@ -53,6 +53,16 @@ up to five minutes to propagate. The runner retries that specific response for
 up to five minutes, records the attempts, and still fails unless the exact
 custom-blocklist intervention is observed.
 
+## Browser UI
+
+The authenticated [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+runs both real gates as a background job and shows the separate model and agent
+evidence. Each run creates and deletes a temporary agent and incurs inference
+charges. Configure the `guardrails*` UI template parameters and grant its managed
+identity Foundry User and ARM read access on this lab's account.
+The shared UI's pinned SDK version 2.7.0 has been tested for these two workflows;
+the standalone lab continues to require its own documented SDK version.
+
 ## Run
 
 Azure CLI must be signed in as a user with resource creation, role assignment,

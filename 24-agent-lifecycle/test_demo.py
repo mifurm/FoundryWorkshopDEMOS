@@ -6,6 +6,25 @@ import demo
 
 
 class LifecycleTests(unittest.TestCase):
+    def test_lifecycle_records_deterministic_ids_before_cloud_creation(self):
+        project = Mock()
+        project.agents.create_version.side_effect = RuntimeError("creation failed")
+        args = SimpleNamespace(project_resource_id="/subscriptions/sub/projects/p",
+                               project_endpoint="https://project", deployment="model")
+        updates = []
+        with self.assertRaisesRegex(RuntimeError, "creation failed"):
+            demo.lifecycle(project, Mock(), Mock(), args, {}, suffix="abcdef12",
+                           on_update=lambda report: updates.append(report.copy()))
+        self.assertTrue(updates[0]["application_id"].endswith("/applications/workshop-app-abcdef12"))
+        with self.assertRaises(ValueError):
+            demo.lifecycle(project, Mock(), Mock(), args, {}, suffix="../bad")
+
+    def test_project_endpoint_must_match_the_arm_resource(self):
+        resource = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/acct/projects/proj"
+        demo.validate_project("https://acct.services.ai.azure.com/api/projects/proj", resource)
+        with self.assertRaises(ValueError):
+            demo.validate_project("https://other.example/api/projects/proj", resource)
+
     def test_real_managed_application_deployment_contract(self):
         deployment = {"properties": {
             "state": "Running", "agents": [{"agentName": "agent", "agentVersion": "2"}],

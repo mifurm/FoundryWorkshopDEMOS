@@ -16,10 +16,10 @@ from azure.ai.projects.models import (
     OpenApiFunctionDefinition,
     OpenApiToolboxTool,
 )
-from azure.identity.aio import AzureCliCredential
+from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
 
 
-def show_response(response: AgentResponse) -> None:
+def show_response(response: AgentResponse) -> dict:
     results = [
         content
         for message in response.messages
@@ -35,14 +35,18 @@ def show_response(response: AgentResponse) -> None:
     if not any("workshop-price-tool-v1" in str(result.result) for result in results):
         raise RuntimeError("The tool did not return the deployed pricing function's source marker.")
     print(f"\nAgent answer:\n{response.text}")
+    return {"tool_results": [str(result.result) for result in results], "answer": response.text}
 
 
-async def run_agent(endpoint: str, deployment: str, tool_endpoint: str, attendees: int) -> None:
+async def run_agent(
+    endpoint: str, deployment: str, tool_endpoint: str, attendees: int,
+    credential: AzureCliCredential | ManagedIdentityCredential | None = None,
+) -> dict:
     spec = json.loads(Path(__file__).with_name("openapi.json").read_text())
     spec["servers"] = [{"url": tool_endpoint.rstrip("/")}]
     async with (
-        AzureCliCredential() as credential,
-        AIProjectClient(endpoint=endpoint, credential=credential) as project,
+        (credential if credential is not None else AzureCliCredential()) as active_credential,
+        AIProjectClient(endpoint=endpoint, credential=active_credential) as project,
     ):
         toolbox = await project.toolboxes.create_version(
             name=f"workshop-tools-{uuid4().hex[:8]}",
@@ -60,7 +64,7 @@ async def run_agent(endpoint: str, deployment: str, tool_endpoint: str, attendee
         )
         print(f"Foundry Toolbox: {toolbox.name} / {toolbox.version}", flush=True)
         try:
-            async with FoundryToolbox(credential, url=url) as tools:
+            async with FoundryToolbox(active_credential, url=url) as tools:
                 client = FoundryChatClient(project_client=project, model=deployment)
                 agent = client.as_agent(
                     name="workshop-assistant",
@@ -74,7 +78,7 @@ async def run_agent(endpoint: str, deployment: str, tool_endpoint: str, attendee
                     f"What is the workshop price for {attendees} attendees?",
                     options={"tool_choice": "required"},
                 )
-                show_response(result)
+                return show_response(result)
         finally:
             await project.toolboxes.delete_version(name=toolbox.name, version=toolbox.version)
             print("Temporary toolbox version deleted.")

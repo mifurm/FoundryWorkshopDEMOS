@@ -78,6 +78,16 @@ class DemoTests(unittest.TestCase):
             requests.call_args.kwargs["messages"][1]["content"], "Explain routing."
         )
 
+    def test_route_returns_actual_response_metadata(self) -> None:
+        with patch("demo.AzureOpenAI") as factory:
+            client = factory.return_value
+            client.chat.completions.create.return_value = completion()
+            result = demo.route(client, "router", "Explain routing.")
+        self.assertEqual(result["serving_model"], "gpt-4.1-mini-2025-04-14")
+        self.assertEqual(result["usage"]["total_tokens"], 30)
+        self.assertEqual(result["answer"], "Paris is the capital of France.")
+        self.assertEqual(result["prompt"], "Explain routing.")
+
     def test_missing_or_invalid_settings_fail_before_authentication(self) -> None:
         cases = (
             [],

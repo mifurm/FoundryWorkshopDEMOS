@@ -141,6 +141,27 @@ That historical certificate is now expired, not a reusable credential. Follow
 the fresh-identity setup above rather than expecting the retained live-run
 identity to authenticate.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs the same
+normal and streaming requests, shows actual usage and both real negative probe
+results. The stream appears after completion rather than incrementally. A
+successful denied-account call is explicitly reported as an unverified negative
+probe; inherited rights can cause this, especially with a local presenter login.
+The hosted app uses its own managed identity, which must receive OpenAI User on
+the primary account only. Do not assign it inference access to the denied account.
+
+Set `UI_FUNDAMENTALS_ENDPOINT`, `UI_FUNDAMENTALS_DENIED_ENDPOINT`, and optionally
+`UI_FUNDAMENTALS_DEPLOYMENT` locally. For hosting, pass `fundamentalsEndpoint`,
+`fundamentalsDeniedEndpoint`, and `fundamentalsDeployment` to the shared template
+while retaining existing parameters. Grant the UI identity primary-account access:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<primary-account-name>" principalId="<ui-system-identity-object-id>"
+```
+
 ## Contracts, costs, and limitations
 
 Bicep accepts `principalId`, `principalType`, `location`; emits `endpoint`, `deployment`,

@@ -77,6 +77,34 @@ def run_agent(client, tracer, deployment, scenario, delay=2.0):
     return trace_id
 
 
+def run_scenarios(endpoint, deployment, connection_string, credential, scenarios, slow_seconds=2.0):
+    from azure.monitor.opentelemetry.exporter import AzureMonitorTraceExporter
+
+    provider = TracerProvider(resource=Resource.create({"service.name": "lab18-workshop-agent"}))
+    provider.add_span_processor(BatchSpanProcessor(AzureMonitorTraceExporter(
+        connection_string=connection_string, credential=credential,
+        disable_offline_storage=True, tracer_provider=provider,
+    )))
+    try:
+        tracer = provider.get_tracer("lab18", "1.0")
+        with AzureOpenAI(
+            azure_endpoint=endpoint, api_version="2024-10-21",
+            azure_ad_token_provider=get_bearer_token_provider(
+                credential, "https://cognitiveservices.azure.com/.default",
+            ),
+        ) as client:
+            results = [
+                {"scenario": scenario, "trace_id": run_agent(client, tracer, deployment, scenario, slow_seconds)}
+                for scenario in scenarios
+            ]
+        if not provider.force_flush(timeout_millis=30000):
+            raise RuntimeError("Telemetry flush timed out")
+        print("Spans flushed. Verify ingestion in Application Insights; export does not prove ingestion.")
+        return results
+    finally:
+        provider.shutdown()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--endpoint", default=os.getenv("AZURE_OPENAI_ENDPOINT"))
@@ -91,29 +119,9 @@ def main():
         parser.error("Set AZURE_OPENAI_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING (or use deployment state).")
     if not 0 <= args.slow_seconds <= 30:
         parser.error("--slow-seconds must be between 0 and 30")
-    from azure.monitor.opentelemetry.exporter import AzureMonitorTraceExporter
-
     with DefaultAzureCredential() as credential:
-        provider = TracerProvider(resource=Resource.create({"service.name": "lab18-workshop-agent"}))
-        provider.add_span_processor(BatchSpanProcessor(AzureMonitorTraceExporter(
-            connection_string=args.connection_string, credential=credential,
-            disable_offline_storage=True, tracer_provider=provider,
-        )))
-        try:
-            tracer = provider.get_tracer("lab18", "1.0")
-            with AzureOpenAI(
-                azure_endpoint=args.endpoint, api_version="2024-10-21",
-                azure_ad_token_provider=get_bearer_token_provider(
-                    credential, "https://cognitiveservices.azure.com/.default",
-                ),
-            ) as client:
-                for scenario in ("normal", "slow", "failed"):
-                    run_agent(client, tracer, args.deployment, scenario, args.slow_seconds)
-            if not provider.force_flush(timeout_millis=30000):
-                raise RuntimeError("Telemetry flush timed out")
-            print("Spans flushed. Verify ingestion in Application Insights; export does not prove ingestion.")
-        finally:
-            provider.shutdown()
+        run_scenarios(args.endpoint, args.deployment, args.connection_string, credential,
+                      ("normal", "slow", "failed"), args.slow_seconds)
 
 
 if __name__ == "__main__":

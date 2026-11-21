@@ -8,6 +8,30 @@ A 3-minute terminal demo: a **writer** drafts a workshop invitation, then an
 Microsoft Agent Framework runs the sequential workflow locally; Microsoft Foundry
 runs the model inference. This is not a portal-authored or hosted workflow.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs this same
+workflow and displays both the writer draft and editor result. It does not send
+the invitation. For local use, set `UI_WORKFLOW_PROJECT_ENDPOINT` to this lab's
+project endpoint before starting the UI; `UI_WORKFLOW_DEPLOYMENT` defaults to
+`gpt-4.1-mini`. Each run incurs two model requests.
+
+For Azure hosting, pass `workflowProjectEndpoint` and optionally `workflowDeployment`
+to the shared UI template, retaining the other existing parameters. Grant its
+system-assigned identity Foundry User at this lab's account scope, with
+`RESOURCE_GROUP` set to the lab 2 resource group:
+
+```bash
+az deployment group create -g "$RESOURCE_GROUP" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-2-account-name>" principalId="<ui-system-identity-object-id>" \
+    roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference
+must be verified separately from deployment.
+
 ## Infrastructure and prerequisites
 
 The standalone Bicep template creates a Foundry account, project, `gpt-4.1-mini`

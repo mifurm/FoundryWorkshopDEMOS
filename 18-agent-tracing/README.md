@@ -43,6 +43,32 @@ does not override other configured credentials.
 The template serializes model deployment and project creation: parallel writes
 to the same Foundry account can fail with ARM `RequestConflict`.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs one
+selected scenario at a time and returns its real trace ID for the query below.
+It uses the same content-free spans and authenticated exporter as the CLI.
+Set `UI_TRACING_ENDPOINT` and `UI_TRACING_CONNECTION_STRING` for local use;
+`UI_TRACING_DEPLOYMENT` defaults to `gpt-4.1-mini`. For Azure hosting, pass
+`tracingEndpoint` and `tracingConnectionString` to the shared template, retaining
+all previously configured parameters. The shared UI's system-assigned identity
+needs Foundry User on this account and Monitoring Metrics Publisher on this
+Application Insights component:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<tracing-account-name>" principalId="<ui-system-identity-object-id>" \
+     roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+az role assignment create --assignee-object-id "<ui-system-identity-object-id>" \
+  --assignee-principal-type ServicePrincipal \
+  --role 3913510d-42f4-4e42-8a64-420c390055eb \
+  --scope "<applicationInsightsResourceId>"
+```
+
+Remove both assignments when removing the UI, or delete this dedicated group
+when finished. Browser sign-in and managed-identity calls need separate verification.
+
 Root runner contracts: `endpoint`, `deployment`, `projectEndpoint` are standard.
 Additional mapping: `applicationInsightsConnectionString` →
 `APPLICATIONINSIGHTS_CONNECTION_STRING`. The demo also reads that output from the

@@ -13,10 +13,8 @@ import zipfile
 
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import (
-    CreateSkillVersionFromFilesBody, MCPToolboxTool, MicrosoftCopilotHarness,
-    MicrosoftCopilotToolsetConfig, MicrosoftCopilotToolsetDefaultConfig,
-    MicrosoftCopilotToolsetPreview, PromptAgentDefinition, SkillReference,
-    ToolSearchToolboxTool,
+    CreateSkillVersionFromFilesBody, MCPToolboxTool, PromptAgentDefinition,
+    SkillReference, ToolSearchToolboxTool,
 )
 from azure.identity import AzureCliCredential
 from mcp import ClientSession
@@ -43,11 +41,12 @@ def settings() -> dict:
     return config
 
 
-def save(report: dict) -> None:
-    STATE.mkdir(exist_ok=True)
-    pending = STATE / "live-report.pending"
+def save(report: dict, state_dir: Path | None = None) -> None:
+    state_dir = state_dir if state_dir is not None else STATE
+    state_dir.mkdir(parents=True, exist_ok=True)
+    pending = state_dir / "live-report.pending"
     pending.write_text(json.dumps(report, indent=2, default=str) + "\n")
-    pending.replace(STATE / "live-report.json")
+    pending.replace(state_dir / "live-report.json")
 
 
 def skill_package(name: str = "workshop-brief") -> bytes:
@@ -109,7 +108,8 @@ def find_tool(objects: list[dict]) -> dict:
     return result
 
 
-async def toolbox_search(project, credential, endpoint: str, report: dict) -> None:
+async def toolbox_search(project, credential, endpoint: str, report: dict, *,
+                         state_dir: Path | None = None) -> None:
     name = "native-search-" + uuid4().hex[:10]
     toolbox = project.toolboxes.create_version(
         name=name, description="Read-only official Learn connector with native deferred discovery.",
@@ -118,9 +118,9 @@ async def toolbox_search(project, credential, endpoint: str, report: dict) -> No
             ToolSearchToolboxTool(),
         ],
     )
-    report["toolbox"] = toolbox.as_dict()
-    save(report)
     try:
+        report["toolbox"] = toolbox.as_dict()
+        save(report, state_dir)
         readback = project.toolboxes.get_version(name=name, version=toolbox.version).as_dict()
         if not any(t.get("type") == "toolbox_search" for t in readback["tools"]):
             raise RuntimeError("Service read-back lacks the native toolbox_search definition.")
@@ -160,10 +160,15 @@ async def toolbox_search(project, credential, endpoint: str, report: dict) -> No
     finally:
         project.toolboxes.delete(name=name)
         report["toolbox_deleted"] = True
-        save(report)
+        save(report, state_dir)
 
 
 def managed_harness(project, config: dict, report: dict) -> None:
+    from azure.ai.projects.models import (
+        MicrosoftCopilotHarness, MicrosoftCopilotToolsetConfig,
+        MicrosoftCopilotToolsetDefaultConfig, MicrosoftCopilotToolsetPreview,
+    )
+
     suffix = uuid4().hex[:10]
     name, skill_name = "native-harness-" + suffix, "workshop-brief-" + suffix
     with ExitStack() as cleanup:

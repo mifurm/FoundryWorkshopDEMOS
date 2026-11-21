@@ -72,6 +72,35 @@ content belongs in this report. The cloud judge uses the deployment's supported
 default coherence grading threshold; the release threshold gates its pass rate.
 `--judge-deployment` can select a separate supported judge deployment.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs the
+baseline or intentionally regressed prompt against the same three cases and
+cloud coherence evaluator. It reports both accuracy/coherence rates and whether
+the release gate passed; a blocked gate is a valid completed exercise, not a
+deployment. The UI does not start GitHub Actions or publish software.
+
+Runs use the shared background worker. Reloading observes the latest persisted
+status instead of submitting another run. A restart marks an unfinished run
+interrupted; cloud evaluation may continue and incur charges. Inspect Azure and
+application logs for leftover temporary agents and evaluation runs before
+acknowledging and retrying.
+
+Set `UI_CICD_PROJECT_ENDPOINT` for local use (`UI_CICD_DEPLOYMENT` defaults to
+`gpt-4.1-mini`). For Azure hosting, pass `cicdProjectEndpoint` to the shared
+template, retaining all other parameters, and grant the UI's system identity
+Foundry User on this lab's account:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<evaluation-ci-account-name>" principalId="<ui-system-identity-object-id>" \
+     roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove the role when removing the UI, or delete this dedicated group when
+finished. Hosted browser sign-in and managed-identity calls need separate verification.
+
 ## GitHub Actions and secretless Azure access
 
 The workflow is installed at

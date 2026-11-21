@@ -60,6 +60,20 @@ This is not a custom hosted agent/container or an Agent Application publication.
 It is a saved Foundry Agent Service prompt agent with a cloud-executed OpenAPI
 tool, usable from the portal **without a local function-call loop**.
 
+## Browser UI
+
+The authenticated [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+can preview any approved invoice and run the saved cloud agent against it.
+The result includes the actual Document Intelligence operation, extracted
+fields, confidence and human-review decision. Each run incurs model and page
+charges. Configure the UI template's `documentProjectEndpoint` and grant its
+managed identity Foundry User access to this lab's project.
+
+The current presentation deployment shares lab 4's dedicated Function plan
+via `existingFunctionPlanId` instead of creating another plan. The Function
+depends on that plan: do not delete lab 4's resource group while lab 34 is in
+use. Omitting that parameter preserves this lab's standalone plan.
+
 ## Prerequisites and costs
 
 - Python 3.10+, Node.js 22+ (offline tool tests), Azure CLI and Bicep.
@@ -207,8 +221,10 @@ with a 120-second maximum delay; exhausted retries still fail visibly.
 ## Cleanup
 
 Delete the dedicated group after the presentation; this removes the persistent
-agent/project, connection secret, Document Intelligence, Function plan and
-Storage together. Do not delete a group shared with unrelated resources.
+agent/project, connection secret, Document Intelligence, Function and Storage.
+The standalone template also creates a plan in this group; an explicitly shared
+plan remains in its original group. Do not delete a group shared with unrelated
+resources.
 
 ```bash
 az group delete --name rg-foundry-document-intelligence-demo --yes

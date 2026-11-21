@@ -25,6 +25,12 @@ class SafetyTests(unittest.TestCase):
         self.assertEqual(options.text, "Hello")
         self.assertEqual(options.output_type, "FourSeverityLevels")
 
+    def test_result_exposes_actual_category_scores_and_policy(self):
+        result = demo.analyze_result(self.client(2), "Hello", 4)
+        self.assertEqual(result["scores"], {category: 2 for category in demo.CATEGORIES})
+        self.assertEqual(result["threshold"], 4)
+        self.assertFalse(result["blocked"])
+
     def test_missing_categories_or_invalid_scores_fail(self):
         for client in (self.client(None), self.client(3), Mock(
                 analyze_text=Mock(return_value=SimpleNamespace(categories_analysis=[])))):

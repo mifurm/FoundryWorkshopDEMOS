@@ -10,6 +10,24 @@ The held-out gate approves only an improved candidate with score ≥0.8; ties/re
 
 If generation is unavailable, the optimizer still attempts the documented two-row inline training alternative to collect independent native optimizer evidence; **overall status remains BLOCKED** because the requested generated dataset did not succeed. No offline fallback can produce live PASS.
 
+## Browser UI: evaluator portion only
+
+The authenticated [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+can generate two actual synthetic pricing tool traces and run all three native
+cloud evaluators as a background job. It reports evaluator results separately;
+dataset generation and native optimization are **not run** in the shared UI.
+The shared runtime's SDK supports this evaluator stage, but the optimizer needs
+the standalone lab's newer, separately installed SDK. Configure the UI template
+parameters `evaluatorEndpoint`, `evaluatorProjectEndpoint`, and
+`evaluatorDeployment`, and grant the UI's system-assigned identity Foundry User
+on this lab's account. Review the saved job and evaluation IDs before retrying an
+interrupted job; model and evaluation calls incur charges.
+
+A local UI run against the deployed lab returned two real tool traces and six
+cloud scores (5/5 for each evaluator on each trace); generation and optimization
+were not run. Hosted presenter sign-in and managed-identity execution have not
+been verified.
+
 ## Run
 
 Requires Python 3.10+, Azure CLI/Bicep, a signed-in Entra user with resource

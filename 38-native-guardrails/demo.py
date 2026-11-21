@@ -120,11 +120,11 @@ def request_restricted_with_propagation(session, url, headers, prompt, wait_seco
         time.sleep(min(25, remaining))
 
 
-def run():
-    config = settings()
+def run(*, config=None, credential=None):
+    config = settings() if config is None else config
     if not all(config.values()):
         raise RuntimeError("Deploy first: endpoint, deployment and accountResourceId are required.")
-    credential = AzureCliCredential()
+    credential = AzureCliCredential() if credential is None else credential
     session = requests.Session()
     arm_header = {"Authorization": "Bearer " + credential.get_token("https://management.azure.com/.default").token}
     resource = requests.get(
@@ -162,19 +162,20 @@ def run():
     return evidence
 
 
-def run_agent():
+def run_agent(*, config=None, project_endpoint=None, deployment=None, credential=None, agent_name=None):
     from azure.ai.projects import AIProjectClient
     from azure.ai.projects.models import PromptAgentDefinition, RaiConfig
 
-    outputs = json.loads((ROOT / ".azure" / "deployment.json").read_text())["outputs"]
-    endpoint = outputs.get("projectEndpoint", {}).get("value") or os.getenv("FOUNDRY_PROJECT_ENDPOINT")
-    deployment = outputs.get("agentDeployment", {}).get("value")
-    if not endpoint or not deployment:
+    if project_endpoint is None or deployment is None:
+        outputs = json.loads((ROOT / ".azure" / "deployment.json").read_text())["outputs"]
+        project_endpoint = project_endpoint or outputs.get("projectEndpoint", {}).get("value") or os.getenv("FOUNDRY_PROJECT_ENDPOINT")
+        deployment = deployment or outputs.get("agentDeployment", {}).get("value")
+    if not project_endpoint or not deployment:
         raise RuntimeError("Native agent projectEndpoint/agentDeployment outputs are required.")
-    credential = AzureCliCredential()
+    credential = AzureCliCredential() if credential is None else credential
     evidence = {"stage": "native-agent", "status": "BLOCKED", "probes": []}
     # Prove the agent model itself does not supply the custom guardrail.
-    config = settings()
+    config = settings() if config is None else config
     r, body = request_with_filter_readiness(
         requests, f"{config['endpoint'].rstrip('/')}/openai/deployments/{deployment}/chat/completions",
         {"Authorization": "Bearer " + credential.get_token("https://cognitiveservices.azure.com/.default").token},
@@ -183,9 +184,9 @@ def run_agent():
     evidence["unguarded_model"] = {"status": r.status_code, "body": body}
     if not usable_unfiltered_response(r.status_code, body):
         raise RuntimeError(f"Unguarded model control failed: {json.dumps(evidence)}")
-    with AIProjectClient(endpoint=endpoint, credential=credential, allow_preview=True) as project:
+    with AIProjectClient(endpoint=project_endpoint, credential=credential, allow_preview=True) as project:
         for policy_reference in (f"{config['account']}/raiPolicies/{POLICY}",):
-            name = "native-guardrails-" + uuid4().hex[:12]
+            name = agent_name or "native-guardrails-" + uuid4().hex[:12]
             created = False
             probe = {"agent_name": name, "policy_reference": policy_reference}
             evidence["probes"].append(probe)

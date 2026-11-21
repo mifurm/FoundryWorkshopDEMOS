@@ -7,12 +7,15 @@ import os
 from agent_framework import AgentResponse
 from agent_framework.foundry import FoundryChatClient
 from azure.ai.projects.aio import AIProjectClient
-from azure.identity.aio import AzureCliCredential
+from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
 
-import concurrent_sample
-import group_chat
-import magentic
-import sequential
+if __package__:
+    from . import concurrent_sample, group_chat, magentic, sequential
+else:
+    import concurrent_sample
+    import group_chat
+    import magentic
+    import sequential
 
 
 SAMPLES = {
@@ -21,33 +24,44 @@ SAMPLES = {
 }
 
 
-def show(outputs: list[object], label: str) -> None:
+def show(outputs: list[object], label: str) -> list[dict[str, str]]:
     if not outputs:
         raise RuntimeError(f"{label}: no workflow output.")
+    result = []
     for output in outputs:
         if not isinstance(output, AgentResponse) or not output.text.strip():
             raise RuntimeError(f"{label}: expected a nonempty AgentResponse.")
         names = ", ".join(dict.fromkeys(message.author_name or "agent" for message in output.messages))
         print(f"\n[{names}]\n{output.text}")
+        result.append({"authors": names, "text": output.text})
+    return result
 
 
-async def run_samples(endpoint: str, deployment: str, pattern: str) -> None:
+async def run_samples(
+    endpoint: str, deployment: str, pattern: str,
+    credential: AzureCliCredential | ManagedIdentityCredential | None = None,
+    timeout: float = 300,
+) -> list[dict]:
     async with (
-        AzureCliCredential() as credential,
-        AIProjectClient(endpoint=endpoint, credential=credential) as project,
+        (credential if credential is not None else AzureCliCredential()) as active_credential,
+        AIProjectClient(endpoint=endpoint, credential=active_credential) as project,
     ):
         client = FoundryChatClient(project_client=project, model=deployment)
         samples = SAMPLES if pattern == "all" else {pattern: SAMPLES[pattern]}
+        results = []
         for name, sample in samples.items():
             print(f"\n=== {name.upper()} ===\nTask: {sample.PROMPT}", flush=True)
             workflow = sample.build(client)
-            result = await asyncio.wait_for(workflow.run(sample.PROMPT), timeout=300)
+            result = await asyncio.wait_for(workflow.run(sample.PROMPT), timeout=timeout)
             intermediate = result.get_intermediate_outputs()
+            updates = []
             if intermediate:
                 print("\nParticipant updates:")
-                show(intermediate, name)
+                updates = show(intermediate, name)
             print("\nWorkflow output:")
-            show(result.get_outputs(), name)
+            results.append({"pattern": name, "prompt": sample.PROMPT,
+                            "intermediate": updates, "outputs": show(result.get_outputs(), name)})
+        return results
 
 
 def main() -> None:

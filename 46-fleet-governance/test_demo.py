@@ -75,6 +75,19 @@ class FleetTests(unittest.TestCase):
             with self.assertRaises(demo.Blocked):
                 demo.configuration()
 
+    def test_injected_configuration_rejects_resources_outside_fleet_group(self):
+        group = "rg-foundry-fleet-governance-demo"
+        resource = f"/subscriptions/sub/resourceGroups/{group}/providers/example"
+        values = {key: "configured" for key in demo.OUTPUT_ENV}
+        values.update({key: resource for key in ("projectResourceId", "secondProjectResourceId",
+                                                 "applicationInsightsResourceId", "policyAssignmentId")})
+        values.update({key: "https://example.test/" for key in
+                       ("endpoint", "projectEndpoint", "secondProjectEndpoint")})
+        self.assertEqual(demo.validate_configuration(values, group)["endpoint"], "https://example.test")
+        values["projectResourceId"] = "/subscriptions/sub/resourceGroups/other/providers/example"
+        with self.assertRaisesRegex(ValueError, "designated synthetic"):
+            demo.validate_configuration(values, group)
+
     def test_errors_never_log_credentials(self):
         credential = Mock()
         credential.get_token.return_value.token = "SECRET"

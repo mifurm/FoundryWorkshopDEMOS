@@ -268,6 +268,42 @@ class BasicsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "different endpoint"):
                 demo.run_batch(client, "https://other.org", "batch-alias", state_dir, None, 0)
 
+    def test_ui_can_show_pending_batch_without_resubmitting(self):
+        client = Mock()
+        client.files.create.return_value = NS(id="input-123")
+        client.batches.create.return_value = NS(id="batch-123")
+        client.batches.retrieve.return_value = NS(status="in_progress", request_counts=None)
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(StringIO()):
+            for _ in range(2):
+                result = demo.run_batch(client, "https://example.org", "batch", Path(directory),
+                                        None, 0, allow_pending=True)
+                self.assertEqual(result, {"status": "in_progress", "batch_id": "batch-123", "results": None})
+        client.batches.create.assert_called_once()
+
+    def test_ui_sampling_rejects_combined_parameters_and_reports_real_result(self):
+        client = Mock()
+        result = completion()
+        result.usage.model_dump = lambda **kwargs: {"completion_tokens": 5}
+        client.chat.completions.create.return_value = result
+        with redirect_stdout(StringIO()):
+            data = demo.ui_sampling(client, "chat", 0.7, 1)
+        self.assertEqual(data["answer"], "Workshop Sparks")
+        self.assertEqual(data["usage"]["completion_tokens"], 5)
+        with self.assertRaisesRegex(ValueError, "one sampling parameter"):
+            demo.ui_sampling(client, "chat", 0.7, 0.8)
+        client.chat.completions.create.assert_called_once()
+
+    def test_ui_compare_returns_each_validated_result(self):
+        client = Mock()
+        chat, reasoning = completion('{"minutes":11}'), completion('{"minutes":12}')
+        chat.usage.model_dump = reasoning.usage.model_dump = lambda **kwargs: {"completion_tokens": 5}
+        client.chat.completions.create.side_effect = [chat, reasoning]
+        with redirect_stdout(StringIO()):
+            result = demo.ui_compare(client, "chat", "reasoning", "low")
+        self.assertEqual([item["minutes"] for item in result["results"]], [11, 12])
+        self.assertEqual([item["matches_reference"] for item in result["results"]], [True, False])
+        self.assertEqual(client.chat.completions.create.call_args_list[1].kwargs["reasoning_effort"], "low")
+
     def test_completed_explicit_batch_downloads_and_validates_without_submission(self):
         client = Mock()
         client.batches.retrieve.return_value = NS(

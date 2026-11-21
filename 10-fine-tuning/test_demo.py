@@ -28,7 +28,9 @@ class FineTuningTests(unittest.TestCase):
     def test_submits_single_epoch_supervised_global_training(self):
         client = Mock()
         client.files.create.return_value.id = "file-1"
-        demo.submit(client, demo.MODEL)
+        on_upload = Mock()
+        demo.submit(client, demo.MODEL, on_upload=on_upload)
+        on_upload.assert_called_once_with("file-1")
         client.files.wait_for_processing.assert_called_once_with("file-1")
         kwargs = client.fine_tuning.jobs.create.call_args.kwargs
         self.assertEqual(kwargs["model"], "gpt-4.1-mini-2025-04-14")

@@ -184,6 +184,43 @@ class MemoryTests(unittest.TestCase):
             self.run_demo()
         self.assert_store_cleaned()
 
+    def test_presenter_memory_runs_real_single_scope_lifecycle_and_cleans_up(self):
+        with redirect_stdout(self.output):
+            result = demo.demonstrate_presenter(self.project, "chat", "embedding", FIRST, "ui-memory-test")
+        self.assertEqual(result["recalled"], {"coffee": result["synthetic_preference"]})
+        self.assertEqual(result["after_forgetting"], {"coffee": None})
+        self.assertEqual(result["two_user_isolation"], "NOT_RUN")
+        self.assertTrue(result["store_deleted"])
+        self.assertEqual(len(self.clients), 3)
+        self.assert_store_cleaned()
+        self.store.delete_scope.assert_called_once_with(name="ui-memory-test", scope=FIRST.scope)
+        self.assertNotIn(FIRST.scope, self.saved)
+
+    def test_presenter_memory_cleanup_on_failed_recall(self):
+        with patch.object(demo, "check_answer", side_effect=RuntimeError("wrong answer")):
+            with redirect_stdout(self.output), self.assertRaisesRegex(RuntimeError, "wrong answer"):
+                demo.demonstrate_presenter(self.project, "chat", "embedding", FIRST, "ui-memory-test")
+        self.assert_store_cleaned()
+        self.assertEqual(self.project.agents.delete.call_count, 2)
+
+    def test_extraction_accepts_observed_service_created_operation(self):
+        result = models.MemoryStoreUpdateCompletedResult(
+            memory_operations=[models.MemoryOperation(kind="created", memory_item=item(FIRST.scope, "ORCHID123"))],
+            usage=usage(),
+        )
+        poller = Mock(update_id="update-test", superseded_by=None)
+        poller.result.return_value = result
+        poller.done.return_value = True
+        poller.status.return_value = "completed"
+        self.store.begin_update_memories.side_effect = None
+        self.store.begin_update_memories.return_value = poller
+        with redirect_stdout(self.output):
+            demo.extract(self.store, "store", FIRST, "synthetic seed", "ORCHID123")
+            for scope, content in ((SECOND.scope, "ORCHID123"), (FIRST.scope, "OTHER")):
+                result.memory_operations = [models.MemoryOperation(kind="created", memory_item=item(scope, content))]
+                with self.subTest(scope=scope, content=content), self.assertRaises(RuntimeError):
+                    demo.extract(self.store, "store", FIRST, "synthetic seed", "ORCHID123")
+
     def test_extraction_failure_cleans_up_and_does_not_claim_success(self):
         self.store.begin_update_memories.side_effect = RuntimeError("extraction failed")
         with self.assertRaisesRegex(RuntimeError, "extraction failed"):

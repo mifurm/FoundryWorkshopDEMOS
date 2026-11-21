@@ -46,6 +46,22 @@ explicit extraction operations write memories.
 
 No skill is added: this lab teaches state lifecycle, not procedure packaging.
 
+## Browser UI: presenter portion only
+
+The authenticated [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+can create a temporary native store, extract one synthetic preference, recall it
+in a fresh conversation, and verify scope deletion for the authenticated
+presenter. It does **not** run or claim the standalone two-user isolation test.
+The hosted app verifies Easy Auth presenter claims and uses its managed identity
+for Foundry; the local UI verifies the CLI user via Graph. Configure
+`memoryProjectEndpoint`, `memoryDeployment`, and `memoryEmbedding`, and grant
+the app identity Foundry User on this lab's account.
+
+The store and temporary agents are deleted after a normal run. If interrupted,
+inspect the named store and agent logs before retrying; paid cloud operations can
+continue after interruption. The low-level scope is a trusted-backend partition,
+not an Entra ACL.
+
 ## Authentication and trusted scope boundary
 
 Like lab 21, **both end-user identities are real**, but Azure resource access is
@@ -110,8 +126,8 @@ python demo.py --preflight
 Protect both CLI caches; do not commit or share them. `--preflight` authenticates
 via CLI/Graph but makes **no Foundry, model, provisioning or paid inference
 calls**. It does not prove Foundry access, quota, preview support or model
-compatibility. Live execution repeats preflight before creating a store. Failed
-authentication never falls back to synthetic users or a one-user demo.
+compatibility. The standalone two-user entry point repeats preflight before
+creating a store and never falls back to synthetic users or a one-user demo.
 
 ## Deploy and run
 
@@ -156,7 +172,9 @@ IDs, temporary resource IDs, preferences and actual returned usage are printed.
 
 This is preview software pinned to `azure-ai-projects==2.7.0`. The SDK's update
 poller returns `MemoryStoreUpdateCompletedResult.memory_operations` directly,
-not an extra `.result` wrapper; operation kinds are `create`/`update`/`delete`.
+not an extra `.result` wrapper. The SDK enum lists `create`/`update`/`delete`,
+but a live service response returned `created`; the gate accepts that observed
+value only when the exact synthetic preference and scope also match.
 The installed SDK wire-format tests cover the actual message serialization,
 polling and deserialization, not just hand-written stand-in payloads.
 
@@ -194,7 +212,10 @@ the installed SDK's real native-memory operations through an in-memory HTTP
 transport. They check extraction, independent conversations/no history replay,
 scopes, native search, forgetting, failure handling and cleanup. They do **not**
 prove live extraction quality, identity permissions or Foundry availability.
-No Azure deployment or paid request was used to validate this implementation.
+A local UI run against the deployed lab verified one Graph-authenticated
+presenter's native extraction, fresh-conversation recall, forgetting and store
+cleanup. The full two-user workflow and hosted managed-identity execution were
+not verified in that run.
 
 ## Cleanup
 

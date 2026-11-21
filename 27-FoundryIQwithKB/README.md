@@ -156,6 +156,169 @@ creating another version:
   "What is the exact warranty replacement price and next year's Surface Laptop specification?"
 ```
 
+For a browser interface to the same agent, run `.venv/bin/python ui.py` from
+this folder and open <http://127.0.0.1:8027>. The UI validates that the agent
+used the knowledge-base tool and that cited IDs appear in its evidence. Each
+question is a new request and incurs Azure usage charges. The server uses the
+presenter's Azure CLI credentials and binds only to loopback by default. The
+same page also supports [lab 0](../0-model-basics/README.md#browser-ui),
+[lab 1](../1-model-router/README.md#browser-ui),
+[lab 2](../2-workflow-agent/README.md#browser-ui),
+[lab 3](../3-webiq-agent/README.md#browser-ui),
+[lab 4](../4-agent-tools/README.md#browser-ui),
+[lab 5](../5-decision-model/README.md#browser-ui),
+[lab 6](../6-content-safety/README.md#browser-ui),
+[lab 7](../7-semantic-cache/README.md#browser-ui),
+[lab 8](../8-agent-evaluation/README.md#browser-ui),
+[lab 10](../10-fine-tuning/README.md#browser-ui),
+[lab 11](../11-foundry-iq/README.md#browser-ui),
+[lab 13](../13-agent-orchestrations/README.md#browser-ui),
+[lab 14](../14-foundry-fundamentals/README.md#browser-ui),
+[lab 15](../15-model-benchmark/README.md#browser-ui),
+[lab 16](../16-structured-outputs/README.md#browser-ui),
+[lab 17](../17-rag-fundamentals/README.md#browser-ui),
+[lab 18](../18-agent-tracing/README.md#browser-ui),
+[lab 19](../19-conversation-state/README.md#browser-ui),
+[lab 20](../20-human-approval/README.md#browser-ui),
+[lab 22](../22-prompt-injection/README.md#browser-ui),
+[lab 23](../23-evaluation-cicd/README.md#browser-ui),
+[lab 24](../24-agent-lifecycle/README.md#browser-ui),
+[lab 25](../25-resilience-cost/README.md#browser-ui),
+[lab 26](../26-multimodal/README.md#browser-ui),
+[lab 28](../28-agent-skills/README.md#browser-ui),
+[lab 29](../29-toolbox-skill-discovery/README.md#browser-ui),
+[lab 30](../30-skill-data-analyst/README.md#browser-ui),
+[lab 33](../33-skill-release-governance/README.md#browser-ui),
+[lab 34](../34-document-intelligence/README.md#browser-ui),
+[lab 36](../36-hosted-agent/README.md#shared-azure-hosted-ui),
+[lab 37](../37-production-monitoring/README.md#shared-azure-hosted-ui),
+[lab 38](../38-native-guardrails/README.md#browser-ui),
+[lab 40](../40-voice-agent/README.md#browser-ui),
+[lab 41](../41-content-understanding/README.md#browser-ui), and
+[lab 46](../46-fleet-governance/README.md#browser-ui) when their separate Azure endpoints are configured.
+[Lab 31](../31-native-agent-memory/README.md#browser-ui-presenter-portion-only)
+demonstrates one authenticated presenter's memory lifecycle, not two-user isolation.
+[Lab 42](../42-managed-harness-tool-search/README.md#browser-ui-tool-search-portion-only)
+has a partial UI for native tool search; its managed harness remains standalone.
+[Lab 44](../44-evaluation-optimizer/README.md#browser-ui-evaluator-portion-only)
+has a partial UI for cloud evaluators; dataset generation and optimization remain
+standalone.
+Other labs have read-only guides in the UI, clearly labeled as not executable
+there. The local Polish Phi exercise in lab 10 also remains guide-only.
+
+### Azure-hosted UI
+
+The optional UI hosting template uses App Service authentication restricted to
+one presenter object ID. A system-assigned identity calls Foundry; a separate
+user-assigned identity provides a federated client assertion for sign-in. No
+presenter token or client secret is packaged. This is a single-presenter
+workshop UI, not document-level authorization or a production multi-user app.
+The Free App Service tier has limited compute and can sleep; model and Search
+charges still apply. The selected subscription must have Free Linux App Service
+quota in the hosting region, which may differ from the Foundry region.
+
+Deploy the lab and run `demo.py` first. The following example creates a **new**
+Entra application registration as well as an App Service; it needs permission
+to create app registrations and Azure role assignments. Use a globally unique
+`WEBAPP`, the deployed Foundry account name, and a region with quota. Run from
+this folder, signed in to the intended subscription:
+
+```bash
+RG="rg-foundry-FoundryIQwithKB-demo"
+WEBAPP="<globally-unique-web-app-name>"
+LOCATION="swedencentral"
+ACCOUNT="<deployed-foundry-account-name>"
+PROJECT_ENDPOINT="https://${ACCOUNT}.services.ai.azure.com/api/projects/surface-support"
+USER_ID="$(az ad signed-in-user show --query id -o tsv)"
+TENANT="$(az account show --query tenantId -o tsv)"
+
+az deployment group create -g "$RG" -n lab27-ui-identity \
+  --template-file infra/ui-identity.bicep --query properties.outputs -o json
+IDENTITY_ID="$(az identity show -g "$RG" -n surface-iq-ui-auth --query id -o tsv)"
+IDENTITY_CLIENT="$(az identity show -g "$RG" -n surface-iq-ui-auth --query clientId -o tsv)"
+IDENTITY_OBJECT="$(az identity show -g "$RG" -n surface-iq-ui-auth --query principalId -o tsv)"
+APP_ID="$(az ad app create --display-name "${WEBAPP}-signin" \
+  --sign-in-audience AzureADMyOrg --enable-id-token-issuance true \
+  --web-redirect-uris "https://${WEBAPP}.azurewebsites.net/.auth/login/aad/callback" \
+  --query appId -o tsv)"
+az ad sp create --id "$APP_ID"
+az ad app federated-credential create --id "$APP_ID" --parameters \
+  "{\"name\":\"lab27-app-service\",\"issuer\":\"https://login.microsoftonline.com/${TENANT}/v2.0\",\"subject\":\"${IDENTITY_OBJECT}\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+```
+
+Save `APP_ID` for cleanup: the tenant-level registration is **not** deleted with
+the resource group. Provision the web app with public access disabled first:
+
+```bash
+az deployment group create -g "$RG" -n lab27-ui --template-file infra/ui.bicep \
+  --parameters location="$LOCATION" webAppName="$WEBAPP" authClientId="$APP_ID" \
+  authIdentityId="$IDENTITY_ID" authIdentityClientId="$IDENTITY_CLIENT" \
+  allowedUserId="$USER_ID" projectEndpoint="$PROJECT_ENDPOINT" foundryAccountName="$ACCOUNT"
+```
+
+In the Azure portal, verify Authentication is enabled, authentication is required,
+and the allowed identity is the intended presenter. Then repeat that same
+deployment adding `publicAccess=true` to the `--parameters` list. From the
+repository root, package only the required runtime files and deploy them:
+
+```bash
+cd ..
+zip -j -FS 27-FoundryIQwithKB/.azure/ui.zip 27-FoundryIQwithKB/requirements.txt
+zip 27-FoundryIQwithKB/.azure/ui.zip \
+  27-FoundryIQwithKB/ui.py 27-FoundryIQwithKB/demo.py 27-FoundryIQwithKB/index.html \
+  0-model-basics/demo.py 1-model-router/demo.py 2-workflow-agent/demo.py 3-webiq-agent/demo.py \
+  4-agent-tools/demo.py 4-agent-tools/openapi.json \
+  5-decision-model/demo.py 6-content-safety/demo.py 7-semantic-cache/demo.py \
+  8-agent-evaluation/demo.py 10-fine-tuning/demo.py 10-fine-tuning/training.jsonl 11-foundry-iq/demo.py \
+  13-agent-orchestrations/demo.py 13-agent-orchestrations/sequential.py \
+  13-agent-orchestrations/concurrent_sample.py 13-agent-orchestrations/group_chat.py 13-agent-orchestrations/magentic.py \
+  14-foundry-fundamentals/demo.py 15-model-benchmark/demo.py 16-structured-outputs/demo.py \
+  17-rag-fundamentals/demo.py 18-agent-tracing/demo.py \
+  19-conversation-state/demo.py 20-human-approval/demo.py 22-prompt-injection/demo.py \
+  23-evaluation-cicd/demo.py 23-evaluation-cicd/dataset.json \
+  23-evaluation-cicd/prompts/baseline.txt 23-evaluation-cicd/prompts/regression.txt 24-agent-lifecycle/demo.py \
+  25-resilience-cost/demo.py 26-multimodal/demo.py \
+  26-multimodal/images/clear.png 26-multimodal/images/ambiguous.png \
+  28-agent-skills/demo.py 28-agent-skills/skills/workshop-brief/SKILL.md \
+  29-toolbox-skill-discovery/demo.py 29-toolbox-skill-discovery/skills/workshop-brief/SKILL.md \
+  29-toolbox-skill-discovery/skills/workshop-brief/references/checklist.md \
+  29-toolbox-skill-discovery/skills/support-triage/SKILL.md \
+  29-toolbox-skill-discovery/skills/incident-summary/SKILL.md \
+  30-skill-data-analyst/demo.py 30-skill-data-analyst/skills/csv-analyst/SKILL.md \
+  31-native-agent-memory/demo.py \
+  33-skill-release-governance/demo.py 33-skill-release-governance/skills/pricing-v1/SKILL.md \
+  33-skill-release-governance/skills/pricing-v2/SKILL.md \
+  34-document-intelligence/demo.py 34-document-intelligence/openapi.json \
+  34-document-intelligence/samples/manifest.json 34-document-intelligence/samples/*.pdf \
+  36-hosted-agent/demo.py 37-production-monitoring/demo.py 38-native-guardrails/demo.py \
+  40-voice-agent/demo.py 40-voice-agent/assets/turn.wav \
+  41-content-understanding/demo.py 41-content-understanding/assets/notice.pdf \
+  41-content-understanding/assets/notice.wav \
+  42-managed-harness-tool-search/demo.py 44-evaluation-optimizer/demo.py \
+  46-fleet-governance/demo.py 46-fleet-governance/data/fleet.json \
+  9-agent-red-teaming/README.md 10-fine-tuning/README.md 12-entra-agent-id/README.md \
+  21-permission-aware-retrieval/README.md 31-native-agent-memory/README.md \
+  32-browser-runbook/README.md 35-work-iq/README.md 39-gateway-token-limits/README.md \
+  42-managed-harness-tool-search/README.md 43-agent-routines/README.md \
+  44-evaluation-optimizer/README.md 45-governed-iq/README.md
+az webapp deploy -g "$RG" -n "$WEBAPP" \
+  --src-path 27-FoundryIQwithKB/.azure/ui.zip --type zip --clean true --track-status false
+```
+
+The template replaces App Service settings. Before updating an existing UI,
+preserve all current `lab27-ui` deployment parameters and add any new lab
+parameters; omitting an existing value can disable an already configured lab.
+
+Open `https://<web-app-name>.azurewebsites.net/` and sign in as the allowed
+presenter. Anonymous API requests must return 401; other users must be denied.
+Validate a real answer after login. A successful ARM deployment alone does not
+prove browser sign-in, managed-identity permissions, or live retrieval.
+Removing the resource group deletes the hosting resources, but also delete the
+dedicated Entra application registration with `az ad app delete --id "$APP_ID"`.
+If labs 0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 36, 37, 38, 40, 41, 42, 44 or 46 were enabled, remove their separate role assignments as
+described in their READMEs. Do not delete an application registration shared
+with other workloads.
+
 ## Capabilities to demonstrate
 
 Based on [Microsoft Learn: Foundry IQ capabilities](https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq?tabs=portal#capabilities):

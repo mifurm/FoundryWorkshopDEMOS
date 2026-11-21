@@ -47,12 +47,15 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
                     with self.assertRaisesRegex(RuntimeError, "inference failed"):
                         await demo.run_agent("https://example/api/projects/demo", "model", "https://tool/api", 12)
                 else:
-                    await demo.run_agent("https://example/api/projects/demo", "model", "https://tool/api", 12)
+                    result = await demo.run_agent("https://example/api/projects/demo", "model", "https://tool/api", 12)
             tool = project.toolboxes.create_version.call_args.kwargs["tools"][0]
             self.assertEqual(tool.openapi.spec["servers"], [{"url": "https://tool/api"}])
             self.assertEqual(tool.openapi.auth.type, "anonymous")
             self.assertIn("/versions/1/mcp?api-version=v1", toolbox.call_args.kwargs["url"])
             project.toolboxes.delete_version.assert_awaited_once_with(name="tools", version="1")
+            if not failure:
+                self.assertIn("workshop-price-tool-v1", result["tool_results"][0])
+                self.assertIn("USD 300", result["answer"])
 
     def test_tool_evidence_required(self) -> None:
         with redirect_stdout(io.StringIO()) as text:

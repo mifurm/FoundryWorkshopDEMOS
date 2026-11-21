@@ -123,3 +123,44 @@ az group delete --subscription "<subscription-id>" --name rg-foundry-agent-skill
 The pinned `azure-ai-projects==2.7.0` SDK exposes `download_version`; some Learn
 examples use `download_content` for the default version. This demo uses the
 installed SDK's version-specific operation and never follows the default alias.
+
+## Browser UI
+
+The [lab 27 browser UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) also
+supports this demo. It shows the two actual responses, token usage, skill version,
+and contract checks; temporary skill and agent cleanup remains part of the
+underlying workflow. Use synthetic titles. Each comparison incurs two model
+requests. It is not a native autonomous skills-discovery demonstration.
+
+For local use, after deploying both labs, set `UI_SKILLS_PROJECT_ENDPOINT` to
+this lab's `projectEndpoint` output and start lab 27's `ui.py`. The UI uses the
+presenter's Azure CLI identity.
+
+For Azure use, first deploy the UI using lab 27's instructions. Give its
+system-assigned identity access only to this lab's project:
+
+```bash
+UI_RG="<lab-27-ui-resource-group>"
+WEBAPP="<lab-27-ui-app-name>"
+SKILLS_RG="rg-foundry-agent-skills-demo"
+SKILLS_ACCOUNT="<lab-28-foundry-account-name>"
+UI_PRINCIPAL="$(az webapp identity show -g "$UI_RG" -n "$WEBAPP" --query principalId -o tsv)"
+az deployment group create -g "$SKILLS_RG" -n lab28-ui-role \
+  --template-file infra/ui-role.bicep \
+  --parameters accountName="$SKILLS_ACCOUNT" principalId="$UI_PRINCIPAL"
+```
+
+In the lab 27 UI deployment, set `skillProjectEndpoint` to lab 28's
+`projectEndpoint` output (and `skillDeployment` if the model deployment has a
+different name). Redeploy that template with all existing parameters including
+`publicAccess=true`, then deploy the updated UI package. RBAC can take time to
+propagate; errors are shown rather than replaced with fixture answers.
+
+The role assignment is in lab 28's resource group and survives deleting the UI
+resource group. Before removing the UI, remove only that assignment:
+
+```bash
+ROLE_ID="$(az deployment group show -g "$SKILLS_RG" -n lab28-ui-role \
+  --query properties.outputs.roleAssignmentId.value -o tsv)"
+az role assignment delete --ids "$ROLE_ID"
+```

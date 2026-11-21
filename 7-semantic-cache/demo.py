@@ -32,9 +32,10 @@ def answer(client: AzureOpenAI, deployment: str, prompt: str) -> tuple[str, str]
     return text, response.id
 
 
-def present(client: AzureOpenAI, deployment: str) -> None:
+def present(client: AzureOpenAI, deployment: str) -> dict:
     seen_ids: set[str] = set()
     reused = 0
+    requests = []
     for index, prompt in enumerate(PROMPTS):
         if index:
             # Redis storage/index visibility can lag behind the first response.
@@ -46,8 +47,11 @@ def present(client: AzureOpenAI, deployment: str) -> None:
         repeated = response_id in seen_ids
         reused += repeated
         seen_ids.add(response_id)
+        seconds = round(perf_counter() - start, 2)
+        requests.append({"prompt": prompt, "answer": text, "response_id": response_id,
+                         "reused_response": repeated, "seconds": seconds})
         print(f"\n{'REUSED RESPONSE' if repeated else 'NEW RESPONSE ID'}; "
-              f"{perf_counter() - start:.2f}s; id={response_id}\n{prompt}\n{text}")
+              f"{seconds:.2f}s; id={response_id}\n{prompt}\n{text}")
     print(f"\nChat requests sent to APIM: {len(PROMPTS)}; repeated response IDs: {reused}.")
     print("APIM owns embedding calls, cache lookup, and storage. "
           "Confirm HIT/MISS and backend calls in the APIM portal trace.")
@@ -56,6 +60,7 @@ def present(client: AzureOpenAI, deployment: str) -> None:
             "No response reuse observed. Inspect APIM tracing, Redis connectivity, "
             "managed-identity RBAC, threshold, and cache storage/index propagation."
         )
+    return {"requests": requests, "reused_response_ids": reused}
 
 
 def main() -> None:

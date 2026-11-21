@@ -72,6 +72,33 @@ Search's managed identity still calls the account's model endpoint. This lab
 does not create a project-to-Search connection or a portal agent; see lab 27
 for that fuller workflow. Creating a project does not fix a downstream model 408.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) configures the
+same fixed index, knowledge source and base on every run, then shows the actual
+answer, references and retrieval activity. Use only a **dedicated lab Search
+service**: it creates or updates the fixed `workshop-*` resources. Basic Search
+has standing charges. For local use set `UI_IQ_SEARCH_ENDPOINT` and
+`UI_IQ_MODEL_ENDPOINT`; `UI_IQ_DEPLOYMENT` defaults to `gpt-4.1-mini`. For
+hosting, pass `iqSearchEndpoint` and `iqModelEndpoint` to the shared template
+while retaining existing parameters.
+
+The UI system-assigned identity requires Search Service Contributor, Search
+Index Data Contributor and Search Index Data Reader at the lab Search resource.
+Search Service Contributor can manage Search objects; do not grant it on a
+shared production service. Assign these scoped roles using the Search resource
+ID and UI identity object ID:
+
+```bash
+for ROLE in 7ca78c08-252a-4471-8644-bb5ff32d4ba0 8ebe5a00-799e-43f5-93ac-243d3dce84a7 1407120a-92aa-4202-b7e9-c0e197c71c8f; do
+  az role assignment create --assignee-object-id "<ui-system-identity-object-id>" \
+    --assignee-principal-type ServicePrincipal --role "$ROLE" --scope "<lab-search-resource-id>"
+done
+```
+
+Remove the assignments when removing the UI, or delete this dedicated group
+when finished. Browser sign-in and managed-identity calls require separate verification.
+
 ### Updating an existing deployment
 
 Redeploy the template to the same group/account to enable project management,

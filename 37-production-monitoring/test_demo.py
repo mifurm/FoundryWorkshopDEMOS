@@ -2,7 +2,7 @@ import json
 from threading import Thread
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -69,6 +69,17 @@ class MonitoringTests(unittest.TestCase):
         for mode in ("unknown", None, False):
             with self.subTest(mode=mode), self.assertRaises(ValueError):
                 demo.set_mode(mode)
+
+    def test_project_traffic_rejects_stale_route_before_invoking(self):
+        project = MagicMock()
+        project.agents.get.return_value.as_dict.return_value = {
+            "agent_endpoint": {"version_selector": {"version_selection_rules": [{"agent_version": "wrong"}]}}
+        }
+        config = {"agents": {name: {"good_version": "1", "bad_version": "2"} for name in demo.NAMES}}
+        with patch.object(demo, "set_project_mode"):
+            with self.assertRaisesRegex(RuntimeError, "changed before invocation"):
+                demo.project_traffic(project, config, "regression")
+        project.get_openai_client.assert_not_called()
 
     def test_manual_runs_cannot_satisfy_native_monitoring(self):
         with (

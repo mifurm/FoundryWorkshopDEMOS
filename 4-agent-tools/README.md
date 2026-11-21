@@ -5,6 +5,32 @@ The agent discovers a tool through **Foundry Toolbox**, calls a deployed
 **Azure Function**, and explains the returned price: USD 25 per attendee,
 USD 300 total. The script prints the real tool result before the answer.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) accepts an
+attendee count, runs the same temporary Toolbox and agent, and shows the actual
+function result alongside the model answer. It does not purchase or book
+anything. The tool is read-only and public; model usage and the continuously
+billed P0v3 Function plan incur charges.
+
+For local use, set `UI_TOOLS_PROJECT_ENDPOINT` and `UI_TOOLS_FUNCTION_ENDPOINT`
+before starting the UI; `UI_TOOLS_DEPLOYMENT` defaults to `gpt-4.1-mini`. For
+Azure hosting, pass `toolsProjectEndpoint` and `toolsFunctionEndpoint` to the
+shared UI template, retaining the existing parameters. Grant its system-assigned
+identity Foundry User at this lab's account scope, with `RESOURCE_GROUP` set to
+the lab 4 resource group:
+
+```bash
+az deployment group create -g "$RESOURCE_GROUP" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-4-account-name>" principalId="<ui-system-identity-object-id>" \
+    roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity calls must be
+verified separately from deployment.
+
 ## What runs where
 
 - **Bicep:** a Foundry account/project, `gpt-4.1-mini` Global Standard deployment

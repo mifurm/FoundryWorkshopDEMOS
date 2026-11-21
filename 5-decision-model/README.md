@@ -66,6 +66,40 @@ examples and explain that bounded decisions differ from generated prose.
 Three samples are illustrative, not evidence of production accuracy or
 probability calibration. No ticket is actually routed or changed.
 
+### Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+offers the three original synthetic tickets and a custom ticket. Each request
+uses the real Decision API, shows the chosen and expected team and latency,
+and incurs charges. It does not create or route a ticket.
+
+For local use, set `UI_DECISION_ENDPOINT` to this lab's `endpoint` output
+and run lab 27's `ui.py`. For Azure use, first deploy the UI and grant its
+system-assigned identity access:
+
+```bash
+UI_RG="<lab-27-ui-resource-group>"
+WEBAPP="<lab-27-ui-app-name>"
+DECISION_RG="rg-foundry-decision-model-demo"
+DECISION_ACCOUNT="<lab-5-foundry-account-name>"
+UI_PRINCIPAL="$(az webapp identity show -g "$UI_RG" -n "$WEBAPP" --query principalId -o tsv)"
+az deployment group create -g "$DECISION_RG" -n lab5-ui-role \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="$DECISION_ACCOUNT" principalId="$UI_PRINCIPAL" \
+  roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Set `decisionEndpoint` and, if needed, `decisionDeployment` in the lab 27 UI
+deployment. Redeploy it with the existing parameters including
+`publicAccess=true`, then deploy the updated UI package. Remove this separate
+role assignment before deleting the UI:
+
+```bash
+ROLE_ID="$(az deployment group show -g "$DECISION_RG" -n lab5-ui-role \
+  --query properties.outputs.roleAssignmentId.value -o tsv)"
+az role assignment delete --ids "$ROLE_ID"
+```
+
 ### Live verification on 2026-10-26
 
 The Data Zone Standard deployment succeeded in East US 2 in

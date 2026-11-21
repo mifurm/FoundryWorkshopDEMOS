@@ -64,10 +64,25 @@ class InjectionTests(unittest.TestCase):
         )
         output = io.StringIO()
         with patch("demo.complete", side_effect=error), redirect_stdout(output):
-            demo.observe_baseline(Mock(), "model", "source")
+            result = demo.observe_baseline(Mock(), "model", "source")
         self.assertIn("BLOCKED", output.getvalue())
         self.assertIn("no answer was produced", output.getvalue())
         self.assertNotIn("Observed instruction override", output.getvalue())
+        self.assertEqual(result, {"status": "content_filter", "answer": None, "instruction_override": None})
+
+    def test_source_result_keeps_classifier_baseline_and_validated_projection(self):
+        shield = {"documentsAnalysis": [{"attackDetected": True}]}
+        with patch("demo.shield", return_value=shield), \
+                patch("demo.complete", side_effect=["UNRELATED_MARKER", '{"start_time":"09:00"}']), \
+                redirect_stdout(io.StringIO()):
+            result = demo.evaluate_source(Mock(), "model", "tool-output", "https://safety.example", "token")
+        self.assertTrue(result["shield_analysis"]["documentsAnalysis"][0]["attackDetected"])
+        self.assertTrue(result["baseline"]["instruction_override"])
+        self.assertEqual(result["protected"], {"start_time": "09:00"})
+        with patch("demo.shield", return_value=shield), \
+                patch("demo.complete", side_effect=["answer", "not-json"]), \
+                redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "not valid JSON"):
+            demo.evaluate_source(Mock(), "model", "tool-output", "https://safety.example", "token")
 
     def test_unrelated_api_errors_are_not_hidden_as_baseline_blocks(self):
         error = demo.BadRequestError(

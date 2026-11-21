@@ -12,6 +12,13 @@ in the lab descriptions.
 - [Backlog](./BACKLOG.md): acceptance criteria and remaining work.
 - [Cleanup](#remove-all-lab-resource-groups): preview and remove workshop resources.
 
+The optional shared [browser UI](./27-FoundryIQwithKB/README.md#azure-hosted-ui)
+has interactive sections for 35 labs and partial sections for labs 10, 31, 42,
+and 44. Labs 9, 12, 21, 32, 35, 39, 43, and 45 have guide-only entries; use
+their documented interfaces for the actual exercises. The Azure UI requires
+presenter authentication and separate lab resources; a successful deployment
+does not by itself prove a live workflow.
+
 ## Choose a learning path
 
 | Focus | Suggested labs |
@@ -83,8 +90,9 @@ python3 deploy.py --demo 43 --demo 44
 
 Their model/project access checks do not prove advance permission to create
 agent IAM assignments. Read each lab's role requirements before deployment.
-All nine additions are implemented and Azure-deployed, with 178 passing local
-tests. Current native live gates remain blocked for lab 43 (agentic-token
+All nine additions were implemented and historically Azure-deployed, with 178
+passing local tests. Resource groups may have since been removed; verify the
+current deployment before presenting. Native live gates remain blocked for lab 43 (agentic-token
 issuance; tenant/service cause unresolved) and lab 45 (second real user and
 enabled/licensed Fabric prerequisites). Lab 46's API gates passed, but its
 portal Control Plane UI is not verified. See [verification results](./tests.md)

@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 import wave
@@ -30,6 +34,32 @@ def response(modality="document"):
 
 
 class ContentTests(unittest.TestCase):
+    def test_demonstrate_accepts_caller_credential_and_records_both_modalities(self):
+        credential = Mock()
+        operation = SimpleNamespace(status_code=202, headers={"Operation-Location": "https://cu.test/result"})
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("demo.ContentUnderstanding") as cu_type, patch("demo.httpx.Client"):
+            cu = cu_type.return_value
+            cu.configure_defaults.return_value = {"configured": True}
+            cu.ensure_analyzer.side_effect = lambda name, analyzer: analyzer
+            cu.request.return_value = operation
+            cu.poll.side_effect = [response("document"), response("audio")]
+            result = demo.demonstrate("https://cu.test", "completion", "embedding",
+                                      credential, Path(directory))
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual(set(result["modalities"]), {"document", "audio"})
+            self.assertEqual(result["modalities"]["audio"]["fields"]["Seats"]["confidenceAvailability"],
+                             "not-emitted-by-GA-audio")
+            self.assertIs(cu_type.call_args.args[1], credential)
+            self.assertEqual(json.loads((Path(directory) / "live-report.json").read_text())["status"], "PASS")
+            cu.configure_defaults.side_effect = RuntimeError("native service unavailable")
+            with self.assertRaisesRegex(RuntimeError, "native service unavailable"):
+                demo.demonstrate("https://cu.test", "completion", "embedding",
+                                 credential, Path(directory) / "failed")
+            failed = json.loads((Path(directory) / "failed" / "live-report.json").read_text())
+            self.assertEqual(failed["status"], "BLOCKED")
+            self.assertIn("native service unavailable", failed["error"])
+
     def test_custom_schema_native_bases(self):
         for modality in ("document", "audio"):
             analyzer = demo.schema(modality, "gpt-5.4-mini", "text-embedding-3-large")

@@ -69,6 +69,32 @@ unique skill, so it cannot change the default of another lab/user's skill.
 Preview 400/404, authorization 403 and quota 429 errors surface explicitly.
 There is no local fallback if the service cannot store or download versions.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs the full
+release or intentional regression in a background worker and displays actual
+response IDs, resolved versions and validated results. The latest status is
+persisted on disk, so reloading the page resumes observation rather than
+submitting another paid run. The single-process UI blocks other operations
+while the run is active. A restart marks an unfinished run **interrupted**:
+inspect Azure for leftover agents or skills before acknowledging and retrying.
+An interrupted worker cannot guarantee rollback or cleanup.
+
+Set `UI_RELEASE_PROJECT_ENDPOINT` for local use; `UI_RELEASE_DEPLOYMENT` defaults
+to `gpt-4.1-mini`. For Azure hosting, pass `releaseProjectEndpoint` to the shared
+template while retaining all existing parameters. Grant its system-assigned
+identity Foundry User scoped to this lab's account:
+
+```bash
+az deployment group create -g "$RESOURCE_GROUP" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<release-account-name>" principalId="<ui-system-identity-object-id>" \
+     roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this assignment when removing the UI, or delete the dedicated group
+when finished. Browser sign-in and managed-identity calls require separate verification.
+
 ## Offline validation and cleanup
 
 ```bash

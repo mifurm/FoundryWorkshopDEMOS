@@ -6,6 +6,29 @@ it with visual ground truth. No personal images, scanned receipts, external imag
 URLs, or API keys are used. Default execution is noninteractive and makes two
 real cloud requests.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) displays the two
+packaged synthetic images and extracts one selected receipt per request. Its
+output compares the live prediction with truth and uses the CLI's illustrative
+cost rates, not a price quote. For local use, set `UI_VISION_ENDPOINT` before
+starting the UI; `UI_VISION_DEPLOYMENT` defaults to `receipt-vision`.
+
+For Azure hosting, pass `visionEndpoint` and optionally `visionDeployment` to
+the shared UI template, retaining all other existing deployment parameters.
+Grant its system-assigned identity inference access at this lab's account scope,
+with `RG` set to the lab 26 resource group:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-26-account-name>" principalId="<ui-system-identity-object-id>"
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference must
+be verified separately from deployment.
+
 ## Images and truth
 
 The included `images/clear.png` shows merchant `WORKSHOP CAFE`, currency `USD`,

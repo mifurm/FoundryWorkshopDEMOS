@@ -11,7 +11,7 @@ from azure.identity import AzureCliCredential
 CATEGORIES = {"Hate", "SelfHarm", "Sexual", "Violence"}
 
 
-def analyze(client: ContentSafetyClient, text: str, threshold: int) -> bool:
+def analyze_result(client: ContentSafetyClient, text: str, threshold: int) -> dict:
     result = client.analyze_text(AnalyzeTextOptions(
         text=text, output_type="FourSeverityLevels",
     ))
@@ -21,8 +21,19 @@ def analyze(client: ContentSafetyClient, text: str, threshold: int) -> bool:
     for item in analyses:
         if item.severity not in (0, 2, 4, 6):
             raise RuntimeError(f"Invalid severity for {item.category}: {item.severity}")
-        print(f"{item.category}: {item.severity}")
     blocked = any(item.severity >= threshold for item in analyses)
+    return {
+        "scores": {item.category: item.severity for item in analyses},
+        "threshold": threshold,
+        "blocked": blocked,
+    }
+
+
+def analyze(client: ContentSafetyClient, text: str, threshold: int) -> bool:
+    result = analyze_result(client, text, threshold)
+    for category, severity in result["scores"].items():
+        print(f"{category}: {severity}")
+    blocked = result["blocked"]
     print(f"Policy: {'BLOCK' if blocked else 'ALLOW'} (threshold >= {threshold})")
     return blocked
 

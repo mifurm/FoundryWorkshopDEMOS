@@ -137,6 +137,28 @@ other errors. Errors remain nonzero: 400/404 can mean unsupported
 preview routes/model/region, 403 can mean RBAC/propagation, 429 quota/rate limits.
 The original service/validation error is retained with explicit preview guidance.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs the same
+native workflow in a background job and displays the actual execution evidence,
+verified report and downloaded chart. The latest job and synthetic chart persist
+in the shared UI's job state until replaced. Reload observes that job rather
+than starting another one. If the process restarts mid-run, inspect Azure and
+application logs for leftover resources before acknowledging and retrying.
+The sandbox and model are billable even if a run fails.
+
+Set `UI_ANALYST_PROJECT_ENDPOINT` locally (`UI_ANALYST_DEPLOYMENT` defaults to
+`gpt-4.1-mini`). For hosting, pass `analystProjectEndpoint` to the shared
+template while retaining all existing parameters and grant its system identity
+Foundry User on this account:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<analyst-account-name>" principalId="<ui-system-identity-object-id>" \
+     roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
 ## Costs and cleanup
 
 Each live run makes one model response request and uses a **billable Code

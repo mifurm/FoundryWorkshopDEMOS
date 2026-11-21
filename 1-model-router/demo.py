@@ -28,6 +28,33 @@ PROMPTS = (
 )
 
 
+def route(client: AzureOpenAI, deployment: str, prompt: str) -> dict:
+    started = perf_counter()
+    response = client.chat.completions.create(
+        model=deployment,
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant. Keep answers concise."},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    elapsed = perf_counter() - started
+    if not response.choices:
+        raise RuntimeError("The service returned no completion choices.")
+    choice = response.choices[0]
+    if choice.message.refusal:
+        raise RuntimeError(f"The model refused the prompt: {choice.message.refusal}")
+    if not choice.message.content:
+        raise RuntimeError(f"The service returned no text (finish_reason={choice.finish_reason}).")
+    return {
+        "prompt": prompt,
+        "serving_model": response.model,
+        "seconds": elapsed,
+        "usage": response.usage.model_dump(mode="json") if response.usage is not None else None,
+        "finish_reason": choice.finish_reason,
+        "answer": choice.message.content,
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -66,37 +93,18 @@ def main(argv: Sequence[str] | None = None) -> None:
         ) as client:
             for label, prompt in prompts:
                 print(f"\n=== {label} ===\nPrompt: {prompt}", flush=True)
-                started = perf_counter()
-                response = client.chat.completions.create(
-                    model=args.deployment,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are a helpful assistant. Keep answers concise.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                )
-                elapsed = perf_counter() - started
-                print(f"Serving model: {response.model}")
-                print(f"Elapsed: {elapsed:.2f}s (client-observed, including routing/network)")
-                if response.usage is not None:
+                result = route(client, args.deployment, prompt)
+                print(f"Serving model: {result['serving_model']}")
+                print(f"Elapsed: {result['seconds']:.2f}s (client-observed, including routing/network)")
+                if result["usage"] is not None:
+                    usage = result["usage"]
                     print(
-                        f"Tokens: input={response.usage.prompt_tokens}, "
-                        f"output={response.usage.completion_tokens}, "
-                        f"total={response.usage.total_tokens}"
+                        f"Tokens: input={usage['prompt_tokens']}, "
+                        f"output={usage['completion_tokens']}, "
+                        f"total={usage['total_tokens']}"
                     )
-                if not response.choices:
-                    raise RuntimeError("The service returned no completion choices.")
-                choice = response.choices[0]
-                if choice.message.refusal:
-                    raise RuntimeError(f"The model refused the prompt: {choice.message.refusal}")
-                if not choice.message.content:
-                    raise RuntimeError(
-                        f"The service returned no text (finish_reason={choice.finish_reason})."
-                    )
-                print(f"Finish reason: {choice.finish_reason}")
-                print(f"Answer:\n{choice.message.content}")
+                print(f"Finish reason: {result['finish_reason']}")
+                print(f"Answer:\n{result['answer']}")
 
 
 if __name__ == "__main__":

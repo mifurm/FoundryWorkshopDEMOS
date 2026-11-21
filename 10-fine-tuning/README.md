@@ -22,6 +22,21 @@ The latest job JSON, including its ID and eventual `fine_tuned_model`, is saved
 to ignored `.azure/fine-tuning-job.json` immediately after submission and on
 each poll. Use `--report <path>` to choose a different report location.
 
+## Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+can submit the managed example after explicit cost confirmation and inspect a
+saved job or a supplied job ID without resubmitting. A submission is not a
+completed training run. The separate local Polish Phi exercise is not hosted.
+
+Set `UI_FINE_TUNING_ENDPOINT` locally or the UI template's `fineTuningEndpoint`
+parameter, and grant the UI's managed identity **Foundry User** on this lab's
+account. The UI stores the submission phase, uploaded file ID and job ID in its
+persistent job directory. It blocks another submission while a saved job is
+unfinished. If the UI restarts or loses a response during submission, inspect the
+account's fine-tuning jobs in Azure before explicitly acknowledging the
+uncertain submission; retrying blindly can create another paid job.
+
 ## Deploy
 
 Requires Python 3.10+, Azure CLI with Bicep, an Azure user with resource creation
@@ -80,6 +95,11 @@ top-level `model`, `training_file`, and supervised `method`; it does not add a
 
 ### Completed paid training on 2026-10-26
 
+The following is historical evidence: the account was subsequently recreated,
+and this job ID is not available in the current account (readback returned 404
+and its job list was empty). Do not use the historical ID to inspect the
+current account or assume the old trained model still exists.
+
 The real one-epoch job succeeded in East US 2 under
 `rg-foundry-fine-tuning-demo`. Independent Azure readback confirmed exactly one
 paid job, no training error, **663 trained tokens**, and a nonempty results file.
@@ -99,7 +119,7 @@ All seven local regression tests and Bicep build/lint passed.
 The job took approximately **71 minutes**, including GPU queueing and model
 finalization. Two 30-minute local polling windows timed out while cloud training
 continued; resuming the same job did not create another paid job.
-With the endpoint set as above, inspect the completed job without resubmission:
+In the original account, the job could be inspected without resubmission:
 
 ```bash
 python demo.py --job-id ftjob-1f5660c4acff48438874163995f91d99 --wait
@@ -109,8 +129,7 @@ The final job/model JSON is in `.azure/fine-tuning-job.json`. Independent
 verification, events, downloaded results CSV, and live transcripts are retained
 locally in ignored `.azure/`, including `live-testing-summary.json` and
 `live-training-finalization.log`.
-The trained model and account remain available; deleting the account/resource
-group removes that retained model. No trained-model inference deployment or
+The original account and trained model are no longer available. No trained-model inference deployment or
 held-out comparison was performed, and no accuracy improvement is claimed.
 
 ### Optional: deploy the trained model and try it

@@ -24,6 +24,12 @@ service. Choose an available region from the
 Cross-region retrieval can add latency and data-transfer charges. Do not change the
 model account's location after it has been created.
 
+To reuse an existing Search service instead of creating another billable Basic
+service, set `existingSearchEndpoint` to its HTTPS endpoint. Assign Search
+Service Contributor and Search Index Data Contributor to each identity that
+will run the lab; this optional path does not change the existing service or
+its role assignments. The service must have capacity for a temporary index.
+
 From this directory:
 
 ```sh
@@ -98,6 +104,29 @@ Tests cover lossless chunking, labeled metrics, distinct retrieval modes, citati
 and quote rejection, abstention, model request boundaries, bounded model-readiness
 retry and bounded indexing wait.
 They do not prove live service availability, model quality, or Azure permissions.
+
+## Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+runs one real labeled case at a time in a background job. Choose the chunk
+size, retrieval mode, and question; the result includes retrieved passages,
+validated citations and quotes, and the applicable retrieval metrics. The
+unanswerable case reports whether the model actually abstained. This is not
+the full 24-case benchmark, and retrieval scores do not grade answer quality.
+
+Configure `UI_RAG_ENDPOINT`, `UI_RAG_SEARCH_ENDPOINT`, `UI_RAG_DEPLOYMENT`,
+and `UI_RAG_EMBEDDING_DEPLOYMENT` locally, or pass `ragEndpoint`,
+`ragSearchEndpoint`, `ragDeployment`, and `ragEmbeddingDeployment` to the UI
+template. The web app identity needs Cognitive Services OpenAI User on the
+model account and Search Service Contributor plus Search Index Data
+Contributor on the Search service. Search Index Data Reader can also be used
+for read access if required by the service's RBAC configuration.
+
+The shared UI deletes its unique index after completion or a handled failure.
+An interrupted app can leave the index named in its job record; inspect Search
+before acknowledging and retrying. Reusing the lab 11 Search service means
+removing that service also disables this UI; its Basic SKU incurs standing
+charges even when no lab is running.
 
 ## Live rerun (2026-10-26)
 

@@ -50,6 +50,7 @@ def set_default(project: AIProjectClient, name: str, version: str) -> None:
 def consume(
     project: AIProjectClient, deployment: str, name: str, consumer: str, workshop: str,
     bodies: dict[str, str], codes: dict[str, str], *, pinned: str | None = None,
+    records: list[dict] | None = None,
 ) -> str:
     resolved = pinned if pinned is not None else project.beta.skills.get(name=name).default_version
     if not resolved or resolved not in bodies:
@@ -87,15 +88,19 @@ def consume(
         print(f"PASS response {response.id}: {response.output_text}", flush=True)
         if response.usage is not None:
             print(f"Usage: {response.usage.model_dump_json()}", flush=True)
+        if records is not None:
+            records.append({"consumer": consumer, "version": resolved, "workshop": workshop,
+                            "response_id": response.id, "answer": value})
         return resolved
     finally:
         project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
 
 
-def demonstrate(project: AIProjectClient, deployment: str, *, regression: bool = False) -> None:
+def demonstrate(project: AIProjectClient, deployment: str, *, regression: bool = False) -> dict:
     name = f"pricing-release-{uuid4().hex[:12]}"
     first_body = skill_body("v1")
     second_body = skill_body("v2", regression)
+    records = []
     with ExitStack() as cleanup:
         first = project.beta.skills.create(
             name=name, default=True,
@@ -110,7 +115,8 @@ def demonstrate(project: AIProjectClient, deployment: str, *, regression: bool =
         codes = {first.version: "PRICING-V1"}
         try:
             for consumer, pinned in (("floating", None), ("pinned", first.version)):
-                consume(project, deployment, name, consumer, "intro", bodies, codes, pinned=pinned)
+                consume(project, deployment, name, consumer, "intro", bodies, codes,
+                        pinned=pinned, records=records)
             second = project.beta.skills.create(
                 name=name, default=False,
                 inline_content=SkillInlineContent(
@@ -128,12 +134,13 @@ def demonstrate(project: AIProjectClient, deployment: str, *, regression: bool =
             for workshop in PRICES:
                 consume(
                     project, deployment, name, "candidate gate", workshop, bodies, codes,
-                    pinned=second.version,
+                    pinned=second.version, records=records,
                 )
             set_default(project, name, second.version)
-            floating = consume(project, deployment, name, "floating", "intro", bodies, codes)
+            floating = consume(project, deployment, name, "floating", "intro", bodies, codes, records=records)
             pinned = consume(
                 project, deployment, name, "pinned", "intro", bodies, codes, pinned=first.version,
+                records=records,
             )
             if floating != second.version or pinned != first.version:
                 raise RuntimeError("Default and pinned consumers did not resolve the expected versions.")
@@ -141,11 +148,13 @@ def demonstrate(project: AIProjectClient, deployment: str, *, regression: bool =
             set_default(project, name, first.version)
         for consumer, pinned in (("floating after rollback", None), ("pinned after rollback", first.version)):
             resolved = consume(
-                project, deployment, name, consumer, "intro", bodies, codes, pinned=pinned,
+                project, deployment, name, consumer, "intro", bodies, codes, pinned=pinned, records=records,
             )
             if resolved != first.version:
                 raise RuntimeError("Rollback did not restore the original skill version.")
         print("Verified candidate gate, default promotion, pinned isolation and rollback.", flush=True)
+        return {"skill": name, "original_version": first.version, "candidate_version": second.version,
+                "responses": records, "rollback_verified": True}
 
 
 def main() -> None:

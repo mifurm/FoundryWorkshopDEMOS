@@ -57,7 +57,7 @@ def matches_contract(text: str, title: str) -> bool:
 
 def show_response(
     response: Response, title: str, *, require_skill: bool, debug_response: bool,
-) -> None:
+) -> dict:
     print(f"\nResponse ID: {response.id}; status: {response.status}", flush=True)
     if debug_response:
         print(response.model_dump_json(indent=2), flush=True)
@@ -70,11 +70,17 @@ def show_response(
     print(f"Exact skill contract match: {matched}", flush=True)
     if require_skill and not matched:
         raise RuntimeError("Skill-enabled answer did not satisfy the exact workshop-brief contract.")
+    return {
+        "id": response.id,
+        "answer": response.output_text,
+        "usage": response.usage.model_dump(mode="json") if response.usage is not None else None,
+        "contract_match": matched,
+    }
 
 
 def demonstrate(
     project: AIProjectClient, deployment: str, title: str, *, debug_response: bool = False,
-) -> None:
+) -> dict:
     suffix = uuid4().hex[:12]
     name = f"workshop-brief-{suffix}"
     package, expected = skill_package(name)
@@ -84,6 +90,7 @@ def demonstrate(
             content=CreateSkillVersionFromFilesBody(files=[("workshop-brief.zip", upload)]),
         )
     print(f"Created Foundry skill: {skill.name} / {skill.version}", flush=True)
+    comparisons = []
     try:
         downloaded = b"".join(project.beta.skills.download_version(name, skill.version))
         instructions = downloaded_instructions(downloaded, expected)
@@ -112,9 +119,10 @@ def demonstrate(
                         tool_choice="none",
                         timeout=120.0,
                     )
-                    show_response(
+                    result = show_response(
                         response, title, require_skill=use_skill, debug_response=debug_response,
                     )
+                    comparisons.append({"with_skill": use_skill, **result})
             finally:
                 project.agents.delete_version(agent_name=agent.name, agent_version=agent.version)
                 print("Temporary agent version deleted.", flush=True)
@@ -127,6 +135,7 @@ def demonstrate(
     finally:
         project.beta.skills.delete(name=name)
         print(f"Temporary skill deleted: {name}", flush=True)
+    return {"skill_name": skill.name, "skill_version": skill.version, "comparisons": comparisons}
 
 
 def main(argv: Sequence[str] | None = None) -> None:

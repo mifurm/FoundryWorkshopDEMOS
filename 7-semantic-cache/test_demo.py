@@ -34,11 +34,13 @@ class GatewayTests(unittest.TestCase):
         client = Mock()
         client.chat.completions.create.return_value = self.response()
         with patch("demo.sleep") as sleep, patch("sys.stdout", new_callable=io.StringIO) as output:
-            demo.present(client, "chat")
+            result = demo.present(client, "chat")
         self.assertEqual(client.chat.completions.create.call_count, len(demo.PROMPTS))
         self.assertEqual(sleep.call_count, 2)
         self.assertEqual(output.getvalue().count("REUSED RESPONSE;"), 2)
         self.assertIn("repeated response IDs: 2", output.getvalue())
+        self.assertEqual(result["reused_response_ids"], 2)
+        self.assertEqual([item["reused_response"] for item in result["requests"]], [False, True, True])
         client.embeddings.create.assert_not_called()
         for call, prompt in zip(client.chat.completions.create.call_args_list, demo.PROMPTS):
             self.assertEqual(call.kwargs, {
@@ -150,7 +152,10 @@ class PolicyTests(unittest.TestCase):
         self.assertLess(tags.index("llm-semantic-cache-lookup"),
                         tags.index("authentication-managed-identity"))
         self.assertEqual(inbound.find(".//claim").attrib["name"], "oid")
+        self.assertEqual(inbound.find(".//claim").attrib["match"], "any")
         self.assertEqual(inbound.find(".//claim/value").text, "__PRINCIPAL_ID__")
+        self.assertEqual([item.text for item in inbound.findall(".//claim/value")],
+                         ["__PRINCIPAL_ID__", "__UI_PRINCIPAL_ID__"])
         self.assertEqual(inbound.find(".//audience").text, "https://cognitiveservices.azure.com")
 
     def test_gateway_owns_semantic_lookup_store_and_partitioning(self):

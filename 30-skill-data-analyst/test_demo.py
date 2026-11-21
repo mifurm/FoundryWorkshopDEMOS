@@ -89,7 +89,7 @@ class AnalystTests(unittest.TestCase):
 
     def run_demo(self, **kwargs):
         with redirect_stdout(self.stdout), redirect_stderr(self.stderr):
-            demo.demonstrate(self.project, self.client, "test-deployment", **kwargs)
+            return demo.demonstrate(self.project, self.client, "test-deployment", **kwargs)
 
     def assert_all_deleted(self):
         name = self.project.beta.skills.create_from_files.call_args.kwargs["name"]
@@ -135,8 +135,12 @@ class AnalystTests(unittest.TestCase):
 
     def test_happy_path_pins_injects_executes_downloads_and_deletes(self):
         with patch.object(Path, "write_bytes") as write:
-            self.run_demo()
+            result = self.run_demo()
         write.assert_not_called()
+        self.assertEqual(result["response_id"], "resp-test")
+        self.assertEqual(result["report"], demo.EXPECTED)
+        self.assertEqual(result["chart"], self.downloads["cfile-chart"])
+        self.assertEqual(result["executions"][0]["id"], "ci-test")
         name = self.project.beta.skills.create_from_files.call_args.kwargs["name"]
         self.project.beta.skills.download_version.assert_called_once_with(name, "42")
         definition = self.project.agents.create_version.call_args.kwargs["definition"]

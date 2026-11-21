@@ -7,6 +7,8 @@ param principalId string
 param accountName string = 'foundry-docs-${uniqueString(resourceGroup().id)}'
 param projectName string = 'document-intelligence'
 param deploymentName string = 'gpt-4.1-mini'
+@description('Optional existing Windows App Service plan in functionLocation.')
+param existingFunctionPlanId string = ''
 @minValue(1)
 param capacity int = 10
 
@@ -98,7 +100,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   }
 }
 
-resource plan 'Microsoft.Web/serverfarms@2024-11-01' = {
+resource plan 'Microsoft.Web/serverfarms@2024-11-01' = if (empty(existingFunctionPlanId)) {
   tags: securityTags
   name: 'document-tool-plan'
   location: functionLocation
@@ -116,7 +118,7 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
   kind: 'functionapp'
   identity: { type: 'SystemAssigned' }
   properties: {
-    serverFarmId: plan.id
+    serverFarmId: empty(existingFunctionPlanId) ? plan.id : existingFunctionPlanId
     httpsOnly: true
     siteConfig: {
       alwaysOn: true

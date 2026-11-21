@@ -6,8 +6,9 @@
         <audience>https://cognitiveservices.azure.com</audience>
       </audiences>
       <required-claims>
-        <claim name="oid" match="all">
+        <claim name="oid" match="any">
           <value>__PRINCIPAL_ID__</value>
+          <value>__UI_PRINCIPAL_ID__</value>
         </claim>
       </required-claims>
     </validate-azure-ad-token>

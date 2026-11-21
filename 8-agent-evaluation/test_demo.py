@@ -37,7 +37,17 @@ class EvaluationTests(unittest.TestCase):
 
     def test_submits_actual_answers_to_cloud_evaluator(self):
         client = self.client()
-        demo.evaluate(client, self.responses(), "judge")
+        client.evals.runs.create.return_value.model_dump.return_value = {
+            "id": "run-1", "status": "completed", "created_by": "not needed",
+        }
+        client.evals.runs.output_items.list.return_value[0].model_dump.return_value["results"][0]["score"] = 4
+        report = {}
+        demo.evaluate(client, self.responses(), "judge", report=report)
+        self.assertEqual(report["evaluation_id"], "eval-1")
+        self.assertEqual(report["run"]["id"], "run-1")
+        self.assertNotIn("created_by", report["run"])
+        self.assertEqual(report["items"][0]["results"][0]["score"], 4)
+        self.assertEqual([item["datasource_item"] for item in report["items"]], self.responses())
         criterion = client.evals.create.call_args.kwargs["testing_criteria"][0]
         self.assertEqual(criterion["evaluator_name"], "builtin.coherence")
         self.assertEqual(criterion["initialization_parameters"], {"model": "judge"})

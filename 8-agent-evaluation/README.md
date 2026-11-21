@@ -61,6 +61,32 @@ result, not a transport failure. The temporary agent version is deleted even
 when evaluation fails; stored responses/evaluation runs remain for inspection.
 Timed-out cloud runs may continue and incur charges.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs these
+two fixed questions and the same cloud evaluator in a background worker,
+showing the actual answers, run metadata, and validated per-item results.
+The latest status persists across page reloads. A UI restart marks an unfinished
+run **interrupted**; cloud evaluation may still be running and incurring
+charges. Inspect Azure and application logs for the printed agent and run IDs
+before acknowledging and retrying. An interrupted worker cannot guarantee
+agent cleanup.
+
+Set `UI_EVALUATION_PROJECT_ENDPOINT` for local use; `UI_EVALUATION_DEPLOYMENT`
+defaults to `gpt-4.1-mini`. For hosting, pass `evaluationProjectEndpoint` to
+the shared template while retaining all existing parameters. Grant its
+system-assigned identity Foundry User scoped to this lab's account:
+
+```bash
+az deployment group create -g "$RESOURCE_GROUP" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<evaluation-account-name>" principalId="<ui-system-identity-object-id>" \
+     roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this assignment when removing the UI, or delete this dedicated group
+when finished. Browser sign-in and managed-identity calls require separate verification.
+
 ### Why response-ID evaluation previously returned HTTP 404
 
 The original script created responses through an **agent-scoped client**, then

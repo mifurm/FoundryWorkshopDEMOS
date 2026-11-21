@@ -194,6 +194,54 @@ per-record error files, when returned, go to `.azure/batch-errors.jsonl`.
 Output validation requires each of the three IDs exactly once, HTTP 200,
 nonempty text and a `stop` finish reason. Output order can differ from input.
 
+## Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+shows the local probability exercise, one paid model sample per click, the
+two-model comparison, and the native batch job. The UI displays the real
+serving model, usage and elapsed time where available. Its batch button
+submits one job, stores its ID, and checks that same job on later clicks.
+`validating` or `in_progress` is **not** a completed batch. Failed or incomplete
+results are errors, never substituted with fixtures.
+
+For local use, after deploying both labs, set `UI_BASICS_ENDPOINT` to this
+lab's `endpoint` output and start lab 27's `ui.py`. The UI uses the presenter's
+Azure CLI identity and stores its batch ID under `.azure/ui-batch`. It does
+not reuse the CLI runner's batch state.
+
+For Azure use, first deploy the UI using lab 27's instructions, then grant
+its system-assigned identity model and batch access:
+
+```bash
+UI_RG="<lab-27-ui-resource-group>"
+WEBAPP="<lab-27-ui-app-name>"
+BASICS_RG="rg-foundry-model-basics-demo"
+BASICS_ACCOUNT="<lab-0-foundry-account-name>"
+UI_PRINCIPAL="$(az webapp identity show -g "$UI_RG" -n "$WEBAPP" --query principalId -o tsv)"
+az deployment group create -g "$BASICS_RG" -n lab0-ui-role \
+  --template-file infra/ui-role.bicep \
+  --parameters accountName="$BASICS_ACCOUNT" principalId="$UI_PRINCIPAL"
+```
+
+In the lab 27 UI deployment, set `basicsEndpoint` to lab 0's `endpoint`
+output; override `basicsChat`, `basicsReasoning`, and `basicsBatch` if needed.
+Redeploy that template with all existing parameters including
+`publicAccess=true`, then deploy the updated UI package. The Azure UI stores
+batch state under `/home/data/model-basics-ui`; preserve it across deployments
+to avoid duplicate submissions. This is a single-presenter, single-instance
+demo, not a distributed exactly-once batch scheduler. If submission fails
+after an input upload or its outcome is ambiguous, inspect the service before
+retrying, as described above.
+
+The role assignment is in lab 0's resource group and survives deleting the UI
+resource group. Before removing the UI, remove only that assignment:
+
+```bash
+ROLE_ID="$(az deployment group show -g "$BASICS_RG" -n lab0-ui-role \
+  --query properties.outputs.roleAssignmentId.value -o tsv)"
+az role assignment delete --ids "$ROLE_ID"
+```
+
 ## Presenter walkthrough and exercises
 
 1. Run concepts without Azure. Predict the retained nucleus at 0.5 and 0.8.

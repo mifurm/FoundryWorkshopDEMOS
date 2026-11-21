@@ -67,11 +67,12 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             redirect_stdout(io.StringIO()) as text,
         ):
             builder.return_value.build.return_value = workflow
-            await demo.run_workflow("https://example/api/projects/demo", "model", "Invite people")
+            result = await demo.run_workflow("https://example/api/projects/demo", "model", "Invite people")
         builder.assert_called_once_with(participants=[writer, editor], output_from="all")
         workflow.run.assert_awaited_once_with("Invite people")
         self.assertIn("Draft invitation", text.getvalue())
         self.assertIn("Edited invitation", text.getvalue())
+        self.assertEqual(result, {"writer": "Draft invitation", "editor": "Edited invitation"})
         self.assertEqual(client.as_agent.call_args_list[0].kwargs["name"], "writer")
         self.assertEqual(client.as_agent.call_args_list[1].kwargs["name"], "editor")
 

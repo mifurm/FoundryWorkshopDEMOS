@@ -140,31 +140,17 @@ def model_request(client: OpenAI, deployment: str, scenario: str, budget: Budget
             or not response.choices[0].message.content or response.usage is None):
         raise RuntimeError("Expected a complete answer and real token usage.")
     print(f"{scenario}: {response.choices[0].message.content}")
-    return response.usage
+    return response.choices[0].message.content, response.usage
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.getenv("AZURE_OPENAI_ENDPOINT"))
-    parser.add_argument("--deployment", default=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1-mini"))
-    parser.add_argument("--input-rate", type=float, default=0.40,
-                        help="Illustrative USD per million input tokens; replace with your pricing.")
-    parser.add_argument("--output-rate", type=float, default=1.60,
-                        help="Illustrative USD per million output tokens; not a current price quote.")
-    args = parser.parse_args()
-    if not args.endpoint or not args.endpoint.startswith("https://") or not args.deployment.strip():
-        parser.error("Set an HTTPS model endpoint and nonempty deployment.")
-    if any(not math.isfinite(rate) or rate < 0 for rate in (args.input_rate, args.output_rate)):
-        parser.error("Prices must be finite and nonnegative.")
+def demonstrate(client: OpenAI, deployment: str, input_rate: float = .40, output_rate: float = 1.60) -> dict:
+    if any(not math.isfinite(rate) or rate < 0 for rate in (input_rate, output_rate)):
+        raise ValueError("Prices must be finite and nonnegative.")
     budget = Budget(deadline=time.monotonic() + 90)
-    with AzureCliCredential() as credential, OpenAI(
-        base_url=args.endpoint.rstrip("/") + "/openai/v1/",
-        api_key=get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default"),
-        timeout=20, max_retries=0,
-    ) as client, ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [executor.submit(model_request, client, args.deployment, scenario, budget)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(model_request, client, deployment, scenario, budget)
                    for scenario in ("throttle", "timeout")]
-        usages = [future.result() for future in futures]
+        responses = [future.result() for future in futures]
     tool = SyntheticBookingTool()
     booking = bounded(lambda timeout: tool.book("request-1", timeout), budget, "tool")
     print(f"Recovered write: {booking}; bookings={len(tool.bookings)} (must be 1)")
@@ -178,6 +164,7 @@ def main() -> None:
         bounded(outage, budget, "tool")
     except BudgetExceeded as error:
         print(f"EXPECTED STOP: {error}; persistent outage did not loop indefinitely.")
+        outage_stop = str(error)
     else:
         raise RuntimeError("The outage should have exhausted the tool budget.")
 
@@ -196,17 +183,50 @@ def main() -> None:
         bounded(lambda timeout: None, Budget(time.monotonic() - 1), "model")
     except BudgetExceeded as error:
         print(f"EXPECTED DEADLINE STOP: {error}")
+        deadline_stop = str(error)
     else:
         raise RuntimeError("Expired deadline was not enforced.")
-    prompt_tokens = sum(usage.prompt_tokens for usage in usages)
-    completion_tokens = sum(usage.completion_tokens for usage in usages)
-    estimate = (prompt_tokens * args.input_rate + completion_tokens * args.output_rate) / 1_000_000
+    prompt_tokens = sum(usage.prompt_tokens for _, usage in responses)
+    completion_tokens = sum(usage.completion_tokens for _, usage in responses)
+    estimate = (prompt_tokens * input_rate + completion_tokens * output_rate) / 1_000_000
     print(f"Attempts: model={budget.model_requests}/{budget.model_limit}; "
           f"tool={budget.tool_calls}/{budget.tool_limit}; concurrency <= 2")
     print(f"Actual successful usage: input={prompt_tokens}; output={completion_tokens}")
     print(f"ILLUSTRATIVE estimate: USD {estimate:.6f}; assumed per-million rates "
-          f"input={args.input_rate}, output={args.output_rate}. Not a billing report.")
+          f"input={input_rate}, output={output_rate}. Not a billing report.")
     print("Injected faults never reached Azure. Budget alerts are not hard spending caps.")
+    return {
+        "injected_faults": ["throttle", "timeout", "lost booking response", "outage", "403", "deadline"],
+        "answers": [{"scenario": scenario, "answer": answer,
+                     "prompt_tokens": usage.prompt_tokens, "completion_tokens": usage.completion_tokens}
+                    for scenario, (answer, usage) in zip(("throttle", "timeout"), responses)],
+        "synthetic_booking": booking, "booking_count": len(tool.bookings),
+        "outage_stop": outage_stop, "permanent_status": 403, "deadline_stop": deadline_stop,
+        "model_attempts": budget.model_requests, "tool_attempts": budget.tool_calls,
+        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+        "estimated_usd": estimate, "illustrative_rates": {"input": input_rate, "output": output_rate},
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--endpoint", default=os.getenv("AZURE_OPENAI_ENDPOINT"))
+    parser.add_argument("--deployment", default=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1-mini"))
+    parser.add_argument("--input-rate", type=float, default=0.40,
+                        help="Illustrative USD per million input tokens; replace with your pricing.")
+    parser.add_argument("--output-rate", type=float, default=1.60,
+                        help="Illustrative USD per million output tokens; not a current price quote.")
+    args = parser.parse_args()
+    if not args.endpoint or not args.endpoint.startswith("https://") or not args.deployment.strip():
+        parser.error("Set an HTTPS model endpoint and nonempty deployment.")
+    if any(not math.isfinite(rate) or rate < 0 for rate in (args.input_rate, args.output_rate)):
+        parser.error("Prices must be finite and nonnegative.")
+    with AzureCliCredential() as credential, OpenAI(
+        base_url=args.endpoint.rstrip("/") + "/openai/v1/",
+        api_key=get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default"),
+        timeout=20, max_retries=0,
+    ) as client:
+        demonstrate(client, args.deployment, args.input_rate, args.output_rate)
 
 
 if __name__ == "__main__":

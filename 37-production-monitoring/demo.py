@@ -13,6 +13,7 @@ from azure.ai.projects.models import (
     EvaluationRuleEventType, EvaluationRuleFilter, FixedRatioVersionSelectionRule,
     PromptAgentDefinition, ProtocolConfiguration, VersionSelector,
 )
+from azure.core.credentials import TokenCredential
 from azure.identity import AzureCliCredential
 import httpx
 
@@ -111,52 +112,64 @@ def setup() -> dict:
     return result
 
 
-def set_mode(mode: str) -> dict:
+def set_project_mode(project: AIProjectClient, config: dict, mode: str) -> dict:
     if mode not in ("baseline", "regression", "recovery"):
         raise ValueError("mode must be baseline, regression, or recovery")
-    config = configuration()
-    with AzureCliCredential() as credential, client(credential) as project:
-        routes = {}
-        for name, agent in config["agents"].items():
-            version = agent["bad_version"] if mode == "regression" and name == NAMES[0] else agent["good_version"]
-            routes[name] = route(project, name, version)
+    routes = {}
+    for name, agent in config["agents"].items():
+        version = agent["bad_version"] if mode == "regression" and name == NAMES[0] else agent["good_version"]
+        routes[name] = route(project, name, version)
     return {"mode": mode, "routes": routes}
 
 
-def traffic(mode: str) -> list[dict]:
-    set_mode(mode)
-    records = []
+def set_mode(mode: str) -> dict:
+    if mode not in ("baseline", "regression", "recovery"):
+        raise ValueError("mode must be baseline, regression, or recovery")
     with AzureCliCredential() as credential, client(credential) as project:
-        for name in NAMES:
-            details = project.agents.get(name).as_dict()
-            version = details["agent_endpoint"]["version_selector"]["version_selection_rules"][0]["agent_version"]
-            with project.get_openai_client(agent_name=name) as ai:
-                start = monotonic()
-                response = ai.responses.create(
-                    input=QUESTION, max_output_tokens=128, store=True,
-                    metadata={"lab": "37", "phase": mode, "run": uuid4().hex},
-                )
-            if response.status != "completed" or not response.output_text:
-                raise RuntimeError(f"Incomplete deployed response: {response.model_dump()}")
-            record = {
-                "agent": name, "phase": mode, "configured_version": version,
-                "response_id": response.id, "answer": response.output_text.strip(),
-                "seconds": round(monotonic() - start, 3),
-                "usage": response.usage.model_dump() if response.usage else None,
-                "expected_pass": not (mode == "regression" and name == NAMES[0]),
-            }
-            expected = "USD 25" if record["expected_pass"] else "USD 40"
-            if record["answer"] != expected:
-                raise RuntimeError(f"Deployed endpoint did not demonstrate {mode}: {record}")
-            records.append(record)
-            print(json.dumps(record), flush=True)
+        return set_project_mode(project, configuration(), mode)
+
+
+def project_traffic(project: AIProjectClient, config: dict, mode: str) -> list[dict]:
+    set_project_mode(project, config, mode)
+    records = []
+    for name in NAMES:
+        details = project.agents.get(name).as_dict()
+        version = details["agent_endpoint"]["version_selector"]["version_selection_rules"][0]["agent_version"]
+        agent = config["agents"][name]
+        selected = agent["bad_version"] if mode == "regression" and name == NAMES[0] else agent["good_version"]
+        if str(version) != str(selected):
+            raise RuntimeError(f"Deployed route for {name} changed before invocation.")
+        with project.get_openai_client(agent_name=name) as ai:
+            start = monotonic()
+            response = ai.responses.create(
+                input=QUESTION, max_output_tokens=128, store=True,
+                metadata={"lab": "37", "phase": mode, "run": uuid4().hex},
+            )
+        if response.status != "completed" or not response.output_text:
+            raise RuntimeError(f"Incomplete deployed response: {response.model_dump()}")
+        record = {
+            "agent": name, "phase": mode, "configured_version": version,
+            "response_id": response.id, "answer": response.output_text.strip(),
+            "seconds": round(monotonic() - start, 3),
+            "usage": response.usage.model_dump() if response.usage else None,
+            "expected_pass": not (mode == "regression" and name == NAMES[0]),
+        }
+        expected = "USD 25" if record["expected_pass"] else "USD 40"
+        if record["answer"] != expected:
+            raise RuntimeError(f"Deployed endpoint did not demonstrate {mode}: {record}")
+        records.append(record)
+        print(json.dumps(record), flush=True)
     return records
 
 
-def evaluation_results() -> list[dict]:
-    config = configuration()
+def traffic(mode: str) -> list[dict]:
+    with AzureCliCredential() as credential, client(credential) as project:
+        return project_traffic(project, configuration(), mode)
+
+
+def project_evaluations(project: AIProjectClient, config: dict) -> list[dict]:
     records = []
-    with AzureCliCredential() as credential, client(credential) as project, project.get_openai_client() as ai:
+    with project.get_openai_client() as ai:
         for name, agent in config["agents"].items():
             for run in ai.evals.runs.list(eval_id=agent["eval_id"], limit=30, order="desc").data:
                 if (run.metadata or {}).get("trigger_type") == "oneoff":
@@ -175,6 +188,11 @@ def evaluation_results() -> list[dict]:
                         "item": value,
                     })
     return records
+
+
+def evaluation_results() -> list[dict]:
+    with AzureCliCredential() as credential, client(credential) as project:
+        return project_evaluations(project, configuration())
 
 
 def match_evaluation(record: dict, evaluated: list[dict]) -> dict | None:
@@ -214,8 +232,7 @@ def wait_for_evaluations(records: list[dict], timeout: int = 1200) -> list[dict]
         sleep(15)
 
 
-def telemetry(response_ids: list[str] | None = None) -> dict:
-    settings = outputs()
+def query_telemetry(credential: TokenCredential, workspace_id: str, response_ids: list[str] | None = None) -> dict:
     selected = ""
     if response_ids is not None:
         if not response_ids or any(not value.startswith("resp_") or not value.replace("_", "").isalnum() for value in response_ids):
@@ -223,23 +240,27 @@ def telemetry(response_ids: list[str] | None = None) -> dict:
         selected = "| where tostring(Properties['gen_ai.response.id']) in (" + ", ".join(
             json.dumps(value) for value in response_ids
         ) + ")\n"
-    with AzureCliCredential() as credential:
-        token = credential.get_token("https://api.loganalytics.io/.default").token
-        response = httpx.post(
-            f'https://api.loganalytics.azure.com/v1/workspaces/{settings["workspaceId"]}/query',
-            headers={"Authorization": f"Bearer {token}"},
-            json={"query": """union isfuzzy=true AppRequests, AppDependencies, AppTraces
+    token = credential.get_token("https://api.loganalytics.io/.default").token
+    response = httpx.post(
+        f'https://api.loganalytics.azure.com/v1/workspaces/{workspace_id}/query',
+        headers={"Authorization": f"Bearer {token}"},
+        json={"query": """union isfuzzy=true AppRequests, AppDependencies, AppTraces
 | where TimeGenerated > ago(2h)
 | where tostring(Properties) contains "workshop-pricer" or Name contains "workshop-pricer"
 """ + selected + """| project TimeGenerated, OperationId, Name=column_ifexists("Name", ""),
           Properties, DurationMs=column_ifexists("DurationMs", real(null))
 | take 100"""}, timeout=60,
-        )
-        response.raise_for_status()
-        result = response.json()
-        if "error" in result:
-            raise RuntimeError(f"Telemetry query returned an error: {result['error']}")
-        return result
+    )
+    response.raise_for_status()
+    result = response.json()
+    if "error" in result:
+        raise RuntimeError(f"Telemetry query returned an error: {result['error']}")
+    return result
+
+
+def telemetry(response_ids: list[str] | None = None) -> dict:
+    with AzureCliCredential() as credential:
+        return query_telemetry(credential, outputs()["workspaceId"], response_ids)
 
 
 def live_test() -> dict:

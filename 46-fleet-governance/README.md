@@ -14,6 +14,21 @@ Azure Monitor rows are correlated by project ID, agent name, telemetry ID and ru
 This is fleet governance, not a claim that every Microsoft security service or
 every Foundry Control Plane portal screen has been configured.
 
+## Browser UI
+
+The authenticated [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+runs the same checks as a background job and reports each actual stage
+separately. It keeps per-job evidence under the UI's persistent job directory;
+the external runtime remains a local Python function. The Operate portal and
+optional Defender/Purview integrations are not verified by this UI.
+
+Configure the UI template's `fleetConfiguration` with this lab's deployment
+outputs and resource-group name. [ui-role.bicep](./infra/ui-role.bicep) grants
+the UI identity Foundry User, scoped telemetry publisher/read roles, and a
+custom role restricted to reading and triggering policy evaluation in this
+isolated resource group. The UI does not create or change the policy assignment.
+Model, telemetry and retention charges apply; assets remain for inspection.
+
 ## Deploy and run
 
 Python 3.11+, Azure CLI/Bicep, signed-in Entra user with deployment, role-assignment

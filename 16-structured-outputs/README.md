@@ -5,6 +5,29 @@ support tickets. Compare instructions alone, few-shot examples, and real
 **strict JSON Schema** using GPT-4.1-mini `2025-04-14`. The default CLI is
 noninteractive and makes **14 real requests** (12 comparisons plus two probes).
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs one selected
+ticket and prompting method per request, showing the actual result and independent
+labels. It does not run the CLI's probes or calculate aggregate accuracy.
+For local use, set `UI_STRUCTURED_ENDPOINT` to this lab's endpoint before starting
+the UI; `UI_STRUCTURED_DEPLOYMENT` defaults to `ticket-extractor`.
+
+For Azure hosting, pass `structuredEndpoint` and optionally `structuredDeployment`
+to the shared UI template, retaining all other existing deployment parameters.
+Grant its system-assigned identity inference access at this lab's account scope,
+with `RG` set to the lab 16 resource group:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-16-account-name>" principalId="<ui-system-identity-object-id>"
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference must
+be verified separately from deployment.
+
 ## Prerequisites, deploy, run, test
 
 Python 3.10+, Azure CLI/Bicep, `az login`, model access/quota. Deployment requires

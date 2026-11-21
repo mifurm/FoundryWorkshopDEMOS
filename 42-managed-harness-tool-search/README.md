@@ -9,6 +9,20 @@ These are independently verified capabilities in the same isolated project. The 
 
 Only filesystem reading is enabled in the harness. Shell, writes, web fetching, and subagents are disabled. The agent identity receives Foundry User at project scope for the run; that assignment, agent, skill, Toolbox, and conversation are cleaned up. Azure infrastructure remains deployed.
 
+## Browser UI: tool-search portion only
+
+The authenticated [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+can create the temporary Toolbox, perform the native search and call the
+discovered Microsoft Learn tool with a fixed public query. It reports the real
+results and cleanup status; preview and service charges may apply.
+Configure `toolSearchProjectEndpoint` and grant the UI identity Foundry User on
+the lab account. If interrupted, inspect the saved Toolbox ID before retrying.
+
+The shared UI does **not** run the managed harness/skill check: its existing
+Agent Framework dependencies require `azure-ai-projects<2.8`, while that
+preview requires 2.9 or later. Run the separate standalone lab below for both
+gates; a tool-search pass alone is not full lab PASS.
+
 ## Run
 
 Requires Python 3.10+, Azure CLI/Bicep, a signed-in Entra user with resource

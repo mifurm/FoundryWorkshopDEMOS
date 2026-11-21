@@ -221,7 +221,7 @@ def validate_batch_results(text: str) -> list[dict]:
 
 
 def run_batch(client: "OpenAI", endpoint: str, deployment: str, state_dir: Path,
-              batch_id: str | None, wait_seconds: int) -> None:
+              batch_id: str | None, wait_seconds: int, *, allow_pending: bool = False) -> dict:
     state_dir.mkdir(parents=True, exist_ok=True)
     state_path = state_dir / "batch-state.json"
     if not batch_id and state_path.exists():
@@ -255,22 +255,66 @@ def run_batch(client: "OpenAI", endpoint: str, deployment: str, state_dir: Path,
                 raise RuntimeError("Completed batch has no output file.")
             text = client.files.content(job.output_file_id).text
             (state_dir / "batch-output.jsonl").write_text(text)
-            for row in validate_batch_results(text):
+            rows = validate_batch_results(text)
+            for row in rows:
                 body = row["response"]["body"]
                 print(row["custom_id"], "| model:", body.get("model"),
                       "| usage:", body.get("usage", "Not returned by service"))
                 print("Answer:", body["choices"][0]["message"]["content"])
             print("PASS: all three native batch requests completed and validated.")
-            return
+            return {"status": "completed", "batch_id": batch_id, "results": rows}
         if job.status in ("failed", "expired", "cancelled"):
             raise RuntimeError(f"Batch {batch_id} ended as {job.status}: {job.errors}")
         remaining = deadline - time.monotonic()
         if remaining <= 0:
+            if allow_pending:
+                return {"status": job.status, "batch_id": batch_id, "results": None}
             raise RuntimeError(
                 f"Batch {batch_id} is still {job.status}; NOT a completed live test. "
                 "Rerun --section batch later to resume. The service target window is 24 hours."
             )
         time.sleep(min(10, remaining))
+
+
+def ui_sampling(client: "OpenAI", deployment: str, temperature: float, top_p: float) -> dict:
+    if not math.isfinite(temperature) or not 0 <= temperature <= 2:
+        raise ValueError("Temperature must be between 0 and 2.")
+    if not math.isfinite(top_p) or not 0 < top_p <= 1:
+        raise ValueError("Top-p must be greater than 0 and at most 1.")
+    if temperature != 1 and top_p != 1:
+        raise ValueError("Change one sampling parameter at a time.")
+    started = time.monotonic()
+    response = client.chat.completions.create(
+        **chat_request(deployment, SAMPLING_PROMPT, temperature=temperature, top_p=top_p),
+    )
+    elapsed = time.monotonic() - started
+    answer = show_completion(response, elapsed)
+    return {
+        "prompt": SAMPLING_PROMPT, "temperature": temperature, "top_p": top_p,
+        "answer": answer, "model": response.model, "seconds": elapsed,
+        "usage": response.usage.model_dump(mode="json") if response.usage else None,
+    }
+
+
+def ui_compare(client: "OpenAI", chat: str, reasoning: str,
+               effort: Literal["low", "medium", "high"]) -> dict:
+    if effort not in ("low", "medium", "high"):
+        raise ValueError("Reasoning effort must be low, medium, or high.")
+    results = []
+    for label, request in (
+        ("chat", comparison_request(chat)),
+        ("reasoning", reasoning_request(reasoning, effort)),
+    ):
+        started = time.monotonic()
+        response = client.chat.completions.create(**request)
+        elapsed = time.monotonic() - started
+        minutes = comparison_minutes(show_completion(response, elapsed))
+        results.append({
+            "kind": label, "model": response.model, "minutes": minutes,
+            "matches_reference": minutes == 11, "seconds": elapsed,
+            "usage": response.usage.model_dump(mode="json") if response.usage else None,
+        })
+    return {"prompt": COMPARISON_PROMPT, "reference_minutes": 11, "results": results}
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -3,6 +3,8 @@ targetScope = 'resourceGroup'
 param location string = 'eastus2'
 @description('Search region; can differ from the model region when Search has capacity constraints.')
 param searchLocation string = location
+@description('Optional existing Search HTTPS endpoint; caller must configure its Search roles separately.')
+param existingSearchEndpoint string = ''
 @description('Object ID of the presenter signed in through Azure CLI.')
 param principalId string
 param accountName string = 'rag-${uniqueString(resourceGroup().id)}'
@@ -69,7 +71,7 @@ resource embeddings 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01
   }
 }
 
-resource search 'Microsoft.Search/searchServices@2025-05-01' = {
+resource search 'Microsoft.Search/searchServices@2025-05-01' = if (empty(existingSearchEndpoint)) {
   tags: securityTags
   name: searchName
   location: searchLocation
@@ -100,7 +102,7 @@ var searchRoles = [
   '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
   '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
 ]
-resource presenterSearch 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for role in searchRoles: {
+resource presenterSearch 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for role in searchRoles: if (empty(existingSearchEndpoint)) {
   name: guid(search.id, principalId, role)
   scope: search
   properties: {
@@ -113,4 +115,4 @@ resource presenterSearch 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 output endpoint string = 'https://${account.name}.openai.azure.com/'
 output deployment string = model.name
 output embeddingDeployment string = embeddings.name
-output searchEndpoint string = 'https://${search.name}.search.windows.net'
+output searchEndpoint string = empty(existingSearchEndpoint) ? 'https://${search!.name}.search.windows.net' : existingSearchEndpoint

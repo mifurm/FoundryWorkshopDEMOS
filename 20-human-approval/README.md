@@ -40,6 +40,31 @@ proposal and decision commands; the printed commands otherwise use the default
 database. Approval/rejection needs Azure CLI authentication but does not make
 another model request.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) requests a real
+model proposal and shows its exact payload and digest before enabling separate
+approve/reject controls. Approval creates only a synthetic SQLite booking.
+The existing expiry, actor, digest and replay checks still apply. Reloading
+forgets the displayed proposal; create a new one instead of approving unseen
+content. Local UI requests use the Azure CLI user's identity. Hosted UI requests
+require App Service Easy Auth to authenticate its one allowed presenter and
+inject matching tenant/object claims; the app's managed identity makes model calls.
+Never expose the hosted process without that authentication boundary.
+
+Set `UI_APPROVAL_ENDPOINT` locally (`UI_APPROVAL_DEPLOYMENT` defaults to
+`gpt-4.1-mini`). The local UI stores its synthetic database separately in
+`.azure/ui-bookings.db`. Hosted state persists as plaintext under
+`/home/data/human-approval-ui/bookings.db` and is not deleted with this lab's
+resource group. Pass `approvalEndpoint` to the shared hosting template while
+retaining its other parameters, then grant inference access:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<approval-account-name>" principalId="<ui-system-identity-object-id>"
+```
+
 ## Teaching points and validation
 
 The digest binds the proposal ID, actor, and exact payload. A changed argument

@@ -39,7 +39,7 @@ def response(
 class WebSearchTests(unittest.TestCase):
     def test_prints_real_search_count_answer_and_citations(self) -> None:
         with redirect_stdout(io.StringIO()) as text:
-            demo.show_response(response())
+            result = demo.show_response(response())
         self.assertIn("Web searches: 1", text.getvalue())
         self.assertIn("Foundry routes prompts", text.getvalue())
         self.assertIn("https://learn.microsoft.com", text.getvalue())
@@ -48,6 +48,8 @@ class WebSearchTests(unittest.TestCase):
         self.assertIn("Search statuses: ['completed']", text.getvalue())
         self.assertIn("URL citations: 1", text.getvalue())
         self.assertNotIn("Raw response JSON:", text.getvalue())
+        self.assertEqual(result["search_calls"], 1)
+        self.assertEqual(result["citations"][0]["url"], "https://learn.microsoft.com/azure/foundry/")
 
     def test_rejects_ungrounded_or_incomplete_answers(self) -> None:
         for item in (response(search=False), response(citation=False), response(status="incomplete"), response(text="")):
@@ -94,12 +96,13 @@ class WebSearchTests(unittest.TestCase):
         ):
             with self.subTest(answer=answer), redirect_stdout(io.StringIO()) as output:
                 item = response(search=False, citation=False, text=answer)
-                demo.show_response(item, expect_web_search=False, debug_response=True)
+                result = demo.show_response(item, expect_web_search=False, debug_response=True)
                 self.assertIn(answer, output.getvalue())
                 self.assertIn("Search calls: 0", output.getvalue())
                 self.assertIn("URL citations: 0", output.getvalue())
                 self.assertIn("not verified search citations", output.getvalue())
                 self.assertIn(item.model_dump_json(indent=2), output.getvalue())
+                self.assertEqual(result["citations"], [])
 
     def test_no_tool_response_still_rejects_errors_and_unexpected_grounding(self) -> None:
         for item in (

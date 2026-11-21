@@ -89,6 +89,30 @@ The UI deliberately binds only to loopback and rejects cross-origin requests.
 It uses the presenter's Azure CLI credentials, so do not expose it as a shared
 web application or use it for production authentication.
 
+### Shared Azure-hosted UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) invokes the
+same hosted endpoint with its managed identity. It uses a background job for
+potentially slow cold starts, displays the returned quote/state/execution IDs,
+and keeps the browser's session ID until **New isolated session** is selected.
+These are sessions of one authenticated presenter, not separate real users.
+The Free App Service process can restart while a cloud invocation continues;
+inspect Azure before acknowledging an interrupted job.
+
+Set `UI_HOSTED_AGENT_PROJECT_ENDPOINT` locally. For App Service, pass
+`hostedAgentProjectEndpoint` to the shared template while preserving the other
+parameters and grant its system identity Foundry User on this account:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  -f ../0-model-basics/infra/ui-role.bicep \
+  -p accountName="<hosted-account-name>" principalId="<ui-system-identity-object-id>" \
+     roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+The agent must already be published; the UI cannot build images, publish
+versions, assign roles or modify the endpoint.
+
 In [Foundry](https://ai.azure.com), select the deployed `hosted-agent` project,
 open **Agents**, and inspect `hosted-workshop-pricer`, its version, and traces.
 Application Insights is connected using **ProjectManagedIdentity** with local

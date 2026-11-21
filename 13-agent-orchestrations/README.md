@@ -13,7 +13,33 @@ Agent Framework orchestrates **locally**; Foundry performs model inference.
 
 `concurrent_sample.py` avoids shadowing Python's standard-library `concurrent`
 package. "Magentic" is the framework's manager-driven pattern, not a typo for
-"magnetic." No web research, tools, hosted agent deployment, database, or UI.
+"magnetic." No web research, tools, hosted agent deployment, or database.
+
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs one selected
+pattern with its existing synthetic prompt and shows participant updates and
+workflow output. Each pattern makes multiple billable model requests. The UI
+limits a run to 180 seconds; a timeout does not guarantee cancellation of requests
+already sent to the service.
+
+For local use, set `UI_ORCHESTRATION_PROJECT_ENDPOINT` before starting the UI;
+`UI_ORCHESTRATION_DEPLOYMENT` defaults to `gpt-4.1-mini`. For Azure hosting,
+pass `orchestrationProjectEndpoint` and optionally `orchestrationDeployment` to
+the shared UI template, retaining the other existing parameters. Grant its
+system-assigned identity Foundry User at this lab's account scope, with
+`RESOURCE_GROUP` set to the lab 13 resource group:
+
+```bash
+az deployment group create -g "$RESOURCE_GROUP" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-13-account-name>" principalId="<ui-system-identity-object-id>" \
+    roleDefinitionGuid=53ca6127-db72-4b80-b1b0-d745d6d5456d
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference
+must be verified separately from deployment.
 
 ## Deploy
 

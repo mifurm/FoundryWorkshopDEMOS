@@ -49,6 +49,38 @@ decision, not an SDK error, so both ALLOW and BLOCK are successful analyses.
 An ALLOW does not guarantee text is safe for every audience or use case.
 Offline tests prove both sides of the threshold without including harmful text.
 
+### Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+displays the service's four actual scores and the threshold-based policy.
+It accepts approved, non-sensitive text and incurs a charge for each request.
+For local use, set `UI_SAFETY_ENDPOINT` to this lab's `endpoint` output and
+run lab 27's `ui.py`.
+
+For Azure use, first deploy the UI and grant its system-assigned identity access:
+
+```bash
+UI_RG="<lab-27-ui-resource-group>"
+WEBAPP="<lab-27-ui-app-name>"
+SAFETY_RG="rg-foundry-content-safety-demo"
+SAFETY_ACCOUNT="<lab-6-content-safety-account-name>"
+UI_PRINCIPAL="$(az webapp identity show -g "$UI_RG" -n "$WEBAPP" --query principalId -o tsv)"
+az deployment group create -g "$SAFETY_RG" -n lab6-ui-role \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="$SAFETY_ACCOUNT" principalId="$UI_PRINCIPAL" \
+  roleDefinitionGuid=a97b65f3-24c7-4388-baec-2e87135dc908
+```
+
+Set `safetyEndpoint` in the lab 27 UI deployment. Redeploy it with the existing
+parameters including `publicAccess=true`, then deploy the updated UI package.
+Remove this separate role assignment before deleting the UI:
+
+```bash
+ROLE_ID="$(az deployment group show -g "$SAFETY_RG" -n lab6-ui-role \
+  --query properties.outputs.roleAssignmentId.value -o tsv)"
+az role assignment delete --ids "$ROLE_ID"
+```
+
 ## Validate, costs, and cleanup
 
 ```bash

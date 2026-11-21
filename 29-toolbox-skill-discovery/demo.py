@@ -13,6 +13,7 @@ from zipfile import ZipFile
 
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import CreateSkillVersionFromFilesBody, ToolboxSkillReference
+from azure.core.credentials import TokenCredential
 from azure.identity import AzureCliCredential
 import httpx
 from mcp import ClientSession, types
@@ -83,7 +84,7 @@ async def discover(session: ClientSession) -> dict[str, types.Resource]:
 async def run_case(
     session: ClientSession, client: OpenAI, deployment: str,
     resources: dict[str, types.Resource], prompt: str, expected: dict[str, str],
-) -> None:
+) -> dict:
     catalog = [
         {"uri": uri, "name": item.name, "description": item.description}
         for uri, item in resources.items()
@@ -95,6 +96,8 @@ async def run_case(
     )
     allowed_uris = set(resources)
     read_bodies: list[str] = []
+    reads = []
+    response_ids = []
     read_uris: set[str] = set()
     reference_uri = None
     previous = None
@@ -117,6 +120,7 @@ async def run_case(
             parallel_tool_calls=False, timeout=90.0,
         )
         print(f"Response: {response.id}; status: {response.status}", flush=True)
+        response_ids.append(response.id)
         if response.usage is not None:
             print(f"Usage: {response.usage.model_dump_json()}", flush=True)
         if response.status != "completed":
@@ -132,7 +136,7 @@ async def run_case(
             if value != expected:
                 raise RuntimeError(f"Skill output contract mismatch: {value}")
             print(f"Verified: {response.output_text}", flush=True)
-            return
+            return {"answer": value, "reads": reads, "response_ids": response_ids}
         if len(calls) != 1 or calls[0].name != "read_skill":
             raise RuntimeError("Expected one relevant resource read per model turn.")
         call = calls[0]
@@ -155,6 +159,7 @@ async def run_case(
         if not body.strip() or len(body.encode("utf-8")) > 32000:
             raise RuntimeError("Skill body is empty or exceeds the workshop's 32 KB bound.")
         read_bodies.append(body)
+        reads.append({"uri": uri, "body": body})
         read_uris.add(uri)
         if len(read_bodies) == 1 and "[the workshop checklist](references/checklist.md)" in body:
             reference_uri = uri.removesuffix("/SKILL.md") + "/references/checklist.md"
@@ -172,8 +177,11 @@ async def run_case(
 
 
 async def demonstrate(
-    project: AIProjectClient, credential: AzureCliCredential, endpoint: str, deployment: str,
-) -> None:
+    project: AIProjectClient, credential: TokenCredential, endpoint: str, deployment: str,
+    selected_case: str | None = None,
+) -> dict:
+    if selected_case is not None and selected_case not in {case[0] for case in CASES}:
+        raise ValueError("Unknown discovery case.")
     suffix = uuid4().hex[:10]
     with ExitStack() as cleanup:
         references = []
@@ -207,11 +215,18 @@ async def demonstrate(
                     print("Discovered metadata (no bodies loaded):", flush=True)
                     for uri, resource in resources.items():
                         print(f"  {resource.name}: {resource.description} [{uri}]", flush=True)
+                    catalog = [{"uri": uri, "name": item.name, "description": item.description}
+                               for uri, item in resources.items()]
+                    results = []
                     with project.get_openai_client(max_retries=0) as client:
-                        for _, prompt, expected in CASES:
+                        for slug, prompt, expected in CASES:
+                            if selected_case is not None and slug != selected_case:
+                                continue
                             print(f"\nUser: {prompt}", flush=True)
-                            await run_case(session, client, deployment, resources, prompt, expected)
+                            result = await run_case(session, client, deployment, resources, prompt, expected)
+                            results.append({"case": slug, "prompt": prompt, **result})
         print("Verified relevant skill loading and on-demand supplementary reference reading.", flush=True)
+        return {"catalog": catalog, "results": results}
 
 
 def main() -> None:

@@ -57,6 +57,17 @@ class OrchestrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(message.role == "assistant" for message in client.calls[1]))
         demo.show(result.get_outputs(), "sequential")
 
+    async def test_runner_returns_real_outputs_and_intermediate_shape(self):
+        client = LocalChatClient()
+        with patch("demo.AzureCliCredential"), patch("demo.AIProjectClient"), \
+                patch("demo.FoundryChatClient", return_value=client):
+            results = await demo.run_samples("https://example.test/project", "model", "sequential")
+        self.assertEqual(len(client.calls), 2)
+        self.assertEqual(results[0]["pattern"], "sequential")
+        self.assertEqual(results[0]["prompt"], sequential.PROMPT)
+        self.assertEqual(len(results[0]["outputs"]), 2)
+        self.assertTrue(all(item["text"] for item in results[0]["outputs"]))
+
     async def test_concurrent_runs_independently_with_overlapping_calls(self):
         client = LocalChatClient()
         result = await concurrent_sample.build(client).run(concurrent_sample.PROMPT)

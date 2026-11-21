@@ -13,7 +13,8 @@ Allow about 3-5 minutes to present after provisioning.
 - A Cognitive Services OpenAI User role assignment for the presenter.
 
 No separate underlying model deployments or Foundry project are needed for this
-account-level Chat Completions example. No storage, web server, or UI is created.
+account-level Chat Completions example. The optional shared UI is deployed
+separately as described below.
 The public endpoint enables access from your laptop; API keys are disabled.
 This is a public Azure workshop setup, not a production networking design.
 
@@ -102,6 +103,42 @@ from the deployed router's model version.
    or different prompts **can select the same model**; this is not a failure.
 4. Discuss the trade-off: one deployment can balance quality and cost across tasks,
    but this short demo does not prove savings or benchmark models.
+
+### Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+offers each of the three original prompts and a custom prompt. Every click
+makes a real paid request and displays the actual prompt, serving model, answer,
+timing, finish reason, and usage. Use synthetic prompts; choosing different
+prompts does not guarantee different serving models.
+
+For local use, after deploying both labs, set `UI_ROUTER_ENDPOINT` to this lab's
+`endpoint` output and run lab 27's `ui.py`. The UI uses Azure CLI credentials.
+For Azure use, first deploy the UI using lab 27's instructions, then grant
+its system-assigned identity access to this lab's account:
+
+```bash
+UI_RG="<lab-27-ui-resource-group>"
+WEBAPP="<lab-27-ui-app-name>"
+ROUTER_RG="rg-foundry-model-router-demo"
+ROUTER_ACCOUNT="<lab-1-foundry-account-name>"
+UI_PRINCIPAL="$(az webapp identity show -g "$UI_RG" -n "$WEBAPP" --query principalId -o tsv)"
+az deployment group create -g "$ROUTER_RG" -n lab1-ui-role \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="$ROUTER_ACCOUNT" principalId="$UI_PRINCIPAL"
+```
+
+In the lab 27 UI deployment, set `routerEndpoint` to this lab's `endpoint`
+output and, if necessary, `routerDeployment` to its deployment output.
+Redeploy that template with all existing parameters including
+`publicAccess=true`, then deploy the updated UI package. Remove this separate
+role assignment before deleting the UI:
+
+```bash
+ROLE_ID="$(az deployment group show -g "$ROUTER_RG" -n lab1-ui-role \
+  --query properties.outputs.roleAssignmentId.value -o tsv)"
+az role assignment delete --ids "$ROLE_ID"
+```
 
 Illustrative output only (actual model, timing, tokens, and wording vary):
 

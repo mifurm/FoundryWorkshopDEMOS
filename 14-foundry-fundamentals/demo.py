@@ -5,6 +5,12 @@ import sys
 from urllib.parse import urlsplit
 
 
+MESSAGES = [
+    {"role": "system", "content": "You are a workshop tutor. Answer in two short sentences."},
+    {"role": "user", "content": "What is the difference between a project and a model deployment?"},
+]
+
+
 def denied_endpoint(endpoint):
     parsed = urlsplit(endpoint)
     suffix = ".openai.azure.com"
@@ -23,7 +29,7 @@ def stream_response(chunks, write):
     return usage
 
 
-def probe(client, deployment, expected_status=None):
+def probe_result(client, deployment, expected_status=None):
     """Require an exact HTTP status, or an explicit inference RBAC denial."""
     from openai import APIStatusError
 
@@ -33,7 +39,6 @@ def probe(client, deployment, expected_status=None):
             max_tokens=16,
         )
     except APIStatusError as exc:
-        print(f"Actual HTTP {exc.status_code}: {exc.body}")
         if expected_status is None:
             body = exc.body
             if isinstance(body, dict) and isinstance(body.get("error"), dict):
@@ -54,11 +59,32 @@ def probe(client, deployment, expected_status=None):
         else:
             matched = exc.status_code == expected_status
             expected = f"HTTP {expected_status}"
-        if not matched:
-            print(f"Expected {expected}; check authentication, RBAC propagation, and region.")
-        return matched
-    print("Probe succeeded unexpectedly: check inherited inference roles or deployment names.")
-    return False
+        return {"matched": matched, "status": exc.status_code, "body": exc.body, "expected": expected}
+    return {"matched": False, "status": "succeeded", "body": None,
+            "expected": f"HTTP {expected_status}" if expected_status is not None
+            else "an explicit inference RBAC PermissionDenied (HTTP 401 or 403)"}
+
+
+def probe(client, deployment, expected_status=None):
+    result = probe_result(client, deployment, expected_status)
+    if result["status"] == "succeeded":
+        print("Probe succeeded unexpectedly: check inherited inference roles or deployment names.")
+    else:
+        print(f"Actual HTTP {result['status']}: {result['body']}")
+        if not result["matched"]:
+            print(f"Expected {result['expected']}; check authentication, RBAC propagation, and region.")
+    return result["matched"]
+
+
+def first_response(client, deployment):
+    return client.chat.completions.create(model=deployment, messages=MESSAGES, max_tokens=160)
+
+
+def streamed_response(client, deployment):
+    return client.chat.completions.create(
+        model=deployment, messages=MESSAGES, max_tokens=160,
+        stream=True, stream_options={"include_usage": True},
+    )
 
 
 def main(argv=None):
@@ -99,20 +125,11 @@ def main(argv=None):
             print("Inference:", args.endpoint, "| Deployment:", args.deployment)
             print("A project organizes assets; inference uses /openai/v1/.")
             print("The deployment name is a user-chosen alias, not the catalog model name.")
-            messages = [
-                {"role": "system", "content": "You are a workshop tutor. Answer in two short sentences."},
-                {"role": "user", "content": "What is the difference between a project and a model deployment?"},
-            ]
-            response = client.chat.completions.create(
-                model=args.deployment, messages=messages, max_tokens=160,
-            )
+            response = first_response(client, args.deployment)
             print("First response:", response.choices[0].message.content)
             print("Serving model:", response.model, "Usage:", response.usage.model_dump() if response.usage else None)
             print("Stream: ", end="", flush=True)
-            with client.chat.completions.create(
-                model=args.deployment, messages=messages, max_tokens=160,
-                stream=True, stream_options={"include_usage": True},
-            ) as chunks:
+            with streamed_response(client, args.deployment) as chunks:
                 usage = stream_response(chunks, lambda text: print(text, end="", flush=True))
             print("\nStream usage:", usage or "Not returned by the service")
             if not args.skip_negative_probes:

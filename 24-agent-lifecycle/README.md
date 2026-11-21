@@ -44,6 +44,28 @@ Applications preview availability in the selected region. The caller needs:
   monitoring query fails visibly if this permission is missing.
 - Resource creation and role-assignment permissions for deploying Bicep.
 
+## Browser UI
+
+The shared [workshop UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui)
+runs the same publish, version-change and rollback exercise as a background job.
+It records the generated application and agent names before making cloud calls,
+and checkpoints the resource IDs, deployment readbacks and request evidence under
+`/home/data/workshop-jobs/agent-lifecycle/<job-id>.json` when hosted. An
+interrupted job requires inspecting those resources before retrying; a forced
+process stop can prevent the `finally` rollback. Each run leaves its application
+and agent published and incurs model charges.
+
+Set `UI_LIFECYCLE_PROJECT_ENDPOINT`, `UI_LIFECYCLE_PROJECT_RESOURCE_ID` and
+`UI_LIFECYCLE_DEPLOYMENT` locally, or set `lifecycleProjectEndpoint`,
+`lifecycleProjectResourceId` and `lifecycleDeployment` in the UI template.
+For App Service, deploy [ui-role.bicep](./infra/ui-role.bicep) in this lab's
+resource group with the account name and UI identity's object ID. It assigns
+Foundry User at account scope, a custom application/deployment read-write role
+at project scope, and an Activity Log read-only role at resource-group scope.
+Creating custom roles requires appropriate authorization. The Activity Log API's
+scope requirements and role propagation must be verified in the target tenant;
+an access failure is reported even if rollback already succeeded.
+
 Use a disposable resource group; run from this directory:
 
 ```bash
@@ -150,6 +172,8 @@ If keeping the project, first delete the application's `deployment_id` and then
 versions using `AIProjectClient.agents.delete_version(agent_name=..., agent_version=...)`.
 Check Entra for any dedicated agent identity/blueprint left by preview lifecycle
 behavior. Remove local report/state only after cleanup evidence is recorded.
+If the UI's custom roles were installed, remove their assignments and custom role
+definitions when no longer needed; deleting the UI alone does not remove them.
 
 ## Official API grounding
 

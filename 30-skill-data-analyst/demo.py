@@ -224,7 +224,7 @@ def upload_skill(project: AIProjectClient, name: str, package: bytes, timeout: f
 
 def demonstrate(
     project: AIProjectClient, client: OpenAI, deployment: str, *, save_artifacts: bool = False,
-) -> None:
+) -> dict:
     run_id = uuid4().hex
     name = f"csv-analyst-{run_id}"
     package, expected = skill_package(name)
@@ -288,6 +288,22 @@ def demonstrate(
             for filename, content in artifacts.items():
                 (destination / filename).write_bytes(content)
             print(f"Saved verified user artifacts: {destination}", flush=True)
+        return {
+            "skill": {"name": name, "version": skill.version},
+            "agent": {"name": agent.name, "version": agent.version},
+            "response_id": response.id,
+            "response_text": response.output_text,
+            "container_id": container.id,
+            "file_ids": citations,
+            "executions": [
+                {"id": call.id, "code": call.code,
+                 "logs": [output.logs for output in call.outputs or [] if output.type == "logs"]}
+                for call in response.output if call.type == "code_interpreter_call"
+            ],
+            "usage": response.usage.model_dump(mode="json") if response.usage else None,
+            "report": json.loads(artifacts["report.json"]),
+            "chart": artifacts["attendance-cost.png"],
+        }
 
 
 def main(argv: Sequence[str] | None = None) -> None:

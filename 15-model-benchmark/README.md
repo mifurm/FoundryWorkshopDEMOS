@@ -4,6 +4,32 @@ Run the **same six labeled synthetic support tickets** against GPT-4.1-mini,
 GPT-4.1, and actual Azure **Model Router**, three times each. There is no local
 router stand-in and no fabricated live success. Default run: **54 requests**.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) compares all
+three actual deployments on one selected labeled ticket per run. It shows
+individual scoring, errors, service-reported usage, timing, and illustrative
+prices. This is not the repeated CLI benchmark or a statistical ranking.
+Each run makes three billable requests.
+
+For local use, set `UI_BENCHMARK_ENDPOINT` before starting the UI. Deployment
+aliases default to `benchmark-mini`, `benchmark-full`, and `model-router` and
+can be overridden with `UI_BENCHMARK_MINI`, `UI_BENCHMARK_FULL`, and
+`UI_BENCHMARK_ROUTER`. For Azure hosting, pass `benchmarkEndpoint` and any
+needed alias parameters to the shared UI template, retaining the existing
+parameters. Grant its system-assigned identity inference access at this lab's
+account scope, with `RG` set to the lab 15 resource group:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-15-account-name>" principalId="<ui-system-identity-object-id>"
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference
+must be verified separately from deployment.
+
 ## Prerequisites and deployment
 
 Python 3.10+, Azure CLI/Bicep, `az login`, model access and sufficient quota.

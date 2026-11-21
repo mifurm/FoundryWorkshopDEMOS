@@ -31,11 +31,13 @@ def validate_data(path: Path) -> int:
     return len(rows)
 
 
-def submit(client: OpenAI, model: str):
+def submit(client: OpenAI, model: str, *, on_upload=None):
     count = validate_data(DATA)
     print(f"Uploading {count} toy examples; submitting one epoch of Global SFT.", flush=True)
     with DATA.open("rb") as training:
         uploaded = client.files.create(file=training, purpose="fine-tune")
+    if on_upload is not None:
+        on_upload(uploaded.id)
     client.files.wait_for_processing(uploaded.id)
     return client.fine_tuning.jobs.create(
         model=model, training_file=uploaded.id, suffix="workshop",

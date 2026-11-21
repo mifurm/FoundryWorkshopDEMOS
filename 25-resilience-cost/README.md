@@ -6,6 +6,29 @@ exhaust Azure quota. A synthetic local booking tool demonstrates a response
 lost after commit and an idempotent retry. A persistent outage, permanent 403,
 and expired deadline demonstrate explicit bounded failure.
 
+## Browser UI
+
+The [shared UI](../27-FoundryIQwithKB/README.md#azure-hosted-ui) runs the same
+bounded demonstration and displays live model answers, usage, synthetic fault
+outcomes, and the illustrative cost estimate. It does not create a real booking.
+For local use, set `UI_RESILIENCE_ENDPOINT` before starting the UI;
+`UI_RESILIENCE_DEPLOYMENT` defaults to `gpt-4.1-mini`.
+
+For Azure hosting, pass `resilienceEndpoint` and optionally `resilienceDeployment`
+to the shared UI template, retaining the other existing parameters. Grant its
+system-assigned identity inference access at this lab's account scope, with
+`RG` set to the lab 25 resource group:
+
+```bash
+az deployment group create -g "$RG" -n ui-access \
+  --template-file ../0-model-basics/infra/ui-role.bicep \
+  --parameters accountName="<lab-25-account-name>" principalId="<ui-system-identity-object-id>"
+```
+
+Remove this role assignment when removing the UI, or delete this lab's resource
+group when no longer needed. Browser sign-in and managed-identity inference
+must be verified separately from deployment.
+
 ## Deploy and run
 
 Requires Python 3.10+, Azure CLI/Bicep, an interactive Entra user with resource

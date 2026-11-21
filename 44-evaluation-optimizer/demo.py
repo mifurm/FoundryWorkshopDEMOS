@@ -1,6 +1,7 @@
 """Generate a versioned dataset, evaluate real tool traces, and run a native optimizer."""
 
 import argparse
+from contextlib import nullcontext
 import json
 import math
 import os
@@ -10,17 +11,7 @@ from uuid import uuid4
 
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import (
-    AgentOptimizationCandidateSearchConfiguration, AgentOptimizationConfiguration,
-    AgentOptimizationEvaluationConfiguration, AgentOptimizationEvaluator,
-    AgentOptimizationFoundryAgentTargetConfiguration, AgentOptimizationJob,
-    AgentOptimizationModelConfiguration, AgentOptimizationSpace,
-    AgentOptimizationTargetCompletionDatasetReferenceDataSource,
-    AgentOptimizationTargetCompletionEvaluationSet, AgentOptimizationTargetCompletionInlineDataSource,
-    AgentOptimizationTargetCompletionTestCase, DataGenerationModelOptions,
-    EvaluationDataGenerationJobInputs, EvaluationDataGenerationJobOutputConfiguration,
-    EvaluationModelConfiguration, PromptAgentDefinition,
-    PromptDataGenerationJobSource, SimpleQnADataGenerationJobConfiguration,
-    TestingCriterionAzureAIEvaluator,
+    PromptAgentDefinition, TestingCriterionAzureAIEvaluator,
 )
 from azure.identity import AzureCliCredential, get_bearer_token_provider
 from openai import OpenAI
@@ -64,11 +55,12 @@ def settings() -> dict:
     return config
 
 
-def save(report: dict) -> None:
-    STATE.mkdir(exist_ok=True)
-    pending = STATE / "live-report.pending"
+def save(report: dict, state_dir: Path | None = None) -> None:
+    state_dir = state_dir if state_dir is not None else STATE
+    state_dir.mkdir(parents=True, exist_ok=True)
+    pending = state_dir / "live-report.pending"
     pending.write_text(json.dumps(report, indent=2, default=str) + "\n")
-    pending.replace(STATE / "live-report.json")
+    pending.replace(state_dir / "live-report.json")
 
 
 def poll_job(get_job, cancel_job, job_id: str, report: dict, key: str, timeout: int = WAIT_SECONDS):
@@ -110,6 +102,12 @@ def tag_generated_dataset(project, name: str, version: str, report: dict) -> dic
 
 
 def generate_dataset(project, config: dict, report: dict) -> dict:
+    from azure.ai.projects.models import (
+        DataGenerationModelOptions, EvaluationDataGenerationJobInputs,
+        EvaluationDataGenerationJobOutputConfiguration, PromptDataGenerationJobSource,
+        SimpleQnADataGenerationJobConfiguration,
+    )
+
     name = "catalog-qna-" + uuid4().hex[:10]
     # The generator cannot see the separate refund holdout.
     job = EvaluationDataGenerationJobInputs(
@@ -216,10 +214,12 @@ def verify_evaluator_results(items: list[dict], expected_rows: int) -> None:
             raise RuntimeError(f"Cloud evaluators are unavailable or missing scores: {results}")
 
 
-def cloud_evaluation(project, config: dict, report: dict) -> None:
-    with AzureCliCredential() as credential, OpenAI(
+def cloud_evaluation(project, config: dict, report: dict, *, credential=None,
+                     state_dir: Path | None = None) -> None:
+    credential_context = nullcontext(credential) if credential is not None else AzureCliCredential()
+    with credential_context as active_credential, OpenAI(
         base_url=config["endpoint"].rstrip("/") + "/openai/v1/",
-        api_key=get_bearer_token_provider(credential, "https://ai.azure.com/.default"),
+        api_key=get_bearer_token_provider(active_credential, "https://ai.azure.com/.default"),
         timeout=120, max_retries=1,
     ) as inference:
         rows = report.get("actual_agent_traces")
@@ -234,7 +234,7 @@ def cloud_evaluation(project, config: dict, report: dict) -> None:
     with project.get_openai_client(timeout=120, max_retries=1) as ai:
         report["actual_agent_traces"] = rows
         report["tool_trace_source"] = "Actual deployed-model Responses API tool calls, not an agent-reference endpoint."
-        save(report)
+        save(report, state_dir)
         schema = {
             "type": "object", "properties": {
                 "query": {"type": "string"}, "response": {"type": "string"},
@@ -254,7 +254,7 @@ def cloud_evaluation(project, config: dict, report: dict) -> None:
             data_source={"type": "jsonl", "source": {"type": "file_content", "content": [{"item": r} for r in rows]}},
         )
         report["evaluation_run"] = run.model_dump()
-        save(report)
+        save(report, state_dir)
         deadline = monotonic() + WAIT_SECONDS
         while run.status not in ("completed", "failed", "canceled"):
             if monotonic() >= deadline:
@@ -263,17 +263,22 @@ def cloud_evaluation(project, config: dict, report: dict) -> None:
             sleep(10)
             run = ai.evals.runs.retrieve(run.id, eval_id=evaluation.id)
             report["evaluation_run"] = run.model_dump()
-            save(report)
+            save(report, state_dir)
         if run.status != "completed":
             raise RuntimeError(f"Native evaluator run failed: {run.model_dump().get('error')}")
         items = [item.model_dump() for item in ai.evals.runs.output_items.list(run.id, eval_id=evaluation.id)]
         report["evaluation_output_items"] = items
         verify_evaluator_results(items, len(rows))
         report["evaluator_status"] = "PASS"
-    save(report)
+    save(report, state_dir)
 
 
 def evaluation_set(rows: list[dict]):
+    from azure.ai.projects.models import (
+        AgentOptimizationTargetCompletionEvaluationSet, AgentOptimizationTargetCompletionInlineDataSource,
+        AgentOptimizationTargetCompletionTestCase,
+    )
+
     return AgentOptimizationTargetCompletionEvaluationSet(
         source=AgentOptimizationTargetCompletionInlineDataSource(
             test_cases=[AgentOptimizationTargetCompletionTestCase(**row) for row in rows],
@@ -282,6 +287,13 @@ def evaluation_set(rows: list[dict]):
 
 
 def optimization_config(model: str, dataset: dict | None = None):
+    from azure.ai.projects.models import (
+        AgentOptimizationCandidateSearchConfiguration, AgentOptimizationConfiguration,
+        AgentOptimizationEvaluationConfiguration, AgentOptimizationEvaluator, AgentOptimizationSpace,
+        AgentOptimizationTargetCompletionDatasetReferenceDataSource,
+        AgentOptimizationTargetCompletionEvaluationSet, EvaluationModelConfiguration,
+    )
+
     training = evaluation_set(TRAINING)
     if dataset:
         training = AgentOptimizationTargetCompletionEvaluationSet(
@@ -425,6 +437,11 @@ def heldout_gate(candidates: list[dict], summary: dict, validation: dict) -> dic
 
 
 def native_optimizer(project, config: dict, dataset: dict | None, report: dict) -> None:
+    from azure.ai.projects.models import (
+        AgentOptimizationFoundryAgentTargetConfiguration, AgentOptimizationJob,
+        AgentOptimizationModelConfiguration,
+    )
+
     name = "optimizer-agent-" + uuid4().hex[:10]
     agent = project.agents.create_version(
         agent_name=name,

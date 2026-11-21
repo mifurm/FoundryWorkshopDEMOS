@@ -1,6 +1,7 @@
 """Publish and verify a custom-code Foundry agent; never run its workflow locally."""
 
 import argparse
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -14,6 +15,7 @@ from azure.ai.projects.models import (
     AgentEndpointConfig, ContainerConfiguration, FixedRatioVersionSelectionRule,
     HostedAgentDefinition, ProtocolConfiguration, ProtocolVersionRecord, VersionSelector,
 )
+from azure.core.credentials import TokenCredential
 from azure.identity import AzureCliCredential
 import httpx
 
@@ -99,16 +101,19 @@ def publish() -> dict:
         return record
 
 
-def invoke(attendees: int, session_id: str) -> dict:
+def invoke(attendees: int, session_id: str, *, project_endpoint: str | None = None,
+           credential: TokenCredential | None = None) -> dict:
     if type(attendees) is not int or not 1 <= attendees <= 20:
         raise ValueError("attendees must be an integer from 1 to 20")
     if not isinstance(session_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", session_id):
         raise ValueError("Invalid session ID")
-    outputs = read_outputs()
-    with AzureCliCredential() as credential:
-        token = credential.get_token("https://ai.azure.com/.default").token
+    endpoint = read_outputs()["projectEndpoint"] if project_endpoint is None else project_endpoint
+    if not endpoint.startswith("https://"):
+        raise ValueError("The hosted-agent project endpoint must use HTTPS.")
+    with nullcontext(credential) if credential is not None else AzureCliCredential() as active_credential:
+        token = active_credential.get_token("https://ai.azure.com/.default").token
         response = httpx.post(
-            f'{outputs["projectEndpoint"]}/agents/{NAME}/endpoint/protocols/invocations',
+            f'{endpoint.rstrip("/")}/agents/{NAME}/endpoint/protocols/invocations',
             params={"api-version": "v1", "agent_session_id": session_id},
             headers={"Authorization": f"Bearer {token}"},
             json={"attendees": attendees}, timeout=240, follow_redirects=False,

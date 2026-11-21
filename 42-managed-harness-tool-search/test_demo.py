@@ -2,7 +2,7 @@ import io
 import json
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import zipfile
 
 import demo
@@ -67,6 +67,15 @@ class HarnessToolSearchTests(unittest.TestCase):
         source = Path(demo.__file__).read_text()
         self.assertNotIn("downloaded_instructions", source)
         self.assertNotIn('instructions=skill_package', source)
+
+
+class ToolSearchCleanupTests(unittest.IsolatedAsyncioTestCase):
+    async def test_toolbox_is_deleted_if_the_first_checkpoint_fails(self):
+        project = MagicMock()
+        with patch("demo.save", side_effect=OSError("disk full")):
+            with self.assertRaisesRegex(OSError, "disk full"):
+                await demo.toolbox_search(project, MagicMock(), "https://project.test", {})
+        project.toolboxes.delete.assert_called_once()
 
 
 if __name__ == "__main__":

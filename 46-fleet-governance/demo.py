@@ -47,11 +47,16 @@ def configuration() -> dict:
     saved = recorded.get("outputs", {})
     values = {key: os.environ.get(env, saved.get(key, {}).get("value", ""))
               for key, env in OUTPUT_ENV.items()}
-    missing = [OUTPUT_ENV[key] for key, value in values.items() if not value]
+    return validate_configuration(values, recorded.get("resourceGroup", RG))
+
+
+def validate_configuration(values: dict, group: str) -> dict:
+    values = values.copy()
+    missing = [env for key, env in OUTPUT_ENV.items()
+               if not isinstance(values.get(key), str) or not values[key].strip()]
     if missing:
         raise Blocked("Missing deployment outputs: " + ", ".join(missing))
-    group = recorded.get("resourceGroup", RG)
-    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,90}", group) or not group.endswith("-fleet-governance-demo"):
+    if not isinstance(group, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,90}", group) or not group.endswith("-fleet-governance-demo"):
         raise ValueError("Only a recorded synthetic fleet resource group may be mutated.")
     for key in ("projectResourceId", "secondProjectResourceId", "applicationInsightsResourceId",
                 "policyAssignmentId"):
@@ -65,9 +70,10 @@ def configuration() -> dict:
     return values
 
 
-def save(name: str, value: dict) -> None:
-    STATE.mkdir(exist_ok=True)
-    (STATE / name).write_text(json.dumps(value, indent=2) + "\n")
+def save(name: str, value: dict, state_dir: Path | None = None) -> None:
+    state_dir = state_dir if state_dir is not None else STATE
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / name).write_text(json.dumps(value, indent=2) + "\n")
 
 
 def safe_error(error: Exception) -> str:
@@ -125,7 +131,7 @@ def fleet_inventory(c: dict, credential) -> list[dict]:
     return inventory
 
 
-def setup_agents(c: dict, credential) -> list[dict]:
+def setup_agents(c: dict, credential, *, state_dir: Path | None = None) -> list[dict]:
     saved = []
     for index, (endpoint, resource_id) in enumerate((
         (c["projectEndpoint"], c["projectResourceId"]),
@@ -152,11 +158,11 @@ def setup_agents(c: dict, credential) -> list[dict]:
             saved.append({"name": agent.name, "version": agent.version, "id": logical.id,
                           "versionId": agent.id,
                           "projectEndpoint": endpoint, "projectResourceId": resource_id})
-    save("agents.json", {"agents": saved})
+    save("agents.json", {"agents": saved}, state_dir)
     return saved
 
 
-def register_external(c: dict, credential) -> dict:
+def register_external(c: dict, credential, *, state_dir: Path | None = None) -> dict:
     with AIProjectClient(c["projectEndpoint"], credential, allow_preview=True) as project:
         existing = next((a for a in project.agents.list() if a.name == DATA["externalAgent"]), None)
         if existing:
@@ -173,7 +179,7 @@ def register_external(c: dict, credential) -> dict:
         result = {"status": "PASS", "name": registered.name, "version": registered.version,
                   "otelAgentId": readback.definition.otel_agent_id,
                   "projectResourceId": c["projectResourceId"]}
-        save("external-agent.json", result)
+        save("external-agent.json", result, state_dir)
         return result
 
 
@@ -216,7 +222,8 @@ def telemetry_query(run_id: str) -> str:
 
 
 def telemetry_smoke(api: API, c: dict, agents: list[dict], external: dict | None,
-                    timeout: int) -> dict:
+                    timeout: int, *, state_dir: Path | None = None,
+                    register_global: bool = True) -> dict:
     insights = api.request("GET", ARM + c["applicationInsightsResourceId"],
                            params={"api-version": "2020-02-02"})
     if not insights["properties"].get("DisableLocalAuth"):
@@ -227,7 +234,8 @@ def telemetry_smoke(api: API, c: dict, agents: list[dict], external: dict | None
     exporter = AzureMonitorTraceExporter(connection_string=connection_string,
                                          credential=api.credential, disable_offline_storage=True)
     provider = TracerProvider(resource=Resource.create({"service.name": "synthetic-fleet-46"}))
-    set_tracer_provider(provider)
+    if register_global:
+        set_tracer_provider(provider)
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     tracer = provider.get_tracer("workshop.fleet")
     run_id = str(uuid4())
@@ -268,7 +276,7 @@ def telemetry_smoke(api: API, c: dict, agents: list[dict], external: dict | None
         provider.force_flush()
     finally:
         provider.shutdown()
-        save("invocations.json", {"runId": run_id, "invocations": invocations})
+        save("invocations.json", {"runId": run_id, "invocations": invocations}, state_dir)
     deadline = monotonic() + timeout
     rows = []
     while True:
@@ -337,28 +345,23 @@ def policy_check(api: API, c: dict, timeout: int) -> dict:
         sleep(15)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--timeout", type=int, default=600)
-    args = parser.parse_args()
-    c = configuration()
+def run(c: dict, credential, *, state_dir: Path | None = None, timeout: int = 600,
+        register_global: bool = True) -> dict:
     report = {"lab": 46, "resourceGroup": c["resourceGroup"],
               "controlPlanePortal": {"status": "NOT_VERIFIED",
                  "evidence": "API inventory is not complete Operate/Assets/Compliance portal verification."},
               "defenderPurview": {"status": "OPTIONAL_NOT_CONFIGURED",
                  "evidence": "No tenant security onboarding or fabricated security alerts."}}
-    # Azure SDK HTTP logging can expose routing config; don't enable it in workshop logs.
-    logging.getLogger("azure").setLevel(logging.ERROR)
-    with AzureCliCredential(tenant_id=c["tenantId"]) as credential, httpx.Client(timeout=120) as http:
+    with httpx.Client(timeout=120) as http:
         api = API(credential, http)
         agents, external = [], None
         try:
-            agents = setup_agents(c, credential)
+            agents = setup_agents(c, credential, state_dir=state_dir)
             report["nativeAgents"] = {"status": "PASS", "agents": agents}
         except Exception as error:
             report["nativeAgents"] = {"status": "BLOCKED", "evidence": safe_error(error)}
         try:
-            external = register_external(c, credential)
+            external = register_external(c, credential, state_dir=state_dir)
             report["externalRegistration"] = external
         except Exception as error:
             report["externalRegistration"] = {"status": "BLOCKED", "evidence": safe_error(error)}
@@ -372,7 +375,9 @@ def main() -> int:
         try:
             if len(agents) != 2:
                 raise Blocked("Two native prompt agents unavailable for real invocations.")
-            report["telemetryCorrelation"] = telemetry_smoke(api, c, agents, external, args.timeout)
+            report["telemetryCorrelation"] = telemetry_smoke(
+                api, c, agents, external, timeout, state_dir=state_dir, register_global=register_global,
+            )
             report["nativeInvocations"] = {
                 "status": report["telemetryCorrelation"]["nativeInvocationStatus"],
                 "invocations": report["telemetryCorrelation"]["invocations"],
@@ -381,16 +386,28 @@ def main() -> int:
             report["telemetryCorrelation"] = {"status": "BLOCKED", "evidence": safe_error(error)}
             report["nativeInvocations"] = {"status": "BLOCKED", "evidence": safe_error(error)}
         try:
-            report["isolatedAzurePolicy"] = policy_check(api, c, args.timeout)
+            report["isolatedAzurePolicy"] = policy_check(api, c, timeout)
         except Exception as error:
             report["isolatedAzurePolicy"] = {"status": "BLOCKED", "evidence": safe_error(error)}
     required = ("nativeAgents", "externalRegistration", "crossProjectInventory",
                 "nativeInvocations", "telemetryCorrelation", "isolatedAzurePolicy")
     full_pass = all(report[name]["status"] == "PASS" for name in required)
     report["status"] = "PASS" if full_pass else "BLOCKED"
-    save("live-report.json", report)
+    save("live-report.json", report, state_dir)
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--timeout", type=int, default=600)
+    args = parser.parse_args()
+    c = configuration()
+    # Azure SDK HTTP logging can expose routing config; don't enable it in workshop logs.
+    logging.getLogger("azure").setLevel(logging.ERROR)
+    with AzureCliCredential(tenant_id=c["tenantId"]) as credential:
+        report = run(c, credential, timeout=args.timeout)
     print(json.dumps(report, indent=2))
-    return 0 if full_pass else 2
+    return 0 if report["status"] == "PASS" else 2
 
 
 if __name__ == "__main__":
