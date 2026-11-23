@@ -80,6 +80,38 @@ class UITests(unittest.TestCase):
                 self.assertTrue(name)
                 self.assertTrue(all(target in structure.elements for target in name.split()))
 
+    def test_interactive_labs_have_complete_diagram_steps(self):
+        class LabHeadings(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.heading = None
+                self.labs = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "h2":
+                    self.heading = {"attrs": dict(attrs), "text": ""}
+
+            def handle_data(self, data):
+                if self.heading is not None:
+                    self.heading["text"] += data
+
+            def handle_endtag(self, tag):
+                if tag == "h2" and self.heading is not None:
+                    if self.heading["text"].startswith("Lab "):
+                        self.labs.append(self.heading)
+                    self.heading = None
+
+        status, page = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        headings = LabHeadings()
+        headings.feed(page.decode("utf-8"))
+        self.assertTrue(headings.labs)
+        for heading in headings.labs:
+            with self.subTest(lab=heading["text"]):
+                steps = heading["attrs"].get("data-flow", "").split("|")
+                self.assertGreaterEqual(len(steps), 2)
+                self.assertTrue(all(step.strip() for step in steps))
+
     def test_invalid_and_cross_origin_requests_are_rejected(self):
         for body in ('{"question": ""}', '{"question": 1}', '[]', 'not json'):
             with self.subTest(body=body):

@@ -6,6 +6,9 @@
 > no automatic runs, and the strict live gate timed out after 20 minutes.
 > A separate manual cloud-grader diagnostic worked but is explicitly excluded
 > from success. Missing verdicts remain PENDING. See the [verification results](../tests.md).
+> A later review on 2026-11-23 found an automatic run that failed with no results
+> or service error details. Refreshing cloud evaluations reports that failure;
+> the end-to-end gate remains blocked.
 
 ## Intended live gate — currently blocked
 
@@ -104,12 +107,16 @@ regression verification fails.
 
 Open **http://127.0.0.1:8037**:
 
+A diagram summarizes the traffic, cloud evidence, and recovery flow. On a
+phone, scroll the results table sideways to see every column.
+
 1. Select **Healthy baseline** to invoke both real deployed endpoints.
 2. **Refresh cloud evaluations** until the response-linked verdicts arrive.
-   Missing evaluations remain **PENDING**, never PASS.
-3. Select **Introduce price regression**, refresh, and observe only the monitored
-   agent fail its native price check.
-4. Select **Restore good version**, refresh, and observe recovery.
+   Missing evaluations remain **PENDING**, never PASS; failed cloud runs are
+   reported as errors.
+3. Select **Introduce price regression**. If completed verdicts arrive, the
+   monitored agent should fail its native price check.
+4. Select **Restore good version** and check for a completed recovery verdict.
 5. Query actual ingested traces and inspect native evaluation run/report IDs.
 
 Each phase generates two paid model responses and up to two evaluation runs.

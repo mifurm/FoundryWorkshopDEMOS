@@ -79,6 +79,9 @@ not part of an ordinary UI request.
 
 Open **http://127.0.0.1:8036**:
 
+A diagram shows how the browser request reaches the hosted agent and returns
+the quote and session evidence.
+
 1. Run for three attendees: observe a verified USD 75 quote.
 2. Change to four and run again: USD 100, same marker, incremented visit count.
 3. Select **New isolated session**, then run: a new marker and visit count 1.

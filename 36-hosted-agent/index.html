@@ -10,10 +10,25 @@ section{background:#152238;border:1px solid #2b405b;border-radius:12px;padding:2
 button,input{font:inherit;border-radius:7px;padding:10px;border:1px solid #58749c}button{background:#80c8ff;color:#081324;cursor:pointer;margin:8px 8px 0 0}
 button:disabled{opacity:.5}input{width:75px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px ui-monospace}
 .good{color:#86efac}.error{color:#fca5a5}strong{font-size:24px}label{display:block}
+.lab-diagram{margin:20px 0;padding:16px;background:#152238;border:1px solid #2b405b;border-radius:12px}
+.lab-diagram figcaption{font-weight:700}
+.lab-diagram ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;list-style:none;padding:0;margin:14px 0 0}
+.lab-diagram li{position:relative;padding:10px;background:#1f304a;border:1px solid #3c5371;border-radius:8px;font-size:14px;overflow-wrap:anywhere}
+.lab-diagram li:not(:last-child)::after{content:"";position:absolute;top:50%;right:-13px;width:7px;height:7px;border-top:2px solid #80c8ff;border-right:2px solid #80c8ff;transform:translateY(-50%) rotate(45deg)}
+@media(max-width:700px){
+ .lab-diagram ol{grid-template-columns:minmax(0,1fr);gap:14px}
+ .lab-diagram li:not(:last-child)::after{top:auto;right:auto;bottom:-10px;left:16px;transform:rotate(135deg)}
+}
 </style>
 <header><p class="muted">MICROSOFT FOUNDRY / LAB 36</p><h1>Your code. Foundry's runtime.</h1>
-<p>Browser &rarr; local credential proxy &rarr; authenticated hosted endpoint &rarr; live model + read-only tool.</p>
+<p>Send a synthetic request to your hosted agent and inspect the returned evidence.</p>
 <p class="muted">The workflow never runs in this UI process. Synthetic prices only; no bookings or payments.</p></header>
+<figure class="lab-diagram">
+<figcaption>How this demo works</figcaption>
+<ol role="list">
+<li>Browser request</li><li>Local credential proxy</li><li>Hosted agent, model and read-only pricing tool</li><li>Quote and session evidence</li>
+</ol>
+</figure>
 <section><label>Attendees (1-20) <input id="attendees" type="number" min="1" max="20" value="3"></label>
 <button id="run">Run hosted agent</button><button id="fresh">New isolated session</button>
 <p id="status" role="status">Ready</p><small id="session"></small></section>

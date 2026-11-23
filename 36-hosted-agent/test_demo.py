@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
@@ -93,7 +94,12 @@ class UiTests(unittest.TestCase):
 
     def test_html(self):
         with urlopen(self.base) as response:
-            self.assertIn(b"Foundry's runtime", response.read())
+            page = response.read()
+            self.assertIn(b"Foundry's runtime", page)
+            diagram = re.search(rb'<figure class="lab-diagram">(.+?)</figure>', page, re.DOTALL)
+            self.assertIsNotNone(diagram)
+            self.assertIn(b"<figcaption>", diagram.group(1))
+            self.assertGreaterEqual(len(re.findall(rb"<li>[^<]+</li>", diagram.group(1))), 2)
             self.assertIn("no-store", response.headers["Cache-Control"])
 
     def test_cross_origin_denied(self):

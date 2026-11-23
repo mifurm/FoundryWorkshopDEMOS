@@ -1,4 +1,5 @@
 import json
+import re
 from threading import Thread
 from types import SimpleNamespace
 import unittest
@@ -114,7 +115,12 @@ class UiTests(unittest.TestCase):
 
     def test_html(self):
         with urlopen(self.base) as response:
-            self.assertIn(b"Native continuous evaluation", response.read())
+            page = response.read()
+            self.assertIn(b"Native continuous evaluation", page)
+            diagram = re.search(rb'<figure class="lab-diagram">(.+?)</figure>', page, re.DOTALL)
+            self.assertIsNotNone(diagram)
+            self.assertIn(b"<figcaption>", diagram.group(1))
+            self.assertGreaterEqual(len(re.findall(rb"<li>[^<]+</li>", diagram.group(1))), 2)
 
     def test_cross_origin_denied(self):
         request = Request(self.base + "/api/traffic", data=b"{}", headers={"Origin": "https://example.com"})

@@ -208,7 +208,9 @@ there. The local Polish Phi exercise in lab 10 also remains guide-only.
 
 Use the lab directory to search by number or topic and filter by availability.
 Selecting a lab shows its learning goal, exercise, and any remaining standalone
-guide. Inputs and inline results stay in the page while switching labs; reloading
+guide. Each interactive exercise has a simplified diagram of its flow; for a
+partial lab, the diagram covers only the portion available in the UI. Inputs
+and inline results stay in the page while switching labs; reloading
 the page resets them. Lab links and browser history return to the selected
 exercise. Long-running exercises share the **Background run** monitor above the
 selected lab, which reloads saved job state. Check its status and evidence before

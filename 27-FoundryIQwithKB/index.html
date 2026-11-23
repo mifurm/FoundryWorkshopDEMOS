@@ -154,6 +154,20 @@
     .learning-box p { margin: 0; color: #35435e; }
     .learning-box p + p { margin-top: .45rem; }
     .learning-box strong { color: #25365e; }
+    .lab-diagram { margin: 1.25rem 0; padding: 1rem; border: 1px solid #dfe6f2; border-radius: .8rem; background: #f8faff; }
+    .lab-diagram figcaption { color: #263757; font-size: .9rem; font-weight: 750; }
+    .lab-diagram figcaption span { display: block; margin-top: .15rem; color: #596a84; font-size: .78rem; font-weight: 500; }
+    .lab-diagram ol { display: flex; gap: 1.3rem; margin: .85rem 0 0; padding: 0; list-style: none; }
+    .lab-diagram li {
+      position: relative; flex: 1 1 0; min-width: 0; padding: .65rem; color: #253b5d;
+      background: #fff; border: 1px solid #dbe3f1; border-radius: .65rem;
+      font-size: .8rem; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere;
+    }
+    .lab-diagram li:not(:last-child)::after {
+      content: ""; position: absolute; top: 50%; right: -.95rem; width: .45rem; height: .45rem;
+      border-top: 2px solid #7d8fbc; border-right: 2px solid #7d8fbc; transform: translateY(-50%) rotate(45deg);
+    }
+    .diagram-step { display: block; margin-bottom: .3rem; color: #5263b8; font-size: .7rem; font-weight: 800; }
     .note { color: #56647a; }
     .lab-card > .note { margin: 1rem 0; font-size: .91rem; }
     .lab-card form { margin: 1.2rem 0; }
@@ -212,6 +226,12 @@
       .safety-note { margin-bottom: 2rem; }
       .lab-card button, .guide-link { display: flex; width: 100%; margin-right: 0; }
       .lab-card h2 { overflow-wrap: anywhere; }
+      .lab-diagram ol { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+      .lab-diagram li { display: flex; align-items: center; gap: .7rem; }
+      .diagram-step { flex: 0 0 auto; margin: 0; }
+      .lab-diagram li:not(:last-child)::after {
+        top: auto; right: auto; bottom: -.57rem; left: 1rem; transform: rotate(135deg);
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
@@ -294,7 +314,7 @@
               </div>
             </details>
             <div id="lab-content" tabindex="-1">
-  <h2>Lab 0: model basics</h2>
+  <h2 data-flow="Choose exercise|Toy calculation or live model|Inspect result">Lab 0: model basics</h2>
   <p class="note">Concepts use synthetic probabilities. Sampling and comparison call live models. Batch submits a paid asynchronous job once and subsequent clicks resume it; pending is not completion.</p>
   <form id="basics-form">
     <label for="temperature">Temperature</label>
@@ -315,7 +335,7 @@
     <pre id="basics-result" aria-live="polite">Choose a model-basics exercise.</pre>
   </details>
   <hr>
-  <h2>Lab 1: Model Router</h2>
+  <h2 data-flow="Prompt|Model Router|Serving model and usage">Lab 1: Model Router</h2>
   <p class="note">Each request uses the same router deployment and shows the service-reported serving model, timing, and usage. Different prompts may select the same model. Use synthetic prompts; each request incurs charges.</p>
   <form id="router-form">
     <label for="router-preset">Prompt</label>
@@ -326,7 +346,7 @@
   </form>
   <pre id="router-result" aria-live="polite">Choose a prompt to begin.</pre>
   <hr>
-  <h2>Lab 2: writer and editor workflow</h2>
+  <h2 data-flow="Workshop request|Writer agent|Editor agent|Final draft">Lab 2: writer and editor workflow</h2>
   <p class="note">Agent Framework runs a sequential writer-to-editor handoff locally in the UI process; Foundry supplies two live model responses. Nothing is sent or published. Use synthetic input; requests incur charges.</p>
   <form id="workflow-form">
     <label for="workflow-prompt">Invitation request</label>
@@ -335,12 +355,12 @@
   </form>
   <pre id="workflow-result" aria-live="polite">Submit an invitation request.</pre>
   <hr>
-  <h2>Lab 3: compare web search</h2>
+  <h2 data-flow="Public question|Agents with / without search|Answers and citations">Lab 3: compare web search</h2>
   <p class="note">Two independent agents answer the same fixed public question about Foundry Model Router, with and without Web Search. Grounding with Bing uses its own terms and may process data outside Azure compliance boundaries. The UI sends only this fixed public question. Model and search charges apply.</p>
   <form id="web-search-form"><button type="submit">Compare with and without Web Search</button></form>
   <pre id="web-search-result" aria-live="polite">Run the comparison to see actual answers and structured citations.</pre>
   <hr>
-  <h2>Lab 4: Foundry Toolbox pricing</h2>
+  <h2 data-flow="Attendee count|Agent and Toolbox|Read-only pricing function|Quote">Lab 4: Foundry Toolbox pricing</h2>
   <p class="note">A temporary Foundry Toolbox exposes a read-only synthetic Azure Function; the agent calls it and shows its actual result. No purchase or booking is made. Model and hosting charges apply; the Function plan has standing charges.</p>
   <form id="tools-form">
     <label for="tools-attendees">Attendees</label>
@@ -349,7 +369,7 @@
   </form>
   <pre id="tools-result" aria-live="polite">Choose an attendee count.</pre>
   <hr>
-  <h2>Lab 5: typed Decision Model</h2>
+  <h2 data-flow="Synthetic ticket|Decision model|Typed category">Lab 5: typed Decision Model</h2>
   <p class="note">Classifies a synthetic ticket into billing, technical, or account using the Decision API. It does not route or change a ticket. Each request incurs charges and may be throttled.</p>
   <form id="decision-form">
     <label for="decision-selection">Ticket</label>
@@ -360,7 +380,7 @@
   </form>
   <pre id="decision-result" aria-live="polite">Choose a ticket to begin.</pre>
   <hr>
-  <h2>Lab 6: Content Safety</h2>
+  <h2 data-flow="Sample text|Content Safety scores|Threshold decision">Lab 6: Content Safety</h2>
   <p class="note">Analyze approved, non-sensitive text and apply an application threshold. ALLOW is not a guarantee of safety. Requests incur charges.</p>
   <form id="safety-form">
     <label for="safety-text">Text</label>
@@ -371,17 +391,17 @@
   </form>
   <pre id="safety-result" aria-live="polite">Submit text to begin.</pre>
   <hr>
-  <h2>Lab 7: semantic caching at the gateway</h2>
+  <h2 data-flow="Repeated prompts|API Management and Redis|Compare response IDs">Lab 7: semantic caching at the gateway</h2>
   <p class="note">Requires the configured lab 7 gateway. Send three real requests through API Management and compare response IDs, including a paraphrase. Reuse is evidence of a repeated response, not a substitute for inspecting the gateway trace. A fresh cache partition is used per run. Managed Redis has standing charges; gateway and model usage can incur charges.</p>
   <form id="cache-form"><button type="submit">Run semantic-cache comparison</button></form>
   <p>See the <a href="#job-result">latest background job</a> in the shared monitor.</p>
   <hr>
-  <h2>Lab 8: cloud agent evaluation</h2>
+  <h2 data-flow="Two agent answers|Cloud coherence evaluation|Scores">Lab 8: cloud agent evaluation</h2>
   <p class="note">Generate two real agent answers and evaluate their coherence in Foundry. A low score is a valid result, not a service error. The cloud run can take ten minutes and continue after interruption; model and evaluation charges apply.</p>
   <form id="evaluation-form"><button type="submit">Run cloud evaluation</button></form>
   <p>See the <a href="#job-result">latest background job</a> in the shared monitor.</p>
   <hr>
-  <h2>Lab 10: managed fine-tuning</h2>
+  <h2 data-flow="Synthetic training tickets|Submit paid training job|Inspect job status">Lab 10: managed fine-tuning</h2>
   <p class="note">Upload the lab's 12 synthetic support tickets and submit one real supervised training epoch. Training is paid and can continue for over an hour after the UI closes. Submission is not completion; inspect the saved job instead of submitting another. If submission is uncertain, inspect the Azure account for jobs before acknowledging it. The separate <a href="/guides/10" target="_blank" rel="noopener">local Polish Phi exercise</a> is not hosted here.</p>
   <form id="tuning-submit-form">
     <label><input id="tuning-confirm" type="checkbox" required> I understand this creates a new paid training job.</label>
@@ -396,7 +416,7 @@
   </form>
   <pre id="tuning-result" aria-live="polite">Inspect a job or submit a new one.</pre>
   <hr>
-  <h2>Lab 11: Foundry IQ retrieval fundamentals</h2>
+  <h2 data-flow="Synthetic fact sheets|Search knowledge base|Grounded answer and references">Lab 11: Foundry IQ retrieval fundamentals</h2>
   <p class="note">Indexes three synthetic fact sheets and asks Azure AI Search's managed knowledge base for a grounded answer, references, and retrieval activity. Do not enter private data. Basic Search incurs standing charges; model and retrieval usage can also incur charges.</p>
   <form id="iq-form">
     <label for="iq-question">Question</label>
@@ -405,7 +425,7 @@
   </form>
   <pre id="iq-result" aria-live="polite">Ask a question about the synthetic documents.</pre>
   <hr>
-  <h2>Lab 13: orchestration patterns</h2>
+  <h2 data-flow="Choose a pattern|Agent Framework workflow|Agent responses">Lab 13: orchestration patterns</h2>
   <p class="note">Run one real Agent Framework pattern with the lab's fixed synthetic prompt. The workflows run locally in the UI process and use live Foundry models; each run can make multiple billable requests. Magentic's manager choices can vary.</p>
   <form id="orchestration-form">
     <label for="orchestration-pattern">Pattern</label>
@@ -414,12 +434,12 @@
   </form>
   <pre id="orchestration-result" aria-live="polite">Choose a pattern.</pre>
   <hr>
-  <h2>Lab 14: Foundry fundamentals</h2>
+  <h2 data-flow="Model call and stream|Missing / denied probes|Responses and errors">Lab 14: Foundry fundamentals</h2>
   <p class="note">Compare a normal response with a streamed response, then check real missing-deployment and permission errors. The stream is displayed after it completes. Inherited access can prevent the denial; a missing denial is reported, not invented. Requests incur charges.</p>
   <form id="fundamentals-form"><button type="submit">Run fundamentals</button></form>
   <pre id="fundamentals-result" aria-live="polite">Run the model and negative probes.</pre>
   <hr>
-  <h2>Lab 15: compare models on a labeled case</h2>
+  <h2 data-flow="Labeled ticket|Mini / full / router|Scores and usage">Lab 15: compare models on a labeled case</h2>
   <p class="note">Each selection sends one synthetic ticket to mini, full, and Model Router. Scoring and usage are real; rates are illustrative and router cost is unknown. This single-case comparison is not the repeated 54-request benchmark or a production ranking. Each request incurs charges.</p>
   <form id="benchmark-form">
     <label for="benchmark-case">Labeled ticket</label>
@@ -428,7 +448,7 @@
   </form>
   <pre id="benchmark-result" aria-live="polite">Choose a ticket.</pre>
   <hr>
-  <h2>Lab 16: structured outputs</h2>
+  <h2 data-flow="Ticket and prompting method|Model extraction|Schema and accuracy check">Lab 16: structured outputs</h2>
   <p class="note">Compare prompting methods against independently labeled synthetic tickets. Schema validity does not guarantee accuracy. Each request incurs charges.</p>
   <form id="structured-form">
     <label for="structured-case">Ticket</label>
@@ -439,7 +459,7 @@
   </form>
   <pre id="structured-result" aria-live="polite">Select a ticket and method.</pre>
   <hr>
-  <h2>Lab 17: retrieval-augmented generation</h2>
+  <h2 data-flow="Synthetic documents|Temporary search index|Retrieve and answer|Metrics and cleanup">Lab 17: retrieval-augmented generation</h2>
   <p class="note">Select one synthetic labeled question, chunk size, and retrieval mode. The lab builds a temporary Azure AI Search index, embeds the corpus, retrieves real evidence, validates citations, and deletes the index. Compare runs using recall and reciprocal rank; these do not measure answer correctness. If interrupted, inspect Azure for the printed index name. Search and model charges apply.</p>
   <form id="rag-form">
     <label for="rag-size">Chunk size</label>
@@ -457,7 +477,7 @@
   </form>
   <p>See the <a href="#job-result">latest background job</a>; its index name is available while it runs.</p>
   <hr>
-  <h2>Lab 18: trace a pricing agent</h2>
+  <h2 data-flow="Tool scenario|Pricing tool and model|Trace ID|Inspect in Application Insights">Lab 18: trace a pricing agent</h2>
   <p class="note">Run a synthetic normal, slow, or failed pricing tool followed by a live model request. The failed tool is intentionally recovered. Open Application Insights and query the returned trace ID; flushing alone does not prove ingestion. Model and telemetry charges apply.</p>
   <form id="tracing-form">
     <label for="tracing-scenario">Scenario</label>
@@ -466,7 +486,7 @@
   </form>
   <pre id="tracing-result" aria-live="polite">Choose a scenario.</pre>
   <hr>
-  <h2>Lab 19: conversation state</h2>
+  <h2 data-flow="Logical user and action|Scoped SQLite history|Optional model turn|History or result">Lab 19: conversation state</h2>
   <p class="note">Alice and Bob are logical teaching scopes, not authenticated users. The single presenter can access both. Use synthetic data only: prompts and answers are stored as plaintext in SQLite and turns incur charges. Oldest pairs can be discarded to fit the context budget; delete is not secure erasure.</p>
   <form id="conversation-form">
     <label for="conversation-user">Logical user</label>
@@ -480,7 +500,7 @@
   </form>
   <pre id="conversation-result" aria-live="polite">Choose a logical user and action.</pre>
   <hr>
-  <h2>Lab 20: human approval</h2>
+  <h2 data-flow="Synthetic request|Model proposal|Human review|Recorded decision">Lab 20: human approval</h2>
   <p class="note">The model can propose a synthetic booking but cannot execute one. Review the exact proposal before approving or rejecting it. Proposals expire after 15 minutes; reloading discards this page's selection. The single authorized presenter owns the proposal. SQLite stores synthetic actions; no real reservation is made.</p>
   <form id="approval-form">
     <label for="approval-attendees">Attendees</label>
@@ -491,7 +511,7 @@
   </form>
   <pre id="approval-result" aria-live="polite">Create a proposal to review.</pre>
   <hr>
-  <h2>Lab 22: prompt-injection boundaries</h2>
+  <h2 data-flow="Untrusted source|Prompt Shields and baseline|Validated factual projection|Comparison">Lab 22: prompt-injection boundaries</h2>
   <p class="note">Compare a synthetic untrusted source, actual Prompt Shields classification, raw baseline and validated factual projection. The benign marker illustrates an instruction override. A classifier is not a safety guarantee; requests incur charges.</p>
   <form id="injection-form">
     <label for="injection-source">Synthetic source</label>
@@ -500,7 +520,7 @@
   </form>
   <pre id="injection-result" aria-live="polite">Choose a source.</pre>
   <hr>
-  <h2>Lab 23: evaluation-driven release gate</h2>
+  <h2 data-flow="Baseline or regression|Exact-answer checks|Cloud coherence score|Release gate">Lab 23: evaluation-driven release gate</h2>
   <p class="note">Compare a baseline or deliberately regressed synthetic prompt against exact answers and a real cloud coherence evaluation. A completed run can correctly block a release. This does not deploy software. Model and evaluation charges apply.</p>
   <form id="cicd-form">
     <button type="submit" value="baseline">Evaluate baseline</button>
@@ -508,17 +528,17 @@
   </form>
   <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 24: publish and roll back an agent application</h2>
+  <h2 data-flow="Publish version 1|Update version|Verify change|Roll back to version 1">Lab 24: publish and roll back an agent application</h2>
   <p class="note">Creates a real, uniquely named managed Agent Application, verifies a version change, and restores the original version. Each run leaves its published application and agent for inspection. This uses a legacy supported publishing API, makes paid model requests, and may take several minutes. If interrupted, inspect the application and deployment identified by the job before retrying.</p>
   <form id="lifecycle-form"><button type="submit">Publish, update, and roll back</button></form>
   <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 25: resilience and costs</h2>
+  <h2 data-flow="Injected faults|Bounded retries and model calls|Synthetic booking|Usage and cost estimate">Lab 25: resilience and costs</h2>
   <p class="note">Two real model requests recover from locally injected faults; the booking and outages are synthetic. Attempt budgets and the cost estimate are illustrative, not Azure spending caps or an invoice. Model requests incur charges.</p>
   <form id="resilience-form"><button type="submit">Run resilience demo</button></form>
   <pre id="resilience-result" aria-live="polite">Run the bounded-failure demonstration.</pre>
   <hr>
-  <h2>Lab 26: multimodal receipt extraction</h2>
+  <h2 data-flow="Synthetic receipt|Vision model|Field extraction|Compare to truth">Lab 26: multimodal receipt extraction</h2>
   <p class="note">These are synthetic receipts, not real financial documents. Compare the live prediction with visual truth; a valid schema is not proof of accuracy. Estimated cost uses illustrative rates, not an invoice. Each request incurs charges.</p>
   <div class="receipts">
     <figure><img src="/images/clear.png" alt="Synthetic receipt with currency USD and total 12.50"><figcaption>Clear</figcaption></figure>
@@ -531,7 +551,7 @@
   </form>
   <pre id="receipt-result" aria-live="polite">Select a synthetic receipt.</pre>
   <hr>
-  <h2>Lab 27: Foundry IQ support cases</h2>
+  <h2 data-flow="Synthetic question|Foundry agent|Knowledge base retrieval|Answer and citations">Lab 27: Foundry IQ support cases</h2>
   <p class="note">Synthetic workshop data. Answers use the existing agent and its knowledge base; each request incurs Azure usage charges.</p>
   <form id="form">
     <label for="question">Question</label>
@@ -541,7 +561,7 @@
   <h2>Answer</h2>
   <pre id="result" aria-live="polite">Submit a question to begin.</pre>
   <hr>
-  <h2>Lab 28: compare a Foundry skill</h2>
+  <h2 data-flow="Synthetic title|Agents without / with skill|Compare responses|Clean up">Lab 28: compare a Foundry skill</h2>
   <p class="note">Uses a real temporary Foundry skill and two agents, then deletes them. Two model requests incur charges. Use a synthetic title.</p>
   <form id="skills-form">
     <label for="title">Workshop title</label>
@@ -550,7 +570,7 @@
   </form>
   <pre id="skills-result" aria-live="polite">Submit a title to begin.</pre>
   <hr>
-  <h2>Lab 29: Toolbox skill discovery</h2>
+  <h2 data-flow="Sample request|Toolbox skill metadata|Load selected skill|Answer and cleanup">Lab 29: Toolbox skill discovery</h2>
   <p class="note">Upload three temporary skills, discover metadata over MCP, and run one fixed synthetic request. The model loads the selected skill and, for the briefing, its checklist. The Toolbox and skills are deleted after the run. Preview services and model requests incur charges.</p>
   <form id="discovery-form">
     <label for="discovery-case">Request</label>
@@ -559,18 +579,18 @@
   </form>
   <pre id="discovery-result" aria-live="polite">Choose a request.</pre>
   <hr>
-  <h2>Lab 30: skill-powered CSV analyst</h2>
+  <h2 data-flow="Synthetic CSV and skill|Cloud code interpreter|Report and chart|Verify download">Lab 30: skill-powered CSV analyst</h2>
   <p class="note">Upload a pinned skill and synthetic CSV, run native Code Interpreter in a cloud sandbox, and verify its report and chart. This paid background run can take several minutes. Interrupted runs require inspection for leftover cloud objects before retrying.</p>
   <form id="analyst-form"><button type="submit">Analyze the synthetic CSV</button></form>
   <p>See the <a href="#job-result">latest background job</a>. The chart below is the verified download, not a local replacement.</p>
   <img id="analyst-chart" alt="Generated attendance and cost chart" hidden>
   <hr>
-  <h2>Lab 31: native memory for the presenter (partial)</h2>
+  <h2 data-flow="Synthetic preference|Memory extraction|Fresh-conversation recall|Forget and verify">Lab 31: native memory for the presenter (partial)</h2>
   <p class="note">For the authenticated presenter only, extract a synthetic preference into a temporary native memory store, recall it in a fresh conversation, then delete and verify the scope. The separate two-user isolation exercise is not run here. If interrupted, inspect the named store for cleanup before retrying. Memory and model requests incur charges.</p>
   <form id="memory-form"><button type="submit">Remember, recall and forget</button></form>
   <p>See the actual recalled and forgotten values in the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 33: skill release governance</h2>
+  <h2 data-flow="Candidate or regression|Gate checks|Promote or reject|Compare / roll back">Lab 33: skill release governance</h2>
   <p class="note">Run the full skill candidate gate, promotion, pinned-consumer comparison and rollback in the background. The intentional regression must fail its gate. Runs create temporary cloud objects, make multiple paid requests, and may take several minutes. If interrupted, inspect Azure for leftover resources before retrying.</p>
   <form id="release-form">
     <button type="submit" value="normal">Run release and rollback</button>
@@ -578,7 +598,7 @@
   </form>
   <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 34: Document Intelligence invoice agent</h2>
+  <h2 data-flow="Synthetic invoice|Agent calls tool|Document Intelligence|Grounded answer and evidence">Lab 34: Document Intelligence invoice agent</h2>
   <p class="note">Select one approved synthetic invoice. The saved Foundry agent calls its cloud OpenAPI tool and real Document Intelligence; the UI validates the returned extraction, evidence, document hash and grounded answer. Missing values require review. Analysis and model requests incur charges.</p>
   <form id="document-form">
     <label for="document-id">Invoice</label>
@@ -595,7 +615,7 @@
   </form>
   <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 36: custom code on the Foundry hosted runtime</h2>
+  <h2 data-flow="Attendees and session|Hosted agent|Model and pricing tool|Quote and session state">Lab 36: custom code on the Foundry hosted runtime</h2>
   <p class="note">Invoke the deployed hosted container, which calls a live model and a read-only synthetic pricing tool. Repeat a session to observe its cloud state; a new session is not a second-user test. A cold start may take several minutes. Runtime, registry and model charges apply.</p>
   <form id="hosted-form">
     <label for="hosted-attendees">Attendees</label>
@@ -606,8 +626,8 @@
   <p id="hosted-session" class="note"></p>
   <p>See the <a href="#job-result">latest background job</a> for the actual quote, sandbox state, and execution IDs.</p>
   <hr>
-  <h2>Lab 37: live agent monitoring and recovery</h2>
-  <p class="note">Two real deployed agents answer a synthetic pricing question. The regression route is restored immediately after the test; if the app stops unexpectedly, inspect the agent routes in Azure. Native continuous evaluation has previously failed to trigger, so missing response-linked verdicts remain PENDING, not PASS. Model, evaluation and telemetry charges apply.</p>
+  <h2 data-flow="Choose scenario|Agent responses and traces|Evaluation evidence|Recovery check">Lab 37: live agent monitoring and recovery</h2>
+  <p class="note">Two real deployed agents answer a synthetic pricing question. The regression route is restored immediately after the test; if the app stops unexpectedly, inspect the agent routes in Azure. Native continuous evaluation has failed or not triggered: failed runs are reported as errors, and missing response-linked verdicts remain PENDING, not PASS. Model, evaluation and telemetry charges apply.</p>
   <form id="monitoring-form">
     <button type="submit" value="baseline">Healthy baseline</button>
     <button type="submit" value="regression">Test and restore regression</button>
@@ -621,12 +641,12 @@
   <pre id="monitoring-result" aria-live="polite">No live monitoring responses yet.</pre>
   <pre id="monitoring-evidence" aria-live="polite">No cloud evidence read yet.</pre>
   <hr>
-  <h2>Lab 38: native model and agent guardrails</h2>
+  <h2 data-flow="Benign test inputs|Unguarded / guarded calls|Compare interventions">Lab 38: native model and agent guardrails</h2>
   <p class="note">Send only benign synthetic inputs to a real model policy and a temporary agent with a native guardrail. Both interventions must match the configured blocklist; the unguarded model is also tested. Policy propagation may take several minutes. If interrupted, inspect the named temporary agent before retrying. Model requests incur charges.</p>
   <form id="guardrails-form"><button type="submit">Run native guardrail checks</button></form>
   <p>See the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 40: native managed voice agent</h2>
+  <h2 data-flow="Synthetic audio|Managed voice agent|Transcripts and reply|Stored recording">Lab 40: native managed voice agent</h2>
   <p class="note">Play the synthetic spoken prompt, then stream it to a real native voice agent. The job checks both transcripts, response audio and the recording retrieved from the stored Foundry conversation. A saved agent and conversation remain in Azure for inspection; inference, speech and storage may incur charges.</p>
   <p class="media-label" id="voice-input-label">Synthetic spoken prompt</p>
   <audio id="voice-input" aria-labelledby="voice-input-label" controls preload="none" src="/voice/turn.wav"></audio>
@@ -639,22 +659,22 @@
     <audio id="voice-conversation" aria-labelledby="voice-conversation-label" controls preload="none"></audio>
   </div>
   <hr>
-  <h2>Lab 41: Content Understanding for document and audio</h2>
+  <h2 data-flow="Synthetic PDF and audio|Content Understanding|Fields and transcript|Page / timestamp evidence">Lab 41: Content Understanding for document and audio</h2>
   <p class="note">Analyze the bundled synthetic PDF and WAV with native GA Content Understanding. Document fields require real confidence and page grounding; audio facts require timestamped transcript evidence, not invented confidence. Operations can take several minutes and incur model and service charges. Interrupted operations may continue in Azure.</p>
   <form id="cu-form"><button type="submit">Analyze document and audio</button></form>
   <p>See the <a href="#job-result">latest background job</a> for both service results.</p>
   <hr>
-  <h2>Lab 42: native tool search (partial)</h2>
+  <h2 data-flow="Fixed public query|Native tool search|Call discovered Learn tool|Results and cleanup">Lab 42: native tool search (partial)</h2>
   <p class="note">Create a temporary Foundry Toolbox, discover the hidden Microsoft Learn search tool with native tool search, and call it using a fixed public query. The separate managed Copilot harness and skill exercise is not run here; see its guide below. The Toolbox is deleted after the run; if interrupted, inspect Azure for leftovers. Preview and service charges may apply.</p>
   <form id="tool-search-form"><button type="submit">Discover and call the native tool</button></form>
   <p>See real search and call results in the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 44: cloud evaluator breadth (partial)</h2>
+  <h2 data-flow="Pricing agent tool traces|Three cloud evaluators|Scores and evidence">Lab 44: cloud evaluator breadth (partial)</h2>
   <p class="note">Generate two actual synthetic pricing tool traces and evaluate each with Foundry groundedness, relevance, and tool-call accuracy. This does not run dataset generation or agent optimization; use the guide for the full lab. Evaluation and model calls are paid and may continue after interruption.</p>
   <form id="evaluator-breadth-form"><button type="submit">Evaluate real tool traces</button></form>
   <p>See actual evaluator scores and separate stage statuses in the <a href="#job-result">latest background job</a>.</p>
   <hr>
-  <h2>Lab 46: two-project fleet governance</h2>
+  <h2 data-flow="Project inventory|Agents and local external runtime|Telemetry and Audit policy|Evidence">Lab 46: two-project fleet governance</h2>
   <p class="note">Inventory two isolated Foundry projects, invoke their synthetic agents, correlate real ingested telemetry and inspect the resource group's Audit policy. The external runtime is a local Python function, not a hosted agent. Portal views and optional Defender/Purview integrations remain unverified. Agents and telemetry stay in Azure; model and monitoring usage may incur charges.</p>
   <form id="fleet-form"><button type="submit">Run fleet governance checks</button></form>
   <p>See the separate stage statuses in the <a href="#job-result">latest background job</a>. Missing cloud evidence is BLOCKED, not PASS.</p>
@@ -758,6 +778,41 @@
       tryIt.append(tryLabel, lessons[number][1]);
       intro.append(learn, tryIt);
       heading.after(intro);
+      if (status !== 'guide') {
+        const steps = (heading.dataset.flow || '').split('|').map((step) => step.trim());
+        const diagram = document.createElement('figure');
+        diagram.className = 'lab-diagram';
+        const caption = document.createElement('figcaption');
+        caption.textContent = 'How this demo works';
+        const detail = document.createElement('span');
+        detail.textContent = status === 'partial'
+          ? 'The interactive portion only; the remaining steps are in the guide.'
+          : 'A simplified view of the selected exercise.';
+        caption.appendChild(detail);
+        diagram.appendChild(caption);
+        if (steps.length < 2 || steps.some((step) => !step)) {
+          const warning = document.createElement('p');
+          warning.textContent = 'Diagram unavailable for this lab.';
+          diagram.appendChild(warning);
+          console.error(`Missing or invalid diagram for lab ${number}.`);
+        } else {
+          const list = document.createElement('ol');
+          list.setAttribute('role', 'list');
+          steps.forEach((step, index) => {
+            const item = document.createElement('li');
+            const position = document.createElement('span');
+            position.className = 'diagram-step';
+            position.setAttribute('aria-hidden', 'true');
+            position.textContent = String(index + 1).padStart(2, '0');
+            const text = document.createElement('span');
+            text.textContent = step;
+            item.append(position, text);
+            list.appendChild(item);
+          });
+          diagram.appendChild(list);
+        }
+        intro.after(diagram);
+      }
     }
     for (const heading of labHeadings) {
       const number = Number(heading.textContent.match(/^Lab (\d+):/)[1]);
